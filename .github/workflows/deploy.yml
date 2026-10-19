@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      ref:
+        description: 'Git ref to deploy (branch, tag, or SHA)'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Placeholder Deployment Step
+        run: |
+          echo "=========================================================="
+          echo "Deployment Pipeline for Yayasan Padindi"
+          echo "Target Environment: ${{ github.event.inputs.environment }}"
+          echo "Git Reference:      ${{ github.event.inputs.ref }}"
+          echo "=========================================================="
+          echo "TODO: Implement actual deployment runner steps."
+          echo ""
+          echo "Recommended Deployment Architecture Options:"
+          echo "1. Docker Swarm / Kubernetes / VPS via SSH:"
+          echo "   - Authenticate with SSH Key stored in GitHub Secrets (SSH_PRIVATE_KEY, SERVER_HOST, SERVER_USER)"
+          echo "   - Sync monorepo code or pull pre-built container images from GitHub Container Registry (ghcr.io)"
+          echo "   - Execute: docker compose -f docker-compose.prod.yml pull"
+          echo "   - Execute: docker compose -f docker-compose.prod.yml up -d --remove-orphans"
+          echo ""
+          echo "2. Backend Zero-Downtime Deployment (Envoyer / Deployer / Custom Script):"
+          echo "   - git clone into release directory"
+          echo "   - composer install --no-dev --optimize-autoloader"
+          echo "   - php artisan migrate --force"
+          echo "   - php artisan config:cache"
+          echo "   - php artisan route:cache"
+          echo "   - php artisan view:cache"
+          echo "   - php artisan queue:restart"
+          echo "   - symlink current -> release"
+          echo ""
+          echo "3. Frontend Static Hosting (Cloudflare Pages / S3 + CloudFront / Nginx):"
+          echo "   - cd frontend && npm ci && npm run build"
+          echo "   - Upload dist/ to object storage or static hosting provider"
+          echo "=========================================================="
