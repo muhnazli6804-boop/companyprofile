@@ -28,6 +28,7 @@ frontend/.env.*.local
 frontend/coverage/
 frontend/playwright-report/
 frontend/test-results/
+*.tsbuildinfo
 
 # Docker volumes
 docker/postgres-data/

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /admin
+Disallow: /akun/
+Disallow: /akun
+
+Sitemap: /sitemap.xml
