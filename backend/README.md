@@ -6,19 +6,20 @@ REST API berbasis Laravel 12 (PHP 8.2+) dengan PostgreSQL dan Laravel Sanctum SP
 
 - PHP 8.2+ (ekstensi: `pdo_pgsql`, `mbstring`, `xml`, `curl`, `zip`, `gd`)
 - Composer 2+
-- PostgreSQL 16 (disediakan via Docker Compose)
+- PostgreSQL 15+ (lokal)
 
 ## Memulai Cepat
 
-1. Salin konfigurasi environment:
+1. Salin konfigurasi environment & buat application key:
    ```bash
    cp .env.example .env
    php artisan key:generate
    ```
+   *Pastikan kredensial database PostgreSQL di file `.env` sudah sesuai.*
 
-2. Jalankan database (dari root monorepo):
+2. Jalankan migrasi database:
    ```bash
-   docker compose up -d postgres mailpit
+   php artisan migrate
    ```
 
 3. Jalankan server dev:

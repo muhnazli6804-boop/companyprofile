@@ -3,25 +3,25 @@
 # Dijalankan dari root folder proyek.
 # ==============================================================
 
-.PHONY: up down install migrate seed test lint build fresh help
+.PHONY: serve-backend serve-frontend install migrate seed test lint build fresh help
 
 help:
 	@echo "Perintah yang tersedia:"
-	@echo "  make up       - Jalankan docker compose (postgres + mailpit)"
-	@echo "  make down     - Hentikan docker compose"
-	@echo "  make install  - Install dependensi backend + frontend"
-	@echo "  make migrate  - Jalankan migration database"
-	@echo "  make seed     - Jalankan database seeder"
-	@echo "  make test     - Jalankan semua uji (backend + frontend)"
-	@echo "  make lint     - Lint backend (Pint) + frontend (ESLint)"
-	@echo "  make build    - Build frontend produksi"
-	@echo "  make fresh    - Drop semua tabel, migrate ulang, dan seed"
+	@echo "  make serve-backend   - Jalankan Laravel backend server (http://localhost:8000)"
+	@echo "  make serve-frontend  - Jalankan Vite frontend dev server (http://localhost:5173)"
+	@echo "  make install         - Install dependensi backend + frontend"
+	@echo "  make migrate         - Jalankan migration database"
+	@echo "  make seed            - Jalankan database seeder"
+	@echo "  make test            - Jalankan semua uji (backend + frontend)"
+	@echo "  make lint            - Lint backend (Pint) + frontend (ESLint)"
+	@echo "  make build           - Build frontend produksi"
+	@echo "  make fresh           - Drop semua tabel, migrate ulang, dan seed"
 
-up:
-	docker compose up -d postgres mailpit
+serve-backend:
+	cd backend && php artisan serve
 
-down:
-	docker compose down
+serve-frontend:
+	cd frontend && npm run dev
 
 install:
 	cd backend && composer install

@@ -55,7 +55,7 @@ Sesuai batasan keras, **tidak ada migration skema Padindi yang dibuat**. Hanya m
 
 ### 7. Uji yang Membutuhkan PostgreSQL
 
-Uji-uji yang membutuhkan koneksi database dikonfigurasi untuk PostgreSQL (`padindi_test`). Jika PostgreSQL tidak tersedia saat `composer test` dijalankan, uji tersebut akan gagal dengan pesan koneksi — ini perilaku yang disengaja (lihat ARCHITECTURE.md ADR-014). Jalankan `docker compose up -d postgres` terlebih dahulu.
+Uji-uji yang membutuhkan koneksi database dikonfigurasi untuk PostgreSQL (`padindi_test`). Jika PostgreSQL tidak tersedia saat `composer test` dijalankan, uji tersebut akan gagal dengan pesan koneksi — ini perilaku yang disengaja (lihat ARCHITECTURE.md ADR-014). Pastikan service PostgreSQL lokal Anda aktif terlebih dahulu.
 
 ### 8. Pest Config — RefreshDatabase vs Tidak
 

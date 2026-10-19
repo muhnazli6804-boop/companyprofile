@@ -494,7 +494,7 @@ Keputusan ini dicatat sebagai ADR-006. Bila kebutuhan SEO meningkat (banyak kont
 
 | Lingkungan | Tujuan | Data |
 |---|---|---|
-| **Local** | Pengembangan | Docker Compose (app, PostgreSQL, Mailpit, opsional Redis); data seeder |
+| **Local** | Pengembangan | PHP CLI Server (`artisan serve`), PostgreSQL lokal, Vite dev server; data seeder |
 | **Staging** | UAT, uji beban, uji rilis | Data sintetis atau hasil anonimisasi; **tidak** memakai data pendaftar asli |
 | **Production** | Layanan sebenarnya | Data asli |
 

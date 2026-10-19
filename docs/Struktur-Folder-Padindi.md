@@ -24,17 +24,12 @@ padindi/
 │   ├── api/                    # Spesifikasi API (OpenAPI/Postman)
 │   ├── design/                 # Wireframe, mockup, panduan visual
 │   └── adr/                    # Architecture Decision Records
-├── docker/                     # Konfigurasi container (opsional)
-│   ├── nginx/default.conf
-│   ├── php/Dockerfile
-│   └── php/php.ini
 ├── .github/
 │   └── workflows/
 │       ├── backend-ci.yml      # lint + test Laravel
 │       ├── frontend-ci.yml     # lint + typecheck + test + build
 │       └── deploy.yml
-├── docker-compose.yml          # app, postgres, redis (opsional), mailpit
-├── Makefile                    # Pintasan perintah (make up, make test, dll.)
+├── Makefile                    # Pintasan perintah (make serve-backend, make test, dll.)
 ├── .editorconfig
 ├── .gitignore
 └── README.md
@@ -521,7 +516,7 @@ cd ..
 
 ## 7. Urutan Pengerjaan yang Disarankan
 
-1. Setup repo, Docker/lingkungan lokal, CI dasar.
+1. Setup repo, lingkungan lokal (PostgreSQL native), CI dasar.
 2. Backend: migration + seeder (mengikuti dokumen skema), autentikasi, role.
 3. Frontend: layout, router, guard, klien API.
 4. Company profile (publik + CMS admin).

@@ -30,9 +30,6 @@ frontend/playwright-report/
 frontend/test-results/
 *.tsbuildinfo
 
-# Docker volumes
-docker/postgres-data/
-
 # OS & editor artifacts
 .DS_Store
 Thumbs.db

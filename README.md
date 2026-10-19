@@ -20,7 +20,7 @@ Monorepo untuk website Yayasan Padindi — company profile + pendaftaran siswa d
 | Composer | 2.x |
 | Node.js | 20+ (LTS) |
 | npm | 10+ |
-| Docker + Compose | V2 |
+| PostgreSQL | 15+ (lokal) |
 | Git | 2.x |
 
 ---
@@ -35,11 +35,6 @@ cmpnyprofile/               ← root monorepo
 │   ├── adr/                ← Architecture Decision Records
 │   ├── api/                ← Spesifikasi OpenAPI/Postman
 │   └── design/             ← Wireframe & panduan visual
-├── docker/                 ← Konfigurasi container
-│   ├── nginx/default.conf
-│   └── php/Dockerfile
-├── .github/workflows/      ← CI/CD pipelines
-├── docker-compose.yml
 ├── Makefile
 └── README.md               ← (ini)
 ```
@@ -48,51 +43,57 @@ cmpnyprofile/               ← root monorepo
 
 ## Cara Menjalankan Lokal
 
-### 1. Clone & setup
+### 1. Setup Database PostgreSQL Lokal
+
+Pastikan service PostgreSQL lokal Anda aktif di port 5432. Buat database bernama `padindi` (misal via pgAdmin atau psql):
 
 ```bash
-git clone <repo-url>
-cd cmpnyprofile
+# Contoh lewat psql / command line:
+psql -U postgres -c "CREATE DATABASE padindi;"
 ```
 
-### 2. Jalankan PostgreSQL & Mailpit
-
-```bash
-docker compose up -d postgres mailpit
-# Tunggu healthcheck postgres sebelum lanjut
-docker compose ps
-```
-
-### 3. Setup Backend
+### 2. Setup Backend (Laravel)
 
 ```bash
 cd backend
+# Salin konfigurasi jika belum ada
 cp .env.example .env
-php artisan key:generate
+# Sesuaikan kredensial di backend/.env:
+# DB_CONNECTION=pgsql
+# DB_HOST=127.0.0.1
+# DB_PORT=5432
+# DB_DATABASE=padindi
+# DB_USERNAME=postgres
+# DB_PASSWORD=<password_postgres_anda>
+
 composer install
+php artisan key:generate
 php artisan migrate
 php artisan db:seed
-php artisan serve        # http://localhost:8000
+php artisan serve        # Berjalan di http://localhost:8000
 ```
 
-### 4. Setup Frontend
+### 3. Setup Frontend (React + Vite)
+
+Buka terminal baru:
 
 ```bash
 cd frontend
-cp .env.example .env.local
+cp .env.example .env
 npm install
-npm run dev              # http://localhost:5173
+npm run dev              # Berjalan di http://localhost:5173
 ```
 
-### 5. Atau pakai Makefile (dari root)
+### 4. Atau Pakai Makefile (dari root)
 
 ```bash
-make install   # install deps backend + frontend
-make up        # docker compose up
-make migrate   # artisan migrate
-make seed      # artisan db:seed
-make test      # jalankan semua uji
-make build     # build frontend produksi
+make install          # install deps backend + frontend
+make migrate          # artisan migrate
+make seed             # artisan db:seed
+make serve-backend    # jalankan Laravel (port 8000)
+make serve-frontend   # jalankan Vite (port 5173)
+make test             # jalankan semua uji
+make build            # build frontend produksi
 ```
 
 ---
