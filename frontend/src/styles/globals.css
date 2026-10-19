@@ -1,0 +1,84 @@
+@import "@fontsource-variable/literata";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Warna inti */
+  --color-primary: #0A3FA8;
+  --color-primary-hover: #08338A;
+  --color-primary-active: #062A75;
+  --color-navy: #061F5C;
+  --color-ink: #0C1A40;
+  --color-white: #FFFFFF;
+  --color-paper: #F3F6FC;
+  --color-star: #F4D21F;
+
+  /* Pendukung */
+  --color-tint-100: #E4EBF9;
+  --color-tint-200: #C9D7F3;
+  --color-muted: #4F5B7D;
+  --color-border: #C9D1E3;
+  --color-border-input: #7A88AC;
+  --color-leaf: #276B3D;
+  --color-warning: #6E5200;
+  --color-danger: #B3261E;
+
+  /* Tipografi */
+  --font-display: "Literata Variable", Georgia, "Times New Roman", serif;
+  --font-sans: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Radius berdasarkan peran */
+  --radius-control: 6px;
+  --radius-panel: 12px;
+  --radius-round: 9999px;
+
+  /* Lapisan melayang */
+  --shadow-float: 0 8px 24px rgba(6, 31, 92, 0.16);
+
+  /* Gerak */
+  --ease-wheel: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-paper);
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.prose {
+  font-family: var(--font-display);
+  line-height: 1.75;
+  max-width: 68ch;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.on-blue :focus-visible {
+  outline-color: var(--color-star);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

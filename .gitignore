@@ -1,0 +1,49 @@
+# =============================================
+# Root .gitignore — Monorepo Yayasan Padindi
+# =============================================
+
+# Environment files — NEVER commit secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Backend (Laravel)
+backend/vendor/
+backend/.env
+backend/storage/logs/*.log
+backend/bootstrap/cache/*.php
+backend/public/storage
+backend/public/hot
+backend/.phpunit.result.cache
+backend/.pint.result.cache
+backend/coverage/
+
+# Frontend (Vite/Node)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+*.tsbuildinfo
+
+# Docker volumes
+docker/postgres-data/
+
+# OS & editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Misc
+*.log
+*.bak
+*.tmp

@@ -1,0 +1,47 @@
+# docker-compose.yml — Yayasan Padindi
+# Layanan lokal: PostgreSQL 16, Mailpit; Redis sebagai profil opsional.
+# Salin .env.example ke .env dan isi nilainya sebelum menjalankan.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: padindi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-padindi}
+      POSTGRES_USER: ${POSTGRES_USER:-padindi_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-padindi_app} -d ${POSTGRES_DB:-padindi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: padindi_mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_HTTP_PORT:-8025}:8025"   # Web UI
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"    # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  redis:
+    image: redis:7-alpine
+    container_name: padindi_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    profiles:
+      - redis   # Aktifkan dengan: docker compose --profile redis up -d
+
+volumes:
+  postgres_data:
+    driver: local
