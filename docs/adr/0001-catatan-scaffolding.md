@@ -25,13 +25,13 @@ Scaffolding kerangka monorepo Yayasan Padindi dilakukan oleh agen AI. Dokumen in
 | Composer | 2.8.12 | Sesuai prasyarat |
 | Node.js | 24.9.0 | Lebih baru dari minimum 20 LTS |
 | npm | 11.6.0 | Sesuai |
-| Laravel | 12.x | Sesuai dokumen |
-| React | 19.x | Versi stabil terbaru; dokumen menyebut "React" tanpa versi spesifik |
-| Vite | 6.x | Versi stabil terbaru; dokumen menyebut "Vite" tanpa versi |
-| Tailwind CSS | v3.4.x | Sesuai — dokumen bagian "Konvensi" menetapkan v3.4 |
-| TanStack Query | 5.x | Versi stabil terbaru |
-| Pest | 3.x | Versi stabil terbaru untuk Laravel 12 |
-| Larastan | 3.x | Sesuai Laravel 12 |
+| Laravel | 12.70.0 | Laravel 12 sesuai dokumen |
+| React | 19.2.8 | Versi stabil terbaru; dokumen menyebut "React" tanpa versi spesifik |
+| Vite | 8.3.4 | Versi stabil terbaru; dokumen menyebut "Vite" tanpa versi |
+| Tailwind CSS | 3.4.19 | Sesuai — dokumen bagian "Konvensi" menetapkan v3.4 |
+| TanStack Query | 5.104.4 | Versi stabil terbaru |
+| Pest | 3.8.5 | Versi stabil terbaru untuk Laravel 12 |
+| Larastan | 3.1.1 | Level 5 sesuai spesifikasi prompt |
 
 ### 2. Tailwind v3 Dipertahankan
 
