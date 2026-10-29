@@ -2,11 +2,21 @@
 
 | | |
 |---|---|
-| **Versi** | 0.1 (Draft), selaras dengan PRD v0.1 dan Skema Database v0.1 |
+| **Versi** | 0.2 (Draft), selaras dengan PRD v0.2, Skema Database v0.2, Rancangan API v0.2, dan ARCHITECTURE v0.2 |
 | **Pola repositori** | Monorepo: satu repo, dua aplikasi (`backend/` dan `frontend/`) |
 | **Backend** | Laravel 12 (REST API) |
 | **Frontend** | React + Vite + TypeScript |
 | **Database** | PostgreSQL |
+
+### Perubahan pada v0.2 (fitur Dashboard Keuangan)
+
+| Area | Penambahan |
+|---|---|
+| **Backend** | `FinanceDashboardController`, Action `GetFinanceEmbed`, `Services/Finance/` (lima berkas), `Exceptions/` (dua exception keuangan), `FinanceEmbedResource`, `UpdateSettingsRequest`, `config/finance.php`, rate limiter bernama `finance`, serta berkas uji |
+| **Frontend** | `features/admin/finance/`, `lib/sentry.ts` (membuang alamat embed dari laporan), guard dengan prop permission, kode permission di `constants/`, spesifikasi e2e `finance-access.spec.ts` |
+| **Infrastruktur** | `docker/nginx/default.conf.template` (dirender saat deploy) dan `docker/nginx/snippets/security-headers.conf` |
+| **Lingkungan** | `FINANCE_ALLOWED_HOST` dan `FINANCE_EMBED_SECRET` di `backend/.env.example` |
+| **Penyelarasan** | `components/brand/` ditambahkan ke pohon frontend agar sesuai `DESIGN.md`; `docs/` kini mencantumkan seluruh dokumen proyek |
 
 ---
 
@@ -21,21 +31,32 @@ padindi/
 │   ├── Skema-Database-Padindi.md
 │   ├── schema-padindi.sql
 │   ├── Struktur-Folder-Padindi.md
+│   ├── Rancangan-API-Padindi.md
+│   ├── ARCHITECTURE.md
+│   ├── DESIGN.md
 │   ├── api/                    # Spesifikasi API (OpenAPI/Postman)
 │   ├── design/                 # Wireframe, mockup, panduan visual
 │   └── adr/                    # Architecture Decision Records
+├── docker/                     # Konfigurasi container (opsional)
+│   ├── nginx/
+│   │   ├── default.conf.template     # Dirender saat deploy (envsubst); memuat FINANCE_ALLOWED_HOST
+│   │   └── snippets/
+│   │       └── security-headers.conf # Diulang di setiap blok location (lihat ARCHITECTURE 12.3)
+│   ├── php/Dockerfile
+│   └── php/php.ini
 ├── .github/
 │   └── workflows/
 │       ├── backend-ci.yml      # lint + test Laravel
 │       ├── frontend-ci.yml     # lint + typecheck + test + build
 │       └── deploy.yml
-├── Makefile                    # Pintasan perintah (make serve-backend, make test, dll.)
+├── docker-compose.yml          # app, postgres, redis (opsional), mailpit
+├── Makefile                    # Pintasan perintah (make up, make test, dll.)
 ├── .editorconfig
 ├── .gitignore
 └── README.md
 ```
 
-> **Catatan:** `docs/` memuat tiga dokumen yang sudah dibuat. Pindahkan file-nya ke folder ini.
+> **Catatan:** `docs/` memuat seluruh dokumen proyek (PRD, skema database, struktur folder, rancangan API, `ARCHITECTURE.md`, `DESIGN.md`). Pindahkan file-nya ke folder ini.
 
 ---
 
@@ -51,9 +72,11 @@ backend/
 │   │   │   ├── SubmitStudentApplication.php
 │   │   │   ├── SubmitTeacherApplication.php
 │   │   │   └── ChangeApplicationStatus.php
-│   │   └── Document/
-│   │       ├── StoreDocument.php
-│   │       └── VerifyDocument.php
+│   │   ├── Document/
+│   │   │   ├── StoreDocument.php
+│   │   │   └── VerifyDocument.php
+│   │   └── Finance/
+│   │       └── GetFinanceEmbed.php       # Periksa konfigurasi, validasi host, buat embed, catat log
 │   │
 │   ├── Enums/
 │   │   ├── UserType.php                  # applicant, admin
@@ -65,6 +88,10 @@ backend/
 │   │   ├── GuardianRelationship.php
 │   │   ├── PostStatus.php
 │   │   └── ApplicantType.php             # student, teacher
+│   │
+│   ├── Exceptions/                       # Exception domain (membawa code + status HTTP)
+│   │   ├── FinanceDashboardNotConfiguredException.php   # 409
+│   │   └── FinanceDashboardUnavailableException.php     # 503
 │   │
 │   ├── Exports/                          # Ekspor Excel/PDF
 │   │   ├── StudentApplicationsExport.php
@@ -117,6 +144,7 @@ backend/
 │   │   │           ├── UserController.php
 │   │   │           ├── RoleController.php
 │   │   │           ├── ActivityLogController.php
+│   │   │           ├── FinanceDashboardController.php
 │   │   │           └── SettingController.php
 │   │   ├── Middleware/
 │   │   │   ├── EnsureUserIsAdmin.php
@@ -131,10 +159,12 @@ backend/
 │   │   │   │   ├── StoreTeacherApplicationRequest.php
 │   │   │   │   └── UploadDocumentRequest.php
 │   │   │   └── Admin/
+│   │   │       └── UpdateSettingsRequest.php     # Validasi kunci finance_* (https, host, TTL)
 │   │   └── Resources/                    # API Resource (bentuk JSON keluaran)
 │   │       ├── Public/
 │   │       ├── Applicant/
 │   │       └── Admin/
+│   │           └── FinanceEmbedResource.php
 │   │
 │   ├── Jobs/
 │   │   ├── SendApplicationStatusNotification.php
@@ -167,7 +197,7 @@ backend/
 │   │   ├── GalleryItem.php
 │   │   ├── Banner.php
 │   │   ├── ContactMessage.php
-│   │   ├── Setting.php
+│   │   ├── Setting.php                   # Dekripsi nilai is_encrypted
 │   │   └── ActivityLog.php
 │   │
 │   ├── Notifications/
@@ -193,7 +223,13 @@ backend/
 │   │   ├── DuplicateDetector.php         # Cek nik_hash
 │   │   ├── DocumentRequirementService.php
 │   │   ├── DocumentStorageService.php
-│   │   └── ReceiptPdfService.php
+│   │   ├── ReceiptPdfService.php
+│   │   └── Finance/                      # Strategi pembuat alamat/token embed per penyedia
+│   │       ├── EmbedProvider.php         # Interface
+│   │       ├── EmbedProviderResolver.php # Memilih penyedia dari setting
+│   │       ├── MetabaseEmbedProvider.php
+│   │       ├── PowerBiEmbedProvider.php
+│   │       └── StaticUrlEmbedProvider.php # Looker Studio dan "other"
 │   │
 │   └── Support/
 │       ├── Concerns/
@@ -208,17 +244,18 @@ backend/
 │   ├── sanctum.php
 │   ├── filesystems.php                   # Disk 'private' untuk dokumen
 │   ├── registration.php                  # Format nomor, batas ukuran berkas, retensi
+│   ├── finance.php                       # FINANCE_EMBED_SECRET, FINANCE_ALLOWED_HOST
 │   └── ...
 ├── database/
 │   ├── factories/
 │   ├── migrations/                       # Urutan sesuai dokumen skema
 │   └── seeders/
 │       ├── DatabaseSeeder.php
-│       ├── RoleSeeder.php
+│       ├── RoleSeeder.php                # Termasuk permission finance.view (default super_admin)
 │       ├── AdminUserSeeder.php
 │       ├── EducationUnitSeeder.php
 │       ├── DocumentRequirementSeeder.php
-│       ├── SettingSeeder.php
+│       ├── SettingSeeder.php             # Termasuk kunci finance_* (finance_dashboard_enabled = false)
 │       └── PageSeeder.php
 ├── resources/
 │   └── views/
@@ -241,10 +278,10 @@ backend/
 │   ├── Feature/
 │   │   ├── Auth/
 │   │   ├── Applicant/
-│   │   ├── Admin/
+│   │   ├── Admin/                    # Termasuk FinanceDashboardTest.php
 │   │   └── Public/
 │   ├── Unit/
-│   │   └── Services/
+│   │   └── Services/                 # Termasuk Finance/EmbedProviderTest.php
 │   ├── Pest.php
 │   └── TestCase.php
 ├── .env.example
@@ -265,6 +302,7 @@ backend/
 | **Policy** | Siapa boleh melakukan apa pada record tertentu | Logika selain otorisasi |
 | **Resource** | Bentuk JSON keluaran, termasuk menyembunyikan data sensitif | Query tambahan (N+1) |
 | **Observer** | Efek samping otomatis (status log) | Logika bisnis utama |
+| **Strategi penyedia** (`Services/Finance`) | Satu kelas per penyedia dashboard di balik interface `EmbedProvider` | Percabangan `if/else` per penyedia di dalam Action |
 
 ### Pemisahan Rute
 
@@ -274,6 +312,8 @@ backend/
 | `auth.php` | `/api/v1/auth` | `throttle:auth` (rate limit login) |
 | `applicant.php` | `/api/v1` | `auth:sanctum`, `EnsureUserIsApplicant`, `verified` |
 | `admin.php` | `/api/v1/admin` | `auth:sanctum`, `EnsureUserIsAdmin`, pemeriksaan permission per rute |
+
+Rute `GET /api/v1/admin/finance-dashboard` berada di `admin.php` dengan middleware tambahan `can:finance.view` dan `throttle:finance` (30 permintaan/menit per pengguna). Rate limiter `finance` didefinisikan di `AppServiceProvider` bersama limiter lain.
 
 ---
 
@@ -294,13 +334,13 @@ frontend/
 │   │   ├── router.tsx                # Definisi rute + lazy loading
 │   │   └── guards/
 │   │       ├── RequireAuth.tsx       # Wajib login (pendaftar)
-│   │       ├── RequireAdmin.tsx      # Wajib login admin + permission
+│   │       ├── RequireAdmin.tsx      # Wajib login admin; prop permission opsional (mis. finance.view)
 │   │       └── GuestOnly.tsx
 │   │
 │   ├── layouts/
 │   │   ├── PublicLayout.tsx          # Navbar + footer situs
 │   │   ├── ApplicantLayout.tsx       # Dashboard pendaftar
-│   │   ├── AdminLayout.tsx           # Sidebar + topbar admin
+│   │   ├── AdminLayout.tsx           # Sidebar + topbar admin (menu Keuangan hanya untuk finance.view)
 │   │   └── AuthLayout.tsx
 │   │
 │   ├── features/
@@ -357,6 +397,14 @@ frontend/
 │   │   │
 │   │   └── admin/
 │   │       ├── dashboard/
+│   │       ├── finance/              # Halaman Keuangan (iframe), khusus finance.view
+│   │       │   ├── pages/
+│   │       │   │   └── FinancePage.tsx
+│   │       │   ├── components/
+│   │       │   │   └── FinanceEmbed.tsx   # Iframe + keadaan: memuat, siap, 409, 503, 403
+│   │       │   ├── api.ts
+│   │       │   ├── hooks.ts          # useFinanceDashboard (tanpa persistence)
+│   │       │   └── types.ts
 │   │       ├── student-applications/ # Tabel, filter, detail, verifikasi, ekspor
 │   │       ├── teacher-applications/
 │   │       ├── periods/
@@ -367,7 +415,7 @@ frontend/
 │   │       ├── messages/
 │   │       ├── users-roles/
 │   │       ├── activity-logs/
-│   │       └── settings/
+│   │       └── settings/             # Termasuk form konfigurasi dashboard keuangan (settings.manage + finance.view)
 │   │           # Tiap sub-folder: pages/, components/, api.ts, hooks.ts, schemas.ts, types.ts
 │   │
 │   ├── components/                   # Komponen UI bersama (lintas fitur)
@@ -375,16 +423,18 @@ frontend/
 │   │   ├── form/                     # FormField, FileInput, DatePicker, Stepper
 │   │   ├── feedback/                 # Toast, EmptyState, ErrorBoundary, Skeleton
 │   │   ├── data/                     # DataTable, Pagination, FilterBar
+│   │   ├── brand/                    # Roundel, StatusRibbon, Spread, StarIcon (lihat DESIGN.md)
 │   │   └── seo/                      # SeoHead (title, meta, Open Graph)
 │   │
 │   ├── lib/
 │   │   ├── api-client.ts             # Instance Axios/Fetch, interceptor, CSRF
 │   │   ├── query-client.ts           # Konfigurasi TanStack Query
 │   │   ├── env.ts                    # Pembacaan VITE_* yang tervalidasi
+│   │   ├── sentry.ts                 # Inisialisasi Sentry + membuang alamat embed dari laporan
 │   │   └── utils.ts
 │   │
 │   ├── hooks/                        # Hook umum (useDebounce, useMediaQuery, ...)
-│   ├── constants/                    # Label status, opsi dropdown, rute
+│   ├── constants/                    # Label status, opsi dropdown, rute, kode permission
 │   ├── types/                        # Tipe global (ApiResponse, Pagination, ...)
 │   ├── utils/                        # format tanggal, mata uang, ukuran file
 │   ├── styles/
@@ -398,7 +448,8 @@ frontend/
 │   ├── components/
 │   └── e2e/                          # Playwright
 │       ├── student-registration.spec.ts
-│       └── admin-verification.spec.ts
+│       ├── admin-verification.spec.ts
+│       └── finance-access.spec.ts      # Akses hanya untuk finance.view
 ├── .env.example                      # VITE_API_BASE_URL, VITE_APP_NAME
 ├── eslint.config.js
 ├── .prettierrc
@@ -423,6 +474,7 @@ frontend/
 | **Impor lintas fitur dibatasi** | Fitur tidak mengimpor dari fitur lain. Kode yang dipakai bersama dipindah ke `components/`, `lib/`, atau `hooks/` |
 | **Lazy loading per area** | Area admin dan area pendaftar dimuat terpisah agar halaman publik tetap ringan |
 | **Alias impor** | `@/` menunjuk ke `src/` (atur di `vite.config.ts` dan `tsconfig.json`) |
+| **Alamat embed tidak disimpan** | Hasil endpoint Dashboard Keuangan hanya berada di memori (tanpa *query persistence* atau `localStorage`) dan dibuang dari log serta laporan Sentry lewat `lib/sentry.ts` |
 
 ### Catatan SEO (halaman publik)
 
@@ -461,7 +513,13 @@ QUEUE_CONNECTION=database
 MAIL_MAILER=smtp
 MAIL_FROM_ADDRESS=
 MAIL_FROM_NAME="${APP_NAME}"
+
+# Dashboard Keuangan (v0.2). Kosongkan bila fitur belum dipakai.
+FINANCE_ALLOWED_HOST=
+FINANCE_EMBED_SECRET=
 ```
+
+`FINANCE_ALLOWED_HOST` berisi nama host saja (tanpa `https://` dan tanpa path), mis. `bi.example.org`. `FINANCE_EMBED_SECRET` tidak boleh di-commit; di produksi diisi lewat rahasia server. Nilai `FINANCE_ALLOWED_HOST` yang sama dipakai untuk merender `docker/nginx/default.conf.template`.
 
 ### `frontend/.env.example`
 
@@ -516,11 +574,11 @@ cd ..
 
 ## 7. Urutan Pengerjaan yang Disarankan
 
-1. Setup repo, lingkungan lokal (PostgreSQL native), CI dasar.
+1. Setup repo, Docker/lingkungan lokal, CI dasar.
 2. Backend: migration + seeder (mengikuti dokumen skema), autentikasi, role.
 3. Frontend: layout, router, guard, klien API.
 4. Company profile (publik + CMS admin).
 5. Pendaftaran siswa (backend lalu frontend), lanjut panel verifikasi.
 6. Pendaftaran guru.
-7. Ekspor, dashboard, log aktivitas.
+7. Ekspor, dashboard, log aktivitas, dan Dashboard Keuangan (uji kelayakan embed lebih dulu; bergantung pada penyedia yang dipilih).
 8. Pengujian, UAT, deployment.

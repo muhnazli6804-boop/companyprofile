@@ -3,11 +3,12 @@
 | | |
 |---|---|
 | **Nama Proyek** | Website Company Profile & Sistem Pendaftaran Siswa/Guru Yayasan Padindi |
-| **Versi Dokumen** | 0.1 (Draft) |
-| **Tanggal** | 3 Oktober 2026 |
+| **Versi Dokumen** | 0.2 (Draft) |
+| **Tanggal** | 28 Oktober 2026 |
 | **Penulis** | [Nama penulis / tim pengembang] |
 | **Mitra / Klien** | Yayasan Padindi (yayasan swasta bidang pendidikan) |
 | **Status** | Draft — menunggu review dan persetujuan stakeholder |
+| **Perubahan v0.2** | Penambahan fitur **Dashboard Keuangan** (tampilan iframe, khusus admin berwenang). Lihat Riwayat Revisi |
 
 > Catatan: teks dalam tanda `[...]` adalah placeholder atau asumsi yang perlu dikonfirmasi bersama pihak yayasan sebelum dokumen disetujui.
 
@@ -48,6 +49,8 @@ Yayasan Padindi adalah yayasan swasta yang bergerak di bidang pendidikan. Proyek
 1. **Company profile** — menyajikan identitas, visi misi, unit pendidikan, kegiatan, dan informasi kontak yayasan kepada publik.
 2. **Sistem pendaftaran online** — memungkinkan calon siswa (diwakili orang tua/wali) dan calon guru mendaftar secara daring, mengunggah dokumen, serta memantau status pendaftaran, sementara admin yayasan dapat memverifikasi dan mengelola data tersebut dari panel admin.
 
+Mulai versi 0.2, panel admin juga dapat menampilkan **dashboard keuangan** yayasan. Fitur ini bersifat tampilan baca saja: dashboard disematkan lewat iframe dari sumber eksternal dan hanya dapat diakses admin dengan hak akses khusus.
+
 Website dibangun dengan **Laravel 12** (backend/API), **React + Vite + TypeScript** (frontend), dan **PostgreSQL** (database).
 
 ## 2. Latar Belakang & Masalah
@@ -62,6 +65,7 @@ Yayasan membutuhkan kehadiran digital yang kredibel untuk memperkenalkan lembaga
 | 2 | Pendaftaran siswa dan guru dilakukan manual [konfirmasi: via formulir kertas / WhatsApp / datang langsung] | Proses lambat, data tersebar, rawan salah input dan berkas hilang |
 | 3 | Tidak ada cara bagi pendaftar memantau status | Banyak pertanyaan berulang ke admin |
 | 4 | Rekap data pendaftar dikerjakan manual | Memakan waktu panitia, sulit dianalisis |
+| 5 | Informasi keuangan yayasan berada di luar sistem dan tidak terhubung dengan panel admin *[konfirmasi kebutuhan sebenarnya dengan yayasan]* | Pihak berwenang harus berpindah aplikasi, dan akses ke data keuangan sulit dikendalikan |
 
 ## 3. Tujuan & Metrik Keberhasilan
 
@@ -70,6 +74,7 @@ Yayasan membutuhkan kehadiran digital yang kredibel untuk memperkenalkan lembaga
 - **G2** — Mendigitalkan pendaftaran siswa baru secara end-to-end (isi formulir sampai pengumuman status).
 - **G3** — Mendigitalkan pendaftaran guru/tenaga pendidik.
 - **G4** — Mempermudah admin memverifikasi, memfilter, dan mengekspor data pendaftar.
+- **G5** — Menyediakan akses dashboard keuangan yang terbatas dan terkontrol bagi admin berwenang langsung dari panel admin, tanpa menyimpan data keuangan di sistem ini.
 
 ### 3.2 Metrik Keberhasilan (KPI)
 | Metrik | Target (contoh, perlu disepakati) |
@@ -80,6 +85,7 @@ Yayasan membutuhkan kehadiran digital yang kredibel untuk memperkenalkan lembaga
 | Waktu muat halaman publik (LCP) | ≤ 2,5 detik pada jaringan 4G |
 | Waktu admin merekap data pendaftar | Berkurang signifikan dibanding proses manual (ekspor ≤ 1 menit) |
 | Uptime | ≥ 99% per bulan |
+| Akses dashboard keuangan oleh pengguna tanpa hak akses | 0 kejadian (diuji pada uji otorisasi dan UAT) |
 
 ## 4. Ruang Lingkup
 
@@ -90,10 +96,12 @@ Yayasan membutuhkan kehadiran digital yang kredibel untuk memperkenalkan lembaga
 - Panel admin: manajemen konten, manajemen pendaftar, manajemen periode pendaftaran, manajemen pengguna admin, dashboard ringkasan, ekspor data.
 - Notifikasi email untuk peristiwa penting (konfirmasi pendaftaran, perubahan status).
 - Pengelolaan role dan hak akses admin.
+- **Dashboard Keuangan** pada panel admin: menampilkan dashboard dari sumber eksternal lewat iframe, tampilan baca saja, hanya untuk pengguna dengan hak akses `finance.view`.
 
 ### 4.2 Di Luar Lingkup (Out of Scope — Fase Ini)
 - Sistem informasi akademik (nilai, absensi, jadwal, rapor).
 - Pembayaran online (SPP, uang pendaftaran) dan integrasi payment gateway. *[konfirmasi bila uang pendaftaran perlu dibayar online]*
+- Pencatatan transaksi, pembukuan, atau pembuatan laporan keuangan di dalam sistem ini. Fitur Dashboard Keuangan hanya **menampilkan** dashboard dari sumber eksternal; data keuangan tidak disimpan atau diolah oleh website.
 - Aplikasi mobile native.
 - Sistem tes seleksi online (CBT).
 - Portal alumni, e-learning, dan forum.
@@ -119,7 +127,8 @@ Notifikasi WhatsApp, pembayaran online, tes seleksi online, penjadwalan wawancar
 | **Orang Tua/Wali Calon Siswa** | Mengakses terutama lewat ponsel, literasi digital beragam | Formulir sederhana, bisa disimpan sebagai draft, status pendaftaran transparan |
 | **Calon Guru** | Pelamar tenaga pendidik | Formulir lamaran jelas, unggah CV/ijazah, tahu status seleksi |
 | **Admin Yayasan** | Panitia yang mengelola konten dan pendaftar | Daftar pendaftar mudah difilter, verifikasi cepat, ekspor data |
-| **Super Admin** | Penanggung jawab teknis/sistem | Kelola akun admin, role, dan pengaturan sistem |
+| **Super Admin** | Penanggung jawab teknis/sistem | Kelola akun admin, role, dan pengaturan sistem, termasuk pengaturan dan hak akses dashboard keuangan |
+| **Admin Berwenang Keuangan** | Pengguna admin yang memiliki permission `finance.view` (default: Super Admin; dapat diberikan ke role lain) | Membuka dashboard keuangan dengan cepat dan aman dari panel admin |
 
 ## 6. User Stories
 
@@ -151,6 +160,11 @@ Notifikasi WhatsApp, pembayaran online, tes seleksi online, penjadwalan wawancar
 
 ### Super Admin
 - US-19: Sebagai super admin, saya ingin mengelola akun admin dan hak aksesnya agar keamanan sistem terjaga.
+
+### Admin Berwenang Keuangan
+- US-20: Sebagai admin yang berwenang, saya ingin melihat dashboard keuangan yayasan di dalam panel admin agar saya tidak perlu berpindah aplikasi untuk memantau kondisi keuangan.
+- US-21: Sebagai super admin, saya ingin mengatur sumber dashboard keuangan dan menentukan role mana yang boleh melihatnya agar data keuangan hanya diakses pihak yang tepat.
+- US-22: Sebagai pengurus yayasan, saya ingin setiap akses ke dashboard keuangan tercatat agar penggunaannya dapat ditelusuri.
 
 ## 7. Kebutuhan Fungsional
 
@@ -256,7 +270,33 @@ Prioritas menggunakan skema **MoSCoW**: **M** (Must), **S** (Should), **C** (Cou
 | Ekspor data pendaftar | ✅ | ✅ | ❌ |
 | Kelola konten (CMS) | ✅ | ❌ | ✅ |
 | Lihat dashboard | ✅ | ✅ | ✅ |
+| Lihat dashboard keuangan (`finance.view`) | ✅ | ❌ | ❌ |
 | Lihat log aktivitas | ✅ | ❌ | ❌ |
+
+> Dashboard keuangan memakai permission terpisah `finance.view`. Secara default hanya **Super Admin** yang memilikinya; Super Admin dapat memberikannya ke role lain lewat manajemen role. Hak ini tidak ikut otomatis pada Admin Pendaftaran maupun Admin Konten.
+
+### 7.7 Modul Dashboard Keuangan (Admin)
+
+Modul ini **menampilkan** dashboard keuangan dari sumber eksternal di dalam panel admin. Website tidak menyimpan, menyalin, atau mengolah data keuangan.
+
+Prioritas modul: **Should**. Namun bila modul dibangun, kebutuhan keamanan di dalamnya (FR-081, FR-082 bila didukung penyedia, FR-084, FR-086) **wajib dipenuhi dan tidak boleh ditunda**.
+
+| ID | Kebutuhan | Prioritas |
+|---|---|---|
+| FR-080 | Halaman **Keuangan** pada panel admin yang menampilkan dashboard eksternal di dalam iframe, mengisi area kerja | S |
+| FR-081 | Akses **hanya untuk pengguna dengan permission `finance.view`**. Pengguna tanpa hak tidak melihat menu, dan permintaan ke server ditolak (403) | S |
+| FR-082 | Alamat atau token dashboard diberikan oleh **server saat halaman dibuka** (bukan ditanam di kode frontend), berumur pendek bila penyedia mendukung penandatanganan token, dan diperbarui otomatis sebelum kedaluwarsa | S |
+| FR-083 | Super Admin dapat mengatur **penyedia dan alamat dashboard** pada pengaturan situs; rahasia penandatangan token disimpan di konfigurasi server, bukan di database | S |
+| FR-084 | Setiap pembukaan dashboard **dicatat** di log aktivitas (siapa dan kapan) | S |
+| FR-085 | **Keadaan khusus**: belum dikonfigurasi, gagal dimuat, atau token habis menampilkan pesan jelas dalam Bahasa Indonesia, disertai tombol "Buka di tab baru" sebagai cadangan | S |
+| FR-086 | **Kontrol keamanan iframe**: hanya host dashboard yang diizinkan pada kebijakan CSP (`frame-src`), atribut `sandbox` dan `referrerpolicy="no-referrer"`, serta `title` deskriptif untuk aksesibilitas | S |
+| FR-087 | Tampilan dioptimalkan untuk desktop; dapat dibuka di ponsel atau tablet tanpa jaminan kenyamanan penuh (bergantung pada penyedia dashboard) | C |
+
+**Ketentuan dan batasan:**
+
+- Dashboard sumber harus mengizinkan di-embed oleh domain website dan sebaiknya memiliki pembatasan akses sendiri (token atau akun), **bukan tautan publik terbuka**. Perlindungan di website saja tidak cukup karena alamat iframe dapat dilihat di browser.
+- Penyedia dashboard belum ditentukan *[Looker Studio / Metabase / Power BI / lainnya, menunggu Q14]*. Cara pembuatan alamat atau token embed bergantung pada penyedia yang dipilih.
+- Kelayakan embed (apakah penyedia mengizinkan iframe dan pembatasan akses) **diuji lebih dahulu** sebelum modul dibangun.
 
 ## 8. Alur Pengguna
 
@@ -302,6 +342,24 @@ flowchart TD
     G --> L
 ```
 
+### 8.3 Alur Akses Dashboard Keuangan
+
+```mermaid
+flowchart TD
+    A[Admin login ke panel admin] --> B{Memiliki permission finance.view?}
+    B -- Tidak --> C[Menu Keuangan tidak tampil dan akses langsung ditolak 403]
+    B -- Ya --> D[Buka halaman Keuangan]
+    D --> E[Frontend meminta alamat embed ke server]
+    E --> F{Dashboard sudah dikonfigurasi?}
+    F -- Tidak --> G[Tampilkan pesan belum dikonfigurasi]
+    F -- Ya --> H[Server memeriksa hak akses, membuat URL atau token berumur pendek, mencatat log]
+    H --> I[Frontend menampilkan iframe]
+    I --> J{Token hampir habis?}
+    J -- Ya --> E
+    I --> K{Gagal dimuat?}
+    K -- Ya --> L[Tampilkan pesan dan tombol Buka di tab baru]
+```
+
 ## 9. Kebutuhan Non-Fungsional
 
 | ID | Kategori | Kebutuhan |
@@ -318,6 +376,7 @@ flowchart TD
 | NFR-10 | **Maintainability** | Kode mengikuti standar (PSR-12 untuk PHP, ESLint + Prettier untuk TS), terdokumentasi, memiliki pengujian otomatis dasar |
 | NFR-11 | **Lokalisasi** | Bahasa Indonesia; zona waktu WIB (Asia/Jakarta) [konfirmasi] |
 | NFR-12 | **Observabilitas** | Pencatatan log aplikasi dan error; pemantauan uptime |
+| NFR-13 | **Keamanan integrasi** | Dashboard keuangan hanya dapat dimuat dari satu host yang diizinkan (CSP `frame-src`); alamat atau token embed dibuat server dan berumur pendek; tidak ada data keuangan yang disimpan di sistem ini |
 
 ## 10. Arsitektur & Tech Stack
 
@@ -334,6 +393,7 @@ flowchart TD
 | Penyimpanan file | Laravel Filesystem (lokal/S3-compatible) dengan akses terbatas |
 | Email | SMTP / layanan email transaksional [pilih penyedia] |
 | Web server | Nginx + PHP-FPM |
+| Integrasi dashboard keuangan | iframe tersemat dari penyedia eksternal *[Looker Studio / Metabase / Power BI, ditentukan kemudian]* |
 
 ### 10.2 Pustaka Frontend yang Disarankan *(opsional, dapat disesuaikan)*
 React Router, TanStack Query, React Hook Form + Zod (validasi), Tailwind CSS, komponen UI (mis. shadcn/ui), Axios/Fetch.
@@ -349,6 +409,8 @@ flowchart LR
     API --> FS[(File Storage)]
     API --> Q[Queue Worker]
     Q --> M[Layanan Email]
+    U -.->|iframe, khusus admin| BI[Dashboard Keuangan eksternal]
+    API -.->|buat URL atau token embed| BI
 ```
 
 ### 10.4 Keputusan Arsitektur yang Perlu Dicatat
@@ -359,6 +421,7 @@ flowchart LR
 | SEO halaman publik | SPA murni vs pre-render/SSR | Pre-render/SSR untuk halaman publik atau gunakan solusi prerendering; panel admin & area pendaftar tetap SPA |
 | Penyimpanan dokumen | Disk lokal vs object storage | Disk privat (tidak publik) pada tahap awal; migrasi ke object storage jika volume besar |
 | Autentikasi SPA | Sanctum cookie vs token | Sanctum (cookie-based) bila frontend dan API satu domain induk |
+| Dashboard keuangan | Tautan buka di tab baru vs iframe tersemat; URL statis vs token bertanda tangan | Iframe tersemat; URL atau token dibuat server dan berumur pendek bila penyedia mendukung; hanya satu host diizinkan lewat CSP |
 
 ## 11. Model Data
 
@@ -386,6 +449,8 @@ flowchart LR
 | `contact_messages` | Pesan dari formulir kontak |
 | `settings` | Pengaturan situs |
 | `activity_logs` | Audit trail |
+
+> **Dashboard Keuangan tidak menambah tabel.** Penyedia dan alamat dashboard disimpan sebagai kunci pada `settings` (mis. `finance_dashboard_provider`, `finance_dashboard_url`); rahasia penandatangan token disimpan di `.env`. Permission baru `finance.view` ditambahkan ke tabel `permissions`.
 
 ### 11.2 Diagram Relasi (Ringkas)
 
@@ -494,6 +559,7 @@ Prefiks: `/api/v1`. Format: JSON. Autentikasi: Sanctum. Format error konsisten (
 | Method | Endpoint | Deskripsi |
 |---|---|---|
 | GET | `/admin/dashboard` | Statistik ringkas |
+| GET | `/admin/finance-dashboard` | Alamat atau token embed dashboard keuangan (butuh permission `finance.view`) |
 | GET | `/admin/student-applications` | Daftar dengan filter & pencarian |
 | GET | `/admin/student-applications/{id}` | Detail |
 | PATCH | `/admin/student-applications/{id}/status` | Ubah status + catatan |
@@ -533,6 +599,7 @@ Beranda
 
 Panel Admin (/admin)
 ├── Dashboard
+├── Keuangan (khusus admin berwenang)
 ├── Pendaftar Siswa
 ├── Pendaftar Guru
 ├── Periode & Kuota
@@ -558,6 +625,12 @@ Panel Admin (/admin)
 - Pas foto: rasio dan ukuran minimum [ditentukan].
 - Pemindaian virus/validasi tipe MIME pada sisi server.
 
+### 13.4 Halaman Keuangan (Admin)
+- Iframe mengisi sisa area kerja di bawah judul halaman; judul halaman dilengkapi tombol "Buka di tab baru".
+- Menu **Keuangan** hanya tampil bagi pengguna dengan `finance.view`; penegakan sebenarnya tetap di server.
+- Keadaan yang harus dirancang: memuat, belum dikonfigurasi, gagal dimuat, dan sesi atau token habis (dengan perbaruan otomatis).
+- Dioptimalkan untuk desktop; di ponsel tampil dengan gulir internal dan tanpa jaminan kenyamanan penuh.
+
 ## 14. Keamanan & Privasi Data
 
 Website memproses **data pribadi anak dan keluarga** (NIK, alamat, dokumen identitas), sehingga keamanan dan privasi menjadi prioritas.
@@ -576,6 +649,7 @@ Website memproses **data pribadi anak dan keluarga** (NIK, alamat, dokumen ident
 | Retensi | Kebijakan penyimpanan dan penghapusan data pendaftar yang tidak diterima: [ditentukan bersama yayasan] |
 | Konfigurasi | Secret di variabel lingkungan; `APP_DEBUG=false` di produksi; dependensi diperbarui berkala |
 | Anti-spam | CAPTCHA (mis. Turnstile/reCAPTCHA) pada registrasi dan formulir kontak |
+| Dashboard keuangan (iframe) | Akses dikendalikan permission `finance.view` di server; URL atau token embed dibuat server, berumur pendek, dengan respons `no-store`; CSP `frame-src` hanya untuk satu host dashboard; iframe memakai `sandbox` dan `referrerpolicy="no-referrer"`; pembukaan dicatat di log aktivitas; dashboard sumber dibatasi aksesnya sendiri (bukan tautan publik terbuka) karena alamat iframe terlihat di browser |
 
 ## 15. Rencana Pengujian
 
@@ -586,6 +660,7 @@ Website memproses **data pribadi anak dan keluarga** (NIK, alamat, dokumen ident
 | End-to-End | Alur registrasi → pendaftaran → verifikasi admin | Playwright/Cypress |
 | Uji beban | Simulasi lonjakan pendaftar | k6/JMeter |
 | Uji keamanan | OWASP Top 10 dasar, uji otorisasi antar-pengguna | Checklist manual + alat pemindai |
+| Uji otorisasi dashboard keuangan | Pendaftar, Admin Konten, dan Admin Pendaftaran tanpa `finance.view` ditolak; token embed kedaluwarsa; header CSP hanya mengizinkan host yang ditentukan | Pest (feature test) + pemeriksaan header manual |
 | Uji kompatibilitas | Browser dan perangkat utama | Manual/BrowserStack |
 | **UAT** | Pengujian oleh perwakilan yayasan dengan skenario nyata | Skenario UAT tertulis |
 
@@ -612,6 +687,7 @@ Estimasi awal (dapat disesuaikan dengan sumber daya dan tenggat yayasan, mis. se
 | 4. Modul Pendaftaran Siswa | Formulir, unggah dokumen, status, notifikasi, verifikasi admin, periode/kuota | Minggu 7–10 |
 | 5. Modul Pendaftaran Guru | Lowongan, formulir lamaran, seleksi admin | Minggu 11–12 |
 | 6. Ekspor, Dashboard, Log | Ekspor data, statistik, audit trail | Minggu 12–13 |
+| 6b. Dashboard Keuangan | Endpoint embed, halaman admin, permission, CSP, pengujian otorisasi (bergantung pada Q14 dan kesiapan dashboard sumber) | Minggu 13 *[estimasi tambahan sekitar 1 minggu; konfirmasi]* |
 | 7. Pengujian & UAT | QA, perbaikan, UAT bersama yayasan, uji beban & keamanan | Minggu 13–15 |
 | 8. Peluncuran & Serah Terima | Deployment produksi, migrasi konten, pelatihan admin | Minggu 16 |
 
@@ -630,6 +706,10 @@ Estimasi awal (dapat disesuaikan dengan sumber daya dan tenggat yayasan, mis. se
 | R7 | SEO SPA kurang optimal | Website sulit ditemukan | Pre-render/SSR untuk halaman publik |
 | R8 | Admin yayasan belum terbiasa dengan sistem | Data/konten tidak terkelola | Pelatihan, panduan, dan masa pendampingan |
 | R9 | Ketergantungan layanan pihak ketiga (email, hosting) | Gangguan layanan | Pilih penyedia andal, siapkan alternatif |
+| R10 | Dashboard sumber berstatus tautan publik atau alamatnya bocor | Data keuangan dapat diakses tanpa melewati website | Wajibkan pembatasan akses di sumber, token embed berumur pendek, jangan menulis URL di kode atau repositori |
+| R11 | Penyedia dashboard tidak mengizinkan embed atau mengubah kebijakan embed | Iframe kosong atau gagal dimuat | Uji kelayakan embed sebelum pembangunan; sediakan tombol "Buka di tab baru" |
+| R12 | Dashboard memuat data pribadi (mis. tunggakan per siswa) | Kewajiban UU PDP pada sumber dan kebutuhan pembatasan akses lebih ketat | Konfirmasi isi dashboard (Q16), batasi `finance.view`, pertimbangkan data agregat tanpa identitas individu |
+| R13 | Dashboard lambat atau rusak di sisi sumber | Halaman Keuangan tampak rusak padahal website normal | Pesan galat jelas, tombol "Buka di tab baru", tanggung jawab pemeliharaan sumber dicatat (Q17) |
 
 ## 19. Asumsi & Ketergantungan
 
@@ -639,11 +719,14 @@ Estimasi awal (dapat disesuaikan dengan sumber daya dan tenggat yayasan, mis. se
 - Alur dan persyaratan pendaftaran manual yang berlaku saat ini dapat dibagikan kepada tim pengembang.
 - Domain dan hosting disediakan/disetujui yayasan.
 - Bahasa antarmuka hanya Bahasa Indonesia.
+- Yayasan menyediakan dan memelihara dashboard keuangan pada platform eksternal; website hanya menampilkannya.
+- Dashboard keuangan dapat di-embed lewat iframe dan memiliki mekanisme pembatasan akses.
 
 ### Ketergantungan
 - Ketersediaan layanan email transaksional.
 - Penyediaan infrastruktur hosting dan domain.
 - Keputusan yayasan atas kebijakan privasi dan retensi data.
+- Ketersediaan dan kebijakan embed dari penyedia dashboard keuangan.
 
 ## 20. Pertanyaan Terbuka
 
@@ -662,6 +745,11 @@ Estimasi awal (dapat disesuaikan dengan sumber daya dan tenggat yayasan, mis. se
 | Q11 | Target jumlah pendaftar per periode (untuk sizing server)? | Yayasan | Open |
 | Q12 | Kebijakan retensi dan penghapusan data pendaftar? | Yayasan | Open |
 | Q13 | Anggaran dan tenggat peluncuran yang diinginkan? | Yayasan | Open |
+| Q14 | Dashboard keuangan dibuat dengan alat apa (Looker Studio, Metabase, Power BI, Google Sheets, lainnya), dan apakah mendukung embed dengan pembatasan akses? | Yayasan | Open |
+| Q15 | Siapa saja yang boleh melihat dashboard keuangan: hanya Super Admin atau role lain? | Yayasan | Open |
+| Q16 | Apakah dashboard memuat data pribadi per siswa atau orang tua (mis. tunggakan per anak), atau hanya data agregat? | Yayasan | Open |
+| Q17 | Siapa yang memelihara dashboard keuangan dan sumber datanya? | Yayasan | Open |
+| Q18 | Apakah dashboard keuangan perlu dapat dibuka dengan nyaman di ponsel? | Yayasan | Open |
 
 ## 21. Kriteria Penerimaan Proyek
 
@@ -676,6 +764,7 @@ Proyek dianggap selesai bila:
 7. **Performa:** memenuhi target NFR-01 pada pengujian di lingkungan staging.
 8. **UAT:** seluruh skenario UAT prioritas Must dinyatakan lulus dan disetujui tertulis oleh perwakilan yayasan.
 9. **Serah terima:** kode, dokumentasi teknis, panduan admin, dan pelatihan telah diserahkan.
+10. **Dashboard keuangan:** admin dengan `finance.view` dapat membuka dashboard di panel admin; pengguna tanpa hak (termasuk pendaftar dan admin tanpa permission tersebut) tidak melihat menunya dan tidak dapat mengakses datanya (403); setiap pembukaan tercatat di log; iframe hanya memuat host yang diizinkan.
 
 ## 22. Glosarium
 
@@ -691,6 +780,9 @@ Proyek dianggap selesai bila:
 | NIK / NISN | Nomor Induk Kependudukan / Nomor Induk Siswa Nasional |
 | UU PDP | Undang-Undang Pelindungan Data Pribadi |
 | PIC | Person in Charge — penanggung jawab |
+| iframe | Elemen HTML yang menyematkan halaman dari alamat lain ke dalam halaman website |
+| Token embed | Alamat atau kode berumur pendek yang dibuat server agar dashboard eksternal dapat disematkan secara terbatas |
+| CSP | Content Security Policy — kebijakan browser yang membatasi sumber konten yang boleh dimuat halaman |
 
 ## 23. Persetujuan
 
@@ -705,3 +797,4 @@ Proyek dianggap selesai bila:
 | Versi | Tanggal | Penulis | Perubahan |
 |---|---|---|---|
 | 0.1 | 3 Okt 2026 | [Penulis] | Draft awal |
+| 0.2 | 28 Okt 2026 | [Penulis] | Menambah fitur Dashboard Keuangan (iframe, khusus admin berwenang): tujuan G5, US-20 sampai US-22, FR-080 sampai FR-087, NFR-13, alur 8.3, risiko R10 sampai R13, pertanyaan Q14 sampai Q18, serta penyesuaian lingkup, arsitektur, API, keamanan, pengujian, timeline, dan kriteria penerimaan |

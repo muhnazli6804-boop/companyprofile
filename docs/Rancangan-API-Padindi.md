@@ -2,7 +2,8 @@
 
 | | |
 |---|---|
-| **Versi** | 0.1 (Draft), selaras dengan PRD v0.1, Skema Database v0.1, dan Struktur Folder v0.1 |
+| **Versi** | 0.2 (Draft), selaras dengan PRD v0.2 dan Skema Database v0.2 (Struktur Folder masih v0.1) |
+| **Perubahan v0.2** | Menambah endpoint **Dashboard Keuangan** (`GET /admin/finance-dashboard`), permission `finance.view`, aturan kunci pengaturan `finance_*`, dua kode error, dan contoh. Lihat bagian 11.5 |
 | **Gaya API** | REST, JSON |
 | **Base URL** | `/api/v1` |
 | **Backend** | Laravel 12 + Sanctum |
@@ -22,7 +23,7 @@
 8. [Admin: Pendaftar, Verifikasi, Ekspor](#8-admin-pendaftar-verifikasi-ekspor)
 9. [Admin: Master Data](#9-admin-master-data)
 10. [Admin: CMS](#10-admin-cms)
-11. [Admin: Pesan, Pengguna, Log, Pengaturan](#11-admin-pesan-pengguna-log-pengaturan)
+11. [Admin: Pesan, Pengguna, Log, Pengaturan, Keuangan](#11-admin-pesan-pengguna-log-pengaturan-keuangan)
 12. [Alur Status & Aturan Transisi](#12-alur-status--aturan-transisi)
 13. [Kode Error](#13-kode-error)
 14. [Contoh Request & Response](#14-contoh-request--response)
@@ -111,6 +112,7 @@ Daftar `code` ada di [bagian 13](#13-kode-error). Frontend menggunakan `code`, b
 | 422 | Validasi gagal |
 | 429 | Terlalu banyak permintaan |
 | 500 | Kesalahan server |
+| 503 | Layanan sementara tidak tersedia (mis. pembuatan token embed dashboard keuangan gagal) |
 
 ### 1.6 Pembatasan Laju (Rate Limit)
 
@@ -121,6 +123,7 @@ Daftar `code` ada di [bagian 13](#13-kode-error). Frontend menggunakan `code`, b
 | Lupa kata sandi | 3 permintaan/jam per email |
 | Formulir kontak | 5 pesan/jam per IP (+ CAPTCHA) |
 | Unggah berkas | 30 permintaan/menit per pengguna |
+| Dashboard keuangan (`GET /admin/finance-dashboard`) | 30 permintaan/menit per pengguna |
 | Area pendaftar & admin | 120 permintaan/menit per pengguna |
 
 Respons `429` menyertakan header `Retry-After`.
@@ -173,6 +176,7 @@ Konfigurasi yang diperlukan: `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN`, CORS 
 | `users.manage` | Kelola akun admin, role, dan permission |
 | `settings.manage` | Kelola pengaturan situs |
 | `logs.view` | Melihat log aktivitas |
+| `finance.view` | Melihat Dashboard Keuangan dan, bersama `settings.manage`, mengubah konfigurasinya |
 
 ### 2.4 Matriks Role (Usulan, selaras PRD 7.6)
 
@@ -192,8 +196,11 @@ Konfigurasi yang diperlukan: `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN`, CORS 
 | `users.manage` | ✅ | ❌ | ❌ |
 | `settings.manage` | ✅ | ❌ | ❌ |
 | `logs.view` | ✅ | ❌ | ❌ |
+| `finance.view` | ✅ | ❌ | ❌ |
 
 > Baris `units.manage` dan `messages.manage` belum ada di matriks PRD. Ini usulan yang perlu dikonfirmasi.
+>
+> Baris `finance.view` mengikuti PRD v0.2 bagian 7.6. Default hanya Super Admin dan dapat diberikan ke role lain lewat `PUT /roles/{id}/permissions` (menunggu Q15). Permission ini hanya boleh dimiliki akun `user_type = admin`; percobaan memberikannya ke akun lain ditolak dengan `422`.
 
 ### 2.5 Perlindungan Data Sensitif pada Respons
 
@@ -202,6 +209,8 @@ Konfigurasi yang diperlukan: `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN`, CORS 
 | NIK | Lengkap | Lengkap (hanya pada endpoint detail) | `3201************` |
 | Daftar/tabel admin | n/a | NIK selalu tersamar | Tersamar |
 | Dokumen | Boleh unduh milik sendiri | Boleh unduh | Boleh unduh jika punya `applications.view` |
+
+URL dan token dashboard keuangan bersifat rahasia. Keduanya hanya keluar lewat `GET /admin/finance-dashboard` untuk pengguna dengan `finance.view`. Nilai tersimpannya tidak pernah dikembalikan oleh `GET /admin/settings` (lihat bagian 11.4).
 
 ---
 
@@ -558,6 +567,8 @@ Prefiks `/api/v1/admin`. Middleware: `auth:sanctum`, `EnsureUserIsAdmin`, ditamb
 
 Isi respons: total pendaftar siswa/guru, jumlah per status, jumlah per unit, kuota vs terisi, pendaftar baru 7 hari terakhir (deret waktu harian), pesan kontak baru, dokumen menunggu verifikasi.
 
+Catatan: dashboard ringkasan pendaftaran ini **berbeda** dari Dashboard Keuangan. Dashboard Keuangan adalah halaman iframe terpisah dengan permission `finance.view` (bagian 11.5).
+
 ### 8.2 Pendaftar Siswa
 
 | Method | Endpoint | Permission | Deskripsi |
@@ -656,7 +667,7 @@ Permission: `content.manage`. Pola CRUD sama seperti bagian 9.
 
 ---
 
-## 11. Admin: Pesan, Pengguna, Log, Pengaturan
+## 11. Admin: Pesan, Pengguna, Log, Pengaturan, Keuangan
 
 ### 11.1 Pesan Kontak (`messages.manage`)
 
@@ -690,14 +701,110 @@ Aturan: admin tidak dapat menonaktifkan atau menghapus dirinya sendiri; harus se
 |---|---|---|
 | GET | `/activity-logs` | Filter `filter[user_id]`, `filter[action]`, `filter[subject_type]`, `filter[from]`, `filter[to]`. Hanya baca |
 
-Aksi yang dicatat (usulan): `auth.login`, `auth.login_failed`, `application.status_changed`, `application.note_updated`, `document.verified`, `data.exported`, `application.deleted`, `user.created`, `user.updated`, `role.permissions_changed`, `settings.updated`.
+Aksi yang dicatat (usulan): `auth.login`, `auth.login_failed`, `application.status_changed`, `application.note_updated`, `document.verified`, `data.exported`, `application.deleted`, `user.created`, `user.updated`, `role.permissions_changed`, `settings.updated`, `finance.dashboard_viewed`, `finance.settings_updated`.
 
 ### 11.4 Pengaturan Situs (`settings.manage`)
 
 | Method | Endpoint | Deskripsi |
 |---|---|---|
-| GET | `/settings` | Semua pengaturan, dikelompokkan (`group_name`) |
-| PUT | `/settings` | Menerima objek `key: value`; hanya key yang dikenal. Logo via `POST /settings/logo` (multipart) |
+| GET | `/settings` | Semua pengaturan, dikelompokkan (`group_name`). Nilai terenkripsi (`is_encrypted`) tidak dikembalikan utuh: diganti objek `{ "is_set": true, "host": "..." }`. Kelompok `finance` hanya disertakan bila pengguna juga memiliki `finance.view` |
+| PUT | `/settings` | Menerima objek `key: value`; hanya key yang dikenal. Logo via `POST /settings/logo` (multipart). Mengubah kunci `finance_*` membutuhkan `settings.manage` **dan** `finance.view` |
+
+**Validasi kunci `finance_*` pada `PUT /settings`:**
+
+| Kunci | Aturan |
+|---|---|
+| `finance_dashboard_enabled` | Boolean. Tidak boleh `true` bila `finance_dashboard_url` belum diisi (`422`) |
+| `finance_dashboard_provider` | Salah satu: `metabase`, `power_bi`, `looker_studio`, `other` |
+| `finance_dashboard_title` | String, maks. 100 karakter |
+| `finance_dashboard_url` | Hanya `https`, maks. 2048 karakter, tanpa kredensial di URL (`user:pass@`). **Host harus sama dengan `FINANCE_ALLOWED_HOST`** di `.env`. Disimpan terenkripsi. Hanya dapat diganti, tidak dapat dibaca kembali |
+| `finance_dashboard_token_ttl_minutes` | Bilangan bulat 1-60 (default 10). Dipakai bila penyedia menggunakan token bertanda tangan |
+
+Contoh bagian `finance` pada respons `GET /settings`:
+
+```json
+"finance": {
+  "finance_dashboard_enabled": false,
+  "finance_dashboard_provider": "metabase",
+  "finance_dashboard_title": "Dashboard Keuangan",
+  "finance_dashboard_url": { "is_set": true, "host": "bi.example.org" },
+  "finance_dashboard_token_ttl_minutes": 10
+}
+```
+
+Setiap perubahan kunci `finance_*` menulis `activity_logs` dengan `action = finance.settings_updated`, **tanpa mencatat nilai URL**.
+
+### 11.5 Dashboard Keuangan (`finance.view`)
+
+Menampilkan dashboard keuangan dari sumber eksternal di panel admin lewat iframe. Tampilan baca saja; website tidak menyimpan data keuangan.
+
+| Method | Endpoint | Permission | Deskripsi |
+|---|---|---|---|
+| GET | `/finance-dashboard` | `finance.view` | Mengembalikan alamat embed (dan token bila ada) untuk dimuat di iframe |
+
+Middleware: `auth:sanctum`, `EnsureUserIsAdmin`, `can:finance.view`, `throttle` 30 permintaan/menit per pengguna.
+
+**Respons `200`**
+
+```json
+{
+  "data": {
+    "title": "Dashboard Keuangan",
+    "provider": "metabase",
+    "embed_url": "https://bi.example.org/embed/dashboard/<token>#bordered=false",
+    "expires_at": "2027-01-15T09:40:00+07:00",
+    "refresh_after_seconds": 480
+  }
+}
+```
+
+- `expires_at` dan `refresh_after_seconds` bernilai `null` untuk penyedia tanpa token bertanda tangan (URL statis yang akses-nya dibatasi di sumber).
+- Pada penyedia berURL statis, `embed_url` adalah URL tersimpan. URL itu hanya dapat diambil lewat endpoint ini oleh pengguna yang berhak.
+- Header respons: `Cache-Control: no-store` dan `Referrer-Policy: no-referrer`.
+- Nama host pada contoh (`bi.example.org`) hanya ilustrasi.
+
+**Cara pembuatan `embed_url` per penyedia** (menunggu Q14; periksa dokumentasi penyedia saat implementasi karena kemampuan embed dapat berubah):
+
+| Penyedia | `embed_url` | Token | Catatan |
+|---|---|:---:|---|
+| `metabase` | URL embed + JWT yang ditandatangani `FINANCE_EMBED_SECRET`, `exp` sesuai TTL | Ya | Signed embedding harus diaktifkan di Metabase |
+| `power_bi` | URL embed + token dari API penyedia | Ya | Membutuhkan kredensial tambahan di `.env` (dirinci setelah Q14) |
+| `looker_studio` | URL embed statis | Tidak | Akses dikendalikan lewat pembagian per akun di sumber; pengguna mungkin perlu login dengan akun yang diizinkan |
+| `other` | URL tersimpan | Tidak | Hanya bila sumber punya pembatasan akses sendiri. Tampilkan peringatan saat konfigurasi |
+
+**Urutan pemrosesan**
+
+1. Periksa permission (`403 FORBIDDEN` bila tidak berhak).
+2. Periksa `finance_dashboard_enabled` dan URL tersedia (`409 FINANCE_DASHBOARD_NOT_CONFIGURED`).
+3. Validasi ulang host URL terhadap `FINANCE_ALLOWED_HOST`. Bila tidak cocok, kembalikan `409 FINANCE_DASHBOARD_NOT_CONFIGURED` dan catat peringatan di log aplikasi.
+4. Buat `embed_url` sesuai penyedia. Bila gagal (rahasia tidak ada atau penyedia tidak merespons), kembalikan `503 FINANCE_DASHBOARD_UNAVAILABLE`.
+5. Tulis `activity_logs` dengan `action = finance.dashboard_viewed` dan `properties` berisi penyedia saja, **tanpa URL atau token**. Pembukaan oleh pengguna yang sama dalam 5 menit tidak dicatat ulang agar log tidak membanjir saat token diperbarui.
+6. Kembalikan respons.
+
+**Pemakaian di frontend**
+
+- Panggil endpoint saat halaman Keuangan dibuka. Menu **Keuangan** hanya ditampilkan bila `GET /auth/me` memuat permission `finance.view`.
+- Bila `refresh_after_seconds` tidak `null`, ambil `embed_url` baru sebelum kedaluwarsa. Banyak penyedia hanya memeriksa token saat dashboard dimuat, jadi iframe yang sudah terbuka tidak perlu dimuat ulang. Cukup ganti `src` saat pengguna kembali ke tab setelah token habis atau menekan "Muat ulang".
+- Atribut iframe yang disarankan:
+
+```html
+<iframe src="{embed_url}" title="Dashboard Keuangan"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        referrerpolicy="no-referrer" loading="lazy"></iframe>
+```
+
+- Tombol "Buka di tab baru" memakai `embed_url` yang sama.
+- Kebijakan CSP `frame-src https://<FINANCE_ALLOWED_HOST>` diatur di Nginx (`ARCHITECTURE.md`). Browser memblokir host lain.
+
+**Respons error**
+
+| HTTP | Code | Kondisi |
+|---|---|---|
+| 401 | `UNAUTHENTICATED` | Belum login |
+| 403 | `FORBIDDEN` | Tidak memiliki `finance.view` |
+| 409 | `FINANCE_DASHBOARD_NOT_CONFIGURED` | Fitur belum diaktifkan, URL kosong, atau host tidak sesuai |
+| 429 | `TOO_MANY_REQUESTS` | Melebihi batas laju |
+| 503 | `FINANCE_DASHBOARD_UNAVAILABLE` | Gagal membuat alamat atau token embed |
 
 ---
 
@@ -764,9 +871,11 @@ Aksi yang dicatat (usulan): `auth.login`, `auth.login_failed`, `application.stat
 | `DUPLICATE_APPLICATION` | 409 | Lamaran/pendaftaran ganda |
 | `RESOURCE_IN_USE` | 409 | Data masih dipakai, tidak dapat dihapus |
 | `LAST_SUPER_ADMIN` | 409 | Tidak boleh menghapus/menonaktifkan Super Admin terakhir |
+| `FINANCE_DASHBOARD_NOT_CONFIGURED` | 409 | Dashboard keuangan belum diaktifkan atau belum dikonfigurasi dengan benar |
 | `FILE_TOO_LARGE` | 413 | Berkas melebihi batas |
 | `UNSUPPORTED_FILE_TYPE` | 415 | Tipe berkas tidak didukung |
 | `SERVER_ERROR` | 500 | Kesalahan tak terduga (tanpa detail internal pada produksi) |
+| `FINANCE_DASHBOARD_UNAVAILABLE` | 503 | Gagal membuat alamat atau token embed dashboard keuangan |
 
 Peringatan non-fatal (`warnings`) memakai kode terpisah, contoh `POSSIBLE_DUPLICATE_NIK`.
 
@@ -968,6 +1077,49 @@ file=@kk.jpg
 ```
 Respons `201`: lihat contoh bagian 7.2.
 
+### 14.9 `GET /admin/finance-dashboard`
+
+Berhasil (`200`), penyedia dengan token bertanda tangan:
+```json
+{
+  "data": {
+    "title": "Dashboard Keuangan",
+    "provider": "metabase",
+    "embed_url": "https://bi.example.org/embed/dashboard/<token>#bordered=false",
+    "expires_at": "2027-01-15T09:40:00+07:00",
+    "refresh_after_seconds": 480
+  }
+}
+```
+
+Berhasil (`200`), penyedia berURL statis:
+```json
+{
+  "data": {
+    "title": "Dashboard Keuangan",
+    "provider": "looker_studio",
+    "embed_url": "https://lookerstudio.google.com/embed/reporting/<id>/page/<page>",
+    "expires_at": null,
+    "refresh_after_seconds": null
+  }
+}
+```
+
+Tanpa hak akses (`403`):
+```json
+{ "message": "Anda tidak memiliki hak untuk melihat dashboard keuangan.", "code": "FORBIDDEN" }
+```
+
+Belum dikonfigurasi (`409`):
+```json
+{ "message": "Dashboard keuangan belum dikonfigurasi.", "code": "FINANCE_DASHBOARD_NOT_CONFIGURED" }
+```
+
+Gagal membuat token (`503`):
+```json
+{ "message": "Dashboard keuangan sedang tidak tersedia. Coba lagi beberapa saat.", "code": "FINANCE_DASHBOARD_UNAVAILABLE" }
+```
+
 ---
 
 ## 15. Pemetaan ke Kebutuhan PRD
@@ -1002,6 +1154,13 @@ Respons `201`: lihat contoh bagian 7.2.
 | FR-075 (pengguna & role) | `/admin/users`, `/roles`, `/permissions` |
 | FR-076 (log aktivitas) | `/admin/activity-logs` |
 | FR-077 (pengaturan) | `/admin/settings` |
+| FR-080, FR-082 (halaman dan alamat embed dashboard keuangan) | `GET /admin/finance-dashboard` |
+| FR-081 (akses `finance.view`) | Middleware `can:finance.view`; `GET /auth/me` memuat permission |
+| FR-083 (konfigurasi dashboard keuangan) | `GET`/`PUT /admin/settings` (kunci `finance_*`) |
+| FR-084 (log akses) | `activity_logs`: `finance.dashboard_viewed`, `finance.settings_updated` |
+| FR-085 (keadaan khusus) | Kode `FINANCE_DASHBOARD_NOT_CONFIGURED` dan `FINANCE_DASHBOARD_UNAVAILABLE` |
+| FR-086 (keamanan iframe) | Atribut iframe (bagian 11.5) dan CSP `frame-src` (`ARCHITECTURE.md`) |
+| FR-087 (tampilan desktop) | Tidak ada endpoint; kebutuhan antarmuka |
 
 ---
 
@@ -1019,3 +1178,6 @@ Respons `201`: lihat contoh bagian 7.2.
 | 8 | Format nomor pendaftaran yang diinginkan | `RegistrationNumberGenerator` dan `config/registration.php` |
 | 9 | Perlu API khusus untuk cek status tanpa login (misalnya dengan nomor pendaftaran + tanggal lahir)? | Endpoint publik baru; perlu dipertimbangkan dari sisi privasi |
 | 10 | Apakah ada klien non-browser (aplikasi mobile) pada fase berikutnya? | Autentikasi token Sanctum |
+| 11 | Dashboard keuangan memakai penyedia apa, dan apakah mendukung token bertanda tangan? (Q14 di PRD) | Cara membuat `embed_url`, ada tidaknya `expires_at`, kredensial tambahan di `.env` |
+| 12 | Siapa saja yang boleh memegang `finance.view`? (Q15 di PRD) | Pemetaan role, dan perlu tidaknya role khusus "Admin Keuangan" |
+| 13 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16 di PRD) | Bila ya, pertimbangkan 2FA wajib bagi pemegang `finance.view` dan pencatatan log yang lebih rinci |

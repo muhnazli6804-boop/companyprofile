@@ -2,12 +2,24 @@
 
 | | |
 |---|---|
-| **Versi** | 0.1 (Draft), selaras dengan PRD v0.1 |
+| **Versi** | 0.2 (Draft), selaras dengan PRD v0.2 |
 | **DBMS** | PostgreSQL 15+ |
 | **Framework** | Laravel 12 |
 | **File DDL** | `schema-padindi.sql` (30 tabel, sudah lolos validasi sintaks PostgreSQL) |
 
 Dokumen ini menjelaskan **struktur dan alasan desain**. Definisi kolom lengkap (tipe data, constraint, indeks) ada di `schema-padindi.sql`.
+
+### Perubahan pada v0.2 (fitur Dashboard Keuangan)
+
+| Perubahan | Keterangan |
+|---|---|
+| **Tidak ada tabel baru** | Dashboard hanya menampilkan sumber eksternal, jadi tidak ada data keuangan yang disimpan. Jumlah tabel tetap 30 |
+| Kolom baru `settings.is_encrypted` | Menandai nilai rahasia. Dipakai untuk `finance_dashboard_url` karena URL dashboard dapat memuat token |
+| Constraint baru `settings_finance_url_encrypted_check` | Database menolak `finance_dashboard_url` yang tidak ditandai terenkripsi |
+| Permission baru `finance.view` | Default hanya Super Admin (lihat bagian 3.1) |
+| Kunci `settings` baru | Lima kunci berkelompok `finance` (lihat bagian 3.6) |
+| Nilai `activity_logs.action` baru | `finance.dashboard_viewed`, `finance.settings_updated` |
+| Aturan bisnis baru | Nomor 10 pada bagian 6 |
 
 ---
 
@@ -73,6 +85,28 @@ erDiagram
 
 > Jika memakai paket **spatie/laravel-permission**, lewati keempat tabel terakhir dan gunakan migration bawaan paket.
 
+**Daftar permission awal** (diisi `RoleSeeder`; selaras dengan `Rancangan-API-Padindi.md` bagian 2.3-2.4, ditambah `finance.view`):
+
+| Permission | Super Admin | Admin Pendaftaran | Admin Konten |
+|---|:---:|:---:|:---:|
+| `dashboard.view` | ✅ | ✅ | ✅ |
+| `applications.view` | ✅ | ✅ | ❌ |
+| `applications.view_sensitive` | ✅ | ✅ | ❌ |
+| `applications.verify` | ✅ | ✅ | ❌ |
+| `applications.export` | ✅ | ✅ | ❌ |
+| `periods.manage` | ✅ | ✅ | ❌ |
+| `requirements.manage` | ✅ | ✅ | ❌ |
+| `vacancies.manage` | ✅ | ✅ | ❌ |
+| `units.manage` | ✅ | ❌ | ✅ |
+| `content.manage` | ✅ | ❌ | ✅ |
+| `messages.manage` | ✅ | ❌ | ✅ |
+| `users.manage` | ✅ | ❌ | ❌ |
+| `settings.manage` | ✅ | ❌ | ❌ |
+| `logs.view` | ✅ | ❌ | ❌ |
+| **`finance.view`** (baru) | ✅ | ❌ | ❌ |
+
+`finance.view` hanya boleh diberikan kepada akun ber-`user_type = admin`. Pembatasan ini ditegakkan di aplikasi saat permission ditetapkan, bukan oleh database. Super Admin dapat memberikannya ke role lain lewat manajemen role (sesuai keputusan PRD, menunggu Q15).
+
 ### 3.2 Master Data Pendaftaran
 
 | Tabel | Fungsi | Aturan penting |
@@ -118,13 +152,25 @@ erDiagram
 | `galleries`, `gallery_items` | Album dan foto |
 | `banners` | Banner beranda, dengan jadwal tayang opsional |
 | `contact_messages` | Pesan dari formulir kontak. Status `new` / `read` / `replied` |
-| `settings` | Pengaturan situs berbentuk key-value (nama situs, kontak, media sosial) |
+| `settings` | Pengaturan situs berbentuk key-value (nama situs, kontak, media sosial, dan konfigurasi Dashboard Keuangan). Kolom `is_encrypted` menandai nilai rahasia yang disimpan terenkripsi |
+
+**Kunci `settings` untuk Dashboard Keuangan** (`group_name = 'finance'`):
+
+| Kunci | Contoh nilai | Terenkripsi | Keterangan |
+|---|---|:---:|---|
+| `finance_dashboard_enabled` | `false` | Tidak | Saklar fitur. Default mati sampai dikonfigurasi |
+| `finance_dashboard_provider` | `looker_studio`, `metabase`, `power_bi`, `other` | Tidak | Menentukan cara pembuatan URL atau token embed (menunggu Q14 di PRD) |
+| `finance_dashboard_title` | `Dashboard Keuangan` | Tidak | Judul yang tampil di halaman |
+| `finance_dashboard_url` | URL dasar dashboard | **Ya** | Dapat memuat token atau parameter, sehingga dianggap rahasia. Constraint `settings_finance_url_encrypted_check` memaksa `is_encrypted = true` |
+| `finance_dashboard_token_ttl_minutes` | `10` | Tidak | Umur token embed, hanya untuk penyedia dengan token bertanda tangan |
+
+**Rahasia yang tidak masuk database** (hanya di `.env` server): `FINANCE_EMBED_SECRET` (kunci penandatangan token embed) dan `FINANCE_ALLOWED_HOST` (satu-satunya host yang diizinkan untuk URL dashboard, juga dipakai pada CSP `frame-src`).
 
 ### 3.7 Audit
 
 | Tabel | Fungsi |
 |---|---|
-| `activity_logs` | Jejak aksi penting admin (ubah status, ekspor data, hapus). Detail perubahan disimpan di `properties` (`jsonb`) |
+| `activity_logs` | Jejak aksi penting admin (ubah status, ekspor data, hapus, buka dashboard keuangan). Detail perubahan disimpan di `properties` (`jsonb`). Aksi baru pada v0.2: `finance.dashboard_viewed` dan `finance.settings_updated` |
 
 ## 4. Nilai Status
 
@@ -179,6 +225,13 @@ Transisi status divalidasi di aplikasi (misalnya lewat state machine sederhana p
 7. **Setiap perubahan status** menulis satu baris ke `application_status_logs` dan, untuk aksi admin, satu baris ke `activity_logs`.
 8. **File dokumen** diakses lewat endpoint terotorisasi atau URL bertanda tangan, tidak pernah lewat URL publik langsung.
 9. **Retensi data.** Siapkan job terjadwal untuk menghapus/anonimkan data pendaftar yang tidak diterima setelah masa retensi yang disepakati yayasan (UU PDP).
+10. **Dashboard Keuangan.** Aturan yang ditegakkan di aplikasi:
+    - Permission `finance.view` hanya boleh ditetapkan pada akun `user_type = admin`.
+    - Host pada `finance_dashboard_url` harus sama dengan `FINANCE_ALLOWED_HOST`, divalidasi saat menyimpan dan saat membuat embed. Ini mencegah iframe diarahkan ke host sembarang.
+    - Nilai `finance_dashboard_url` tidak pernah dikembalikan utuh oleh `GET /admin/settings` (ditampilkan tersamar); nilai hanya dapat diganti. URL atau token embed hanya keluar lewat endpoint terotorisasi `GET /admin/finance-dashboard`.
+    - Setiap pembukaan menulis `activity_logs` dengan `action = 'finance.dashboard_viewed'`. Kolom `properties` hanya memuat penyedia, **tanpa URL atau token**.
+    - Perubahan konfigurasi menulis `finance.settings_updated` tanpa mencatat nilai URL.
+    - Tidak ada data keuangan yang disalin atau disimpan ke database.
 
 ## 7. Urutan Migration yang Disarankan
 
@@ -195,11 +248,11 @@ Transisi status divalidasi di aplikasi (misalnya lewat state machine sederhana p
 
 | Seeder | Isi |
 |---|---|
-| `RoleSeeder` | `super_admin`, `admin_registration`, `admin_content` + matriks permission sesuai PRD bagian 7.6 |
+| `RoleSeeder` | `super_admin`, `admin_registration`, `admin_content` + daftar permission di bagian 3.1, termasuk `finance.view` (default hanya `super_admin`) |
 | `AdminUserSeeder` | Satu akun Super Admin awal (kata sandi diganti saat login pertama) |
 | `EducationUnitSeeder` | Unit pendidikan yayasan (menunggu data dari yayasan) |
 | `DocumentRequirementSeeder` | Dokumen siswa: akta kelahiran, kartu keluarga, pas foto, rapor/ijazah terakhir. Dokumen guru: CV, ijazah, transkrip, sertifikat, KTP, pas foto, surat lamaran |
-| `SettingSeeder` | Kunci pengaturan: `site_name`, `site_logo`, `contact_email`, `contact_phone`, `contact_address`, `social_*` |
+| `SettingSeeder` | Kunci pengaturan: `site_name`, `site_logo`, `contact_email`, `contact_phone`, `contact_address`, `social_*`, serta lima kunci `finance_*` (bagian 3.6) dengan `finance_dashboard_enabled = false` dan `is_encrypted = true` untuk `finance_dashboard_url` |
 | `PageSeeder` | Halaman statis awal: tentang, visi misi, kebijakan privasi |
 
 ## 9. Catatan Implementasi Laravel
@@ -209,6 +262,9 @@ Transisi status divalidasi di aplikasi (misalnya lewat state machine sederhana p
 - Pakai `SoftDeletes` pada model yang memiliki `deleted_at`.
 - Pakai Backed Enum PHP untuk status dan cast di model, supaya nilai tidak menyebar sebagai string literal.
 - Untuk `jsonb`, gunakan `$table->jsonb('facilities')->default('[]')` dan cast `array`.
+- Model `Setting`: bila `is_encrypted = true`, enkripsi saat menyimpan (`Crypt::encryptString`) dan dekripsi saat membaca lewat accessor/mutator. Jangan memakai cast `encrypted` statis karena hanya sebagian baris yang terenkripsi. Resource API harus menyamarkan nilai terenkripsi.
+- Tambahkan `config/finance.php` yang membaca `FINANCE_EMBED_SECRET` dan `FINANCE_ALLOWED_HOST` dari `.env`, dan **jangan** memakai `env()` di luar berkas config.
+- Migration kolom `is_encrypted`: `$table->boolean('is_encrypted')->default(false)`; constraint CHECK ditambahkan lewat `DB::statement(...)`.
 
 ## 10. Hal yang Perlu Dikonfirmasi dengan Yayasan
 
@@ -223,3 +279,6 @@ Jawaban berikut dapat mengubah skema:
 | 5 | Biaya pendaftaran dibayar online? | Tabel `payments` + integrasi payment gateway (saat ini di luar lingkup) |
 | 6 | Satu anak boleh memilih lebih dari satu unit/pilihan? | `education_unit_id` menjadi tabel `application_choices` (pilihan 1, 2, dst.) |
 | 7 | Berapa lama retensi data pendaftar yang tidak diterima? | Aturan job penghapusan terjadwal |
+| 8 | Dashboard keuangan dibuat dengan alat apa, dan mendukung token embed bertanda tangan? (Q14 di PRD) | Nilai `finance_dashboard_provider`, kebutuhan `FINANCE_EMBED_SECRET`, dan ada tidaknya `finance_dashboard_token_ttl_minutes` |
+| 9 | Siapa saja yang boleh memegang `finance.view`? (Q15 di PRD) | Pemetaan permission pada `RoleSeeder` (saat ini hanya Super Admin) |
+| 10 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16 di PRD) | Bila ya, perlu pembatasan akses lebih ketat dan pencatatan audit yang lebih rinci |
