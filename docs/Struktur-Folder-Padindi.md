@@ -2,20 +2,20 @@
 
 | | |
 |---|---|
-| **Versi** | 0.2 (Draft), selaras dengan PRD v0.2, Skema Database v0.2, Rancangan API v0.2, dan ARCHITECTURE v0.2 |
+| **Versi** | 0.3 (Revisi Kebijakan Keuangan), selaras dengan PRD v0.3, Skema Database v0.3, Rancangan API v0.3, dan ARCHITECTURE v0.3 |
 | **Pola repositori** | Monorepo: satu repo, dua aplikasi (`backend/` dan `frontend/`) |
 | **Backend** | Laravel 12 (REST API) |
 | **Frontend** | React + Vite + TypeScript |
 | **Database** | PostgreSQL |
 
-### Perubahan pada v0.2 (fitur Dashboard Keuangan)
+### Perubahan pada v0.3 (fitur Dashboard Keuangan & Looker Studio)
 
-| Area | Penambahan |
+| Area | Penambahan / Penyesuaian |
 |---|---|
-| **Backend** | `FinanceDashboardController`, Action `GetFinanceEmbed`, `Services/Finance/` (lima berkas), `Exceptions/` (dua exception keuangan), `FinanceEmbedResource`, `UpdateSettingsRequest`, `config/finance.php`, rate limiter bernama `finance`, serta berkas uji |
+| **Backend** | `FinanceDashboardController`, Action `GetFinanceEmbed`, `Services/Finance/` (lima berkas, dengan penekanan pada `StaticUrlEmbedProvider.php` untuk Looker Studio sebagai strategi utama), `Exceptions/` (dua exception keuangan), `FinanceEmbedResource`, `UpdateSettingsRequest`, `config/finance.php`, rate limiter bernama `finance`, serta berkas uji |
 | **Frontend** | `features/admin/finance/`, `lib/sentry.ts` (membuang alamat embed dari laporan), guard dengan prop permission, kode permission di `constants/`, spesifikasi e2e `finance-access.spec.ts` |
 | **Infrastruktur** | `docker/nginx/default.conf.template` (dirender saat deploy) dan `docker/nginx/snippets/security-headers.conf` |
-| **Lingkungan** | `FINANCE_ALLOWED_HOST` dan `FINANCE_EMBED_SECRET` di `backend/.env.example` |
+| **Lingkungan** | `FINANCE_ALLOWED_HOST=lookerstudio.google.com` dan `FINANCE_EMBED_SECRET` di `backend/.env.example` |
 | **Penyelarasan** | `components/brand/` ditambahkan ke pohon frontend agar sesuai `DESIGN.md`; `docs/` kini mencantumkan seluruh dokumen proyek |
 
 ---
@@ -227,9 +227,9 @@ backend/
 │   │   └── Finance/                      # Strategi pembuat alamat/token embed per penyedia
 │   │       ├── EmbedProvider.php         # Interface
 │   │       ├── EmbedProviderResolver.php # Memilih penyedia dari setting
-│   │       ├── MetabaseEmbedProvider.php
-│   │       ├── PowerBiEmbedProvider.php
-│   │       └── StaticUrlEmbedProvider.php # Looker Studio dan "other"
+│   │       ├── StaticUrlEmbedProvider.php # Strategi UTAMA yang diaktifkan (Looker Studio & URL statis)
+│   │       ├── MetabaseEmbedProvider.php # Strategi opsional (token JWT)
+│   │       └── PowerBiEmbedProvider.php  # Strategi opsional (API Power BI)
 │   │
 │   └── Support/
 │       ├── Concerns/
@@ -255,7 +255,7 @@ backend/
 │       ├── AdminUserSeeder.php
 │       ├── EducationUnitSeeder.php
 │       ├── DocumentRequirementSeeder.php
-│       ├── SettingSeeder.php             # Termasuk kunci finance_* (finance_dashboard_enabled = false)
+│       ├── SettingSeeder.php             # Termasuk kunci finance_* (finance_dashboard_enabled = false, finance_dashboard_provider = looker_studio)
 │       └── PageSeeder.php
 ├── resources/
 │   └── views/
@@ -302,7 +302,7 @@ backend/
 | **Policy** | Siapa boleh melakukan apa pada record tertentu | Logika selain otorisasi |
 | **Resource** | Bentuk JSON keluaran, termasuk menyembunyikan data sensitif | Query tambahan (N+1) |
 | **Observer** | Efek samping otomatis (status log) | Logika bisnis utama |
-| **Strategi penyedia** (`Services/Finance`) | Satu kelas per penyedia dashboard di balik interface `EmbedProvider` | Percabangan `if/else` per penyedia di dalam Action |
+| **Strategi penyedia** (`Services/Finance`) | Satu kelas per penyedia dashboard di balik interface `EmbedProvider`. **`StaticUrlEmbedProvider.php` dikonfigurasi sebagai strategi UTAMA yang diaktifkan untuk menangani Looker Studio.** | Percabangan `if/else` per penyedia di dalam Action |
 
 ### Pemisahan Rute
 
@@ -514,12 +514,12 @@ MAIL_MAILER=smtp
 MAIL_FROM_ADDRESS=
 MAIL_FROM_NAME="${APP_NAME}"
 
-# Dashboard Keuangan (v0.2). Kosongkan bila fitur belum dipakai.
-FINANCE_ALLOWED_HOST=
+# Dashboard Keuangan (v0.3). Default host diatur ke Looker Studio. Kosongkan bila fitur belum dipakai.
+FINANCE_ALLOWED_HOST=lookerstudio.google.com
 FINANCE_EMBED_SECRET=
 ```
 
-`FINANCE_ALLOWED_HOST` berisi nama host saja (tanpa `https://` dan tanpa path), mis. `bi.example.org`. `FINANCE_EMBED_SECRET` tidak boleh di-commit; di produksi diisi lewat rahasia server. Nilai `FINANCE_ALLOWED_HOST` yang sama dipakai untuk merender `docker/nginx/default.conf.template`.
+`FINANCE_ALLOWED_HOST` berisi nama host yang diizinkan saja (tanpa `https://` dan tanpa path), e.g. `lookerstudio.google.com` untuk Looker Studio sebagai penyedia utama. `FINANCE_EMBED_SECRET` tidak boleh di-commit; di produksi diisi lewat rahasia server bila menggunakan penyedia berbasis token JWT. Nilai `FINANCE_ALLOWED_HOST` yang sama dipakai untuk merender `docker/nginx/default.conf.template`.
 
 ### `frontend/.env.example`
 
@@ -580,5 +580,5 @@ cd ..
 4. Company profile (publik + CMS admin).
 5. Pendaftaran siswa (backend lalu frontend), lanjut panel verifikasi.
 6. Pendaftaran guru.
-7. Ekspor, dashboard, log aktivitas, dan Dashboard Keuangan (uji kelayakan embed lebih dulu; bergantung pada penyedia yang dipilih).
+7. Ekspor, dashboard, log aktivitas, dan Dashboard Keuangan (menggunakan `StaticUrlEmbedProvider.php` untuk Looker Studio sebagai strategi utama).
 8. Pengujian, UAT, deployment.

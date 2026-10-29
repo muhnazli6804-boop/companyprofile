@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Versi** | 0.2 (Draft) |
-| **Dokumen terkait** | `PRD-Website-Yayasan-Padindi.md`, `Skema-Database-Padindi.md` + `schema-padindi.sql`, `Struktur-Folder-Padindi.md`, `Rancangan-API-Padindi.md` |
+| **Versi** | 0.3 (Draft) |
+| **Dokumen terkait** | `PRD-Website-Yayasan-Padindi.md`, `Skema-Database-Padindi.md` + `schema-padindi.sql`, `Struktur-Folder-Padindi.md`, `Rancangan-API-Padindi.md`, `DESIGN.md` |
 | **Status** | Menunggu review tim teknis dan persetujuan stakeholder |
-| **Perubahan v0.2** | Menambah integrasi **Dashboard Keuangan** (iframe, khusus admin berwenang): bagian 5.7 dan 6.6, penyesuaian keamanan (CSP, ancaman, rahasia), deployment, observabilitas, pengujian, ADR-015 sampai ADR-017, risiko T11 sampai T14, dan pertanyaan 11 sampai 14 |
+| **Perubahan v0.3** | Penyesuaian arsitektur **Dashboard Keuangan**: Tim keuangan menginput/update data transaksi di Google Sheets, tersinkronisasi otomatis ke Supabase (PostgreSQL Cloud) via Google Apps Script (JDBC), dan disematkan dari Looker Studio via iframe di panel admin. |
 
 > Teks dalam `[...]` adalah placeholder atau usulan yang perlu dikonfirmasi. Dokumen ini menjelaskan **bagaimana sistem disusun dan mengapa**. Detail kolom tabel, endpoint, dan struktur folder ada di dokumen terkait.
 
@@ -42,10 +42,10 @@
 
 Sistem terdiri dari dua aplikasi dalam satu repositori (monorepo):
 
-- **Backend**: Laravel 12 sebagai REST API, satu-satunya pemilik logika bisnis, validasi, dan akses data.
+- **Backend**: Laravel 12 sebagai REST API, satu-satunya pemilik logika bisnis, validasi, dan akses data pendaftaran.
 - **Frontend**: React + Vite + TypeScript sebagai SPA, memuat tiga area: situs publik (company profile), area pendaftar, dan panel admin.
-- **Database**: PostgreSQL.
-- **Integrasi tampilan eksternal (v0.2)**: panel admin dapat menyematkan dashboard keuangan dari platform eksternal lewat iframe, khusus pengguna dengan permission `finance.view`. Ini integrasi tampilan, bukan integrasi data: website tidak menyimpan atau mengolah data keuangan (bagian 5.7).
+- **Database Utama**: PostgreSQL (Lokal) untuk data pendaftaran, CMS, dan log sistem.
+- **Integrasi Keuangan (v0.3)**: Panel admin menyematkan dashboard keuangan dari **Looker Studio** lewat iframe, khusus pengguna dengan permission `finance.view`. Ini integrasi tampilan, bukan integrasi data: website tidak menyimpan atau mengolah data keuangan secara langsung (bagian 5.7). Data keuangan di-input/update oleh tim keuangan via **Google Sheets**, tersinkronisasi otomatis ke **Supabase (PostgreSQL Cloud)** via **Google Apps Script (JDBC)**.
 
 Pendekatan yang dipilih adalah **monolit modular**: satu aplikasi backend yang dipisah rapi per area tanggung jawab, bukan microservices. Alasannya: skala yayasan pendidikan tunggal, tim kecil, kebutuhan operasional sederhana, dan lonjakan beban yang terprediksi (musim pendaftaran). Monolit yang disiplin lebih murah dibangun, diuji, dan dirawat, dan tetap bisa dipecah kelak bila dibutuhkan (lihat bagian 21).
 
@@ -60,7 +60,7 @@ Urutan prioritas, dari yang paling memengaruhi keputusan desain:
 | 3 | **Kemudahan perawatan** | Tim kecil, kemungkinan pergantian developer | Monolit modular, lapisan jelas, konvensi kode, pengujian otomatis, dokumentasi |
 | 4 | **Kesederhanaan operasional** | Yayasan tidak memiliki tim DevOps | Topologi minimal, tool terkelola bila memungkinkan, deployment otomatis |
 | 5 | **Kegunaan di perangkat seluler** | Mayoritas orang tua memakai ponsel | Mobile-first, bundle ringan, formulir bertahap dengan simpan draft |
-| 6 | **Keterlacakan** | Setiap perubahan status harus bisa dipertanggungjawabkan | Log status, log aktivitas admin |
+| 6 | **Keterlacakan** | Setiap perubahan status harus bisa dipertanggungjawabkan | Log status, log aktivitas admin (`finance.dashboard_viewed`) |
 | 7 | **Keterbacaan mesin pencari** | Company profile harus mudah ditemukan | Pre-render halaman publik |
 
 **Non-tujuan (fase ini):** skala multi-yayasan (multi-tenant), ketersediaan tinggi lintas wilayah, integrasi pembayaran, aplikasi mobile native.
@@ -74,6 +74,7 @@ flowchart LR
     G[Calon guru]
     A[Admin yayasan]
     SA[Super admin]
+    FIN_STAFF[Tim Keuangan]
 
     SYS[["Website Yayasan Padindi\n(company profile + pendaftaran)"]]
 
@@ -81,7 +82,10 @@ flowchart LR
     CP[Layanan CAPTCHA]
     MON[Monitoring & error tracking]
     BK[Penyimpanan backup offsite]
-    FIN[Platform dashboard keuangan - eksternal]
+    GS[Google Sheets]
+    GAS[Google Apps Script - JDBC]
+    SUPA[(Supabase Cloud DB)]
+    LOOKER[Looker Studio Dashboard]
 
     V -->|melihat profil, berita| SYS
     P -->|mendaftar, unggah dokumen, cek status| SYS
@@ -89,14 +93,19 @@ flowchart LR
     A -->|kelola konten, verifikasi pendaftar, lihat dashboard keuangan| SYS
     SA -->|kelola akun & pengaturan| SYS
 
+    FIN_STAFF -->|input / update data transaksi| GS
+    GS -->|sinkronisasi otomatis via JDBC| GAS
+    GAS -->|writeback data| SUPA
+    SUPA -->|baca data laporan| LOOKER
+
     SYS -->|kirim notifikasi| EM
     SYS -->|verifikasi bot| CP
     SYS -->|kirim error & heartbeat| MON
     SYS -->|backup terenkripsi| BK
-    SYS -->|buat alamat atau token embed, ditampilkan lewat iframe| FIN
+    SYS -->|buat URL embed Looker Studio| LOOKER
 ```
 
-Sistem eksternal yang disentuh pada fase ini hanya lima: email, CAPTCHA, monitoring, penyimpanan backup, dan platform dashboard keuangan (hanya ditampilkan lewat iframe, tanpa pertukaran data). Tidak ada integrasi dengan sistem akademik atau pembayaran.
+Sistem eksternal yang disentuh pada fase ini mencakup: email, CAPTCHA, monitoring, penyimpanan backup, Google Sheets/GAS, Supabase, dan Looker Studio (hanya ditampilkan lewat iframe pada panel admin, tanpa pertukaran data keuangan langsung dengan server Laravel). Tidak ada integrasi langsung antara backend Laravel dengan sistem akademik atau pembayaran.
 
 ## 4. Gambaran Kontainer
 
@@ -106,45 +115,59 @@ flowchart TB
         SPA[React SPA\nPublik / Pendaftar / Admin]
     end
 
-    subgraph Server["Server aplikasi"]
+    subgraph Server["Server aplikasi utama"]
         NG[Nginx\nTLS, static files, reverse proxy]
         FPM[PHP-FPM\nLaravel 12 API]
         WK[Queue worker\nSupervisor]
         SC[Scheduler\ncron: schedule:run]
         FS[(Disk privat\ndokumen unggahan)]
         FP[(Disk publik\ngambar CMS)]
+        DB_LOCAL[(PostgreSQL Local\nData Pendaftaran & CMS)]
     end
 
-    DB[(PostgreSQL)]
+    subgraph Ekosistem Keuangan Eksternal
+        GS[Google Sheets]
+        GAS[Google Apps Script JDBC]
+        SUPA[(Supabase PostgreSQL Cloud)]
+        LS[Looker Studio]
+    end
+
     RD[(Redis\nopsional)]
 
     SPA -->|HTTPS| NG
     NG -->|/ : file statis hasil build| SPA
     NG -->|/api| FPM
-    FPM --> DB
+    FPM --> DB_LOCAL
     FPM --> FS
     FPM --> FP
     FPM -.-> RD
-    FPM -->|dispatch job| DB
-    WK -->|ambil job| DB
-    WK --> DB
+    FPM -->|dispatch job| DB_LOCAL
+    WK -->|ambil job| DB_LOCAL
+    WK --> DB_LOCAL
     WK --> FS
     SC --> FPM
-    SPA -.->|iframe, khusus admin| BI[Dashboard keuangan eksternal]
-    FPM -.->|buat URL atau token embed| BI
+
+    GS -->|Trigger / Sync| GAS
+    GAS -->|JDBC Connect| SUPA
+    SUPA -->|Data Source| LS
+    SPA -.->|iframe, khusus admin finance.view| LS
+    FPM -.->|sediakan URL embed Looker Studio| LS
 ```
 
 | Kontainer | Tanggung jawab |
 |---|---|
-| **React SPA** | Antarmuka tiga area. Tidak memuat logika bisnis yang tidak dapat dipercaya; semua aturan ditegakkan ulang di server |
-| **Nginx** | Terminasi TLS, melayani build frontend, meneruskan `/api` ke PHP-FPM, header keamanan, pembatasan laju lapis pertama, batas ukuran unggahan |
-| **Laravel API** | Autentikasi, otorisasi, validasi, aturan bisnis, akses data, pembuatan PDF/ekspor |
+| **React SPA** | Antarmuka tiga area. Tidak memuat logika bisnis yang tidak dapat dipercaya; semua aturan ditegakkan ulang di server. Menyematkan Looker Studio via iframe di area admin keuangan |
+| **Nginx** | Terminasi TLS, melayani build frontend, meneruskan `/api` ke PHP-FPM, header keamanan (termasuk CSP `frame-src lookerstudio.google.com`), pembatasan laju lapis pertama, batas ukuran unggahan |
+| **Laravel API** | Autentikasi, otorisasi, validasi, aturan bisnis, akses data pendaftaran lokal, pembuatan PDF/ekspor, penyediaan URL embed Looker Studio |
 | **Queue worker** | Mengirim email, memproses gambar, pekerjaan terjadwal berat, dengan percobaan ulang otomatis |
 | **Scheduler** | Pekerjaan berkala (retensi data, pembersihan, dsb.) |
-| **PostgreSQL** | Satu-satunya sumber kebenaran data terstruktur |
+| **PostgreSQL Local** | Satu-satunya sumber kebenaran data pendaftaran, CMS, dan log sistem |
 | **Disk privat / publik** | Berkas dokumen sensitif (tidak pernah publik) dan gambar konten CMS (publik) |
 | **Redis (opsional)** | Cache, rate limiter, dan antrean saat beban meningkat. Tidak wajib di tahap awal |
-| **Dashboard keuangan (eksternal)** | Dimiliki dan dipelihara pihak di luar aplikasi. Website hanya menampilkannya di iframe pada halaman admin dan tidak menyimpan datanya |
+| **Google Sheets** | Antarmuka input/update harian bagi Tim Keuangan |
+| **Google Apps Script (JDBC)** | Skrip penghubung otomatis yang mengirim data dari Sheets ke Supabase |
+| **Supabase Cloud DB** | Database PostgreSQL Cloud tersentralisasi khusus data keuangan |
+| **Looker Studio** | Visualisasi dashboard keuangan eksternal, dimuat langsung oleh browser admin dari origin Google |
 
 **Satu origin.** Frontend dan API dilayani dari domain yang sama (`https://[domain]/` dan `https://[domain]/api`). Ini menghilangkan kerumitan CORS dan membuat cookie sesi Sanctum sederhana (ADR-003). Konten lintas origin yang sengaja diizinkan hanya widget CAPTCHA dan iframe dashboard keuangan pada halaman admin (bagian 5.7).
 
@@ -162,7 +185,7 @@ flowchart TB
     AC --> M[Model / Eloquent]
     SV --> M
     C --> RS[API Resource\nbentuk JSON keluaran]
-    M --> DB[(PostgreSQL)]
+    M --> DB[(PostgreSQL Local)]
     AC --> EV[Observer / Event]
     EV --> JB[Job / Notification\nantrean]
     PL[Policy] -. otorisasi .-> C
@@ -187,9 +210,9 @@ Aturan ketergantungan (arah panah tidak boleh dibalik):
 | **Teacher Registration** | Setara untuk guru | `teacher_applications`, `teacher_educations`, `teacher_experiences`, `teacher_certifications` | Catalog, Documents, Audit |
 | **Documents** | Unggah, verifikasi, unduh terotorisasi | `documents` | Identity |
 | **Audit** | Riwayat status dan log aktivitas | `application_status_logs`, `activity_logs` | Identity |
-| **Finance Embed** | Konfigurasi dan pembuatan alamat atau token embed dashboard keuangan eksternal | `settings` (kunci `finance_*`), `activity_logs` | Identity, Audit |
+| **Finance Embed** | Konfigurasi URL embed Looker Studio dan verifikasi permission `finance.view` | `settings` (kunci `finance_*`), `activity_logs` | Identity, Audit |
 
-Modul masih berada dalam satu codebase dan satu database, tetapi **tidak saling menembus**: modul Registration memanggil Catalog lewat Service/query terdefinisi, bukan menulis ke tabel Catalog. Aturan ini menjaga kemungkinan memecah modul di masa depan.
+Modul masih berada dalam satu codebase dan satu database pendaftaran, tetapi **tidak saling menembus**: modul Registration memanggil Catalog lewat Service/query terdefinisi, bukan menulis ke tabel Catalog. Aturan ini menjaga kemungkinan memecah modul di masa depan.
 
 ### 5.3 Siklus Request: Kirim Pendaftaran
 
@@ -199,7 +222,7 @@ sequenceDiagram
     participant B as Browser
     participant N as Nginx
     participant L as Laravel
-    participant DB as PostgreSQL
+    participant DB as PostgreSQL Local
     participant Q as Queue
     participant W as Worker
     participant E as Email
@@ -266,16 +289,16 @@ Alur guru lebih pendek (`draft → submitted → administrative_review → inter
 
 ### 5.7 Integrasi Dashboard Keuangan
 
-Dashboard keuangan diperlakukan sebagai **integrasi tampilan**, bukan integrasi data. Server hanya memutuskan *siapa boleh melihat* dan menyiapkan alamat yang aman untuk dimuat; isi dashboard dimuat browser langsung dari penyedia dan tidak melewati server aplikasi.
+Dashboard keuangan diperlakukan sebagai **integrasi tampilan Looker Studio**, bukan integrasi data. Server Laravel hanya memutuskan *siapa boleh melihat* (`can:finance.view`) dan menyiapkan URL embed Looker Studio; isi dashboard dimuat browser admin langsung dari `lookerstudio.google.com`.
 
 **Komponen backend**
 
 | Komponen | Tugas |
 |---|---|
 | `FinanceDashboardController` | Tipis: memanggil Action dan mengembalikan Resource |
-| `GetFinanceEmbed` (Action) | Memeriksa konfigurasi, memvalidasi host, memanggil penyedia, mencatat log |
-| `EmbedProvider` (interface) | Kontrak strategi per penyedia: `MetabaseEmbedProvider`, `PowerBiEmbedProvider`, `StaticUrlEmbedProvider` (untuk Looker Studio dan `other`). Menambah penyedia = menambah satu kelas |
-| `config/finance.php` | Membaca `FINANCE_EMBED_SECRET` dan `FINANCE_ALLOWED_HOST` dari `.env` |
+| `GetFinanceEmbed` (Action) | Memeriksa konfigurasi, memvalidasi host, memanggil penyedia (`StaticUrlEmbedProvider`), mencatat log `finance.dashboard_viewed` |
+| `EmbedProvider` (interface) | Kontrak strategi penyedia embed: `StaticUrlEmbedProvider` (untuk Looker Studio). Menambah penyedia = menambah satu kelas |
+| `config/finance.php` | Membaca `FINANCE_ALLOWED_HOST` (`lookerstudio.google.com`) dari `.env` |
 | Model `Setting` | Mendekripsi nilai bertanda `is_encrypted` saat dibaca di dalam Action, dan tidak pernah menampilkannya utuh lewat API pengaturan |
 
 **Alur request**
@@ -286,29 +309,28 @@ sequenceDiagram
     participant B as Browser admin
     participant N as Nginx
     participant L as Laravel
-    participant DB as PostgreSQL
-    participant BI as Dashboard eksternal
+    participant DB as PostgreSQL Local
+    participant LS as Looker Studio
 
     B->>N: GET /api/v1/admin/finance-dashboard
     N->>L: teruskan
     L->>L: auth, EnsureUserIsAdmin, can finance.view
     L->>DB: baca settings finance_* (URL didekripsi)
-    L->>L: validasi host terhadap FINANCE_ALLOWED_HOST
-    L->>L: buat embed_url (JWT bertanda tangan bila didukung)
+    L->>L: validasi host terhadap FINANCE_ALLOWED_HOST (lookerstudio.google.com)
     L->>DB: tulis activity_logs finance.dashboard_viewed
-    L-->>B: 200 embed_url dan expires_at, no-store
-    B->>BI: muat iframe langsung dari penyedia
-    BI-->>B: dashboard (origin berbeda)
+    L-->>B: 200 embed_url, no-store
+    B->>LS: muat iframe langsung dari Looker Studio
+    LS-->>B: dashboard keuangan (origin lookerstudio.google.com)
 ```
 
 **Prinsip batas keamanan**
 
-1. Iframe berjalan di **origin penyedia**, sehingga tidak dapat membaca cookie sesi atau DOM website (kebijakan same-origin browser, `sandbox`, cookie `HttpOnly` + `SameSite=Lax`).
-2. Server **tidak mem-proxy** konten dashboard. Tidak ada data keuangan yang melewati atau tersimpan di server aplikasi.
-3. Host yang diizinkan hanya **satu**, berasal dari `.env` (`FINANCE_ALLOWED_HOST`), dan divalidasi tiga kali: saat menyimpan pengaturan, saat membuat embed, dan oleh browser lewat CSP `frame-src`.
+1. Iframe berjalan di **origin Looker Studio** (`lookerstudio.google.com`), sehingga tidak dapat membaca cookie sesi atau DOM website (kebijakan same-origin browser, `sandbox`, cookie `HttpOnly` + `SameSite=Lax`).
+2. Server Laravel **tidak mem-proxy** atau menyalin data transaksi keuangan. Tidak ada data keuangan yang melewati atau tersimpan di database lokal Laravel.
+3. Host yang diizinkan hanya `lookerstudio.google.com`, berasal dari `.env` (`FINANCE_ALLOWED_HOST`), dan divalidasi tiga kali: saat menyimpan pengaturan, saat membuat embed, dan oleh browser lewat CSP `frame-src`.
 4. Tidak ada rahasia atau URL dashboard di bundel frontend.
 5. **Gagal-aman:** konfigurasi tidak valid menghasilkan `409`, bukan iframe ke host lain.
-6. Pembatasan akses di sumber tetap wajib, karena alamat iframe dapat dilihat di browser pengguna yang berhak.
+6. Pembatasan akses di sumber (Looker Studio) tetap wajib diatur (*sharing permissions*) khusus untuk akun Google berwenang.
 
 **Alternatif yang dipertimbangkan**
 
@@ -316,7 +338,7 @@ sequenceDiagram
 |---|---|
 | Hanya tautan "buka di tab baru" | Paling sederhana dan aman, tetapi tidak memenuhi kebutuhan tampilan di dalam panel admin. Tetap dipertahankan sebagai cadangan di halaman |
 | Mengambil data lewat API/ETL lalu menggambar dashboard sendiri | Mengharuskan website menyimpan dan mengolah data keuangan, di luar lingkup PRD dan memperluas kewajiban pelindungan data |
-| Mem-proxy konten dashboard lewat Laravel | Menambah beban server dan risiko, serta mengalirkan data keuangan melalui sistem ini |
+| Mem-proxy konten dashboard lewat Laravel | Menambah beban server dan risiko, serta mengalirkan data keuangan melalui sistem pendaftaran |
 
 ## 6. Arsitektur Frontend
 
@@ -386,10 +408,10 @@ Satu instance Axios/Fetch dengan perilaku terpusat:
 ### 6.6 Halaman Keuangan (Admin)
 
 - Rute `/admin/keuangan` berada di bawah guard `RequireAdmin` ditambah pemeriksaan permission `finance.view` dari `GET /auth/me`. Menu hanya tampil bila berhak; penegakan sebenarnya tetap di server.
-- Data diambil dengan TanStack Query (kunci `['admin', 'finance-dashboard']`). **Jangan** menyimpan hasilnya ke penyimpanan persisten (tanpa *query persistence*, tanpa `localStorage`), karena memuat alamat atau token embed.
-- Saat tab kembali aktif dan `expires_at` sudah lewat atau tersisa kurang dari 60 detik, ambil ulang `embed_url` dan ganti `src` iframe. Di luar itu iframe tidak dimuat ulang.
+- Data diambil dengan TanStack Query (kunci `['admin', 'finance-dashboard']`). **Jangan** menyimpan hasilnya ke penyimpanan persisten (tanpa *query persistence*, tanpa `localStorage`), karena memuat alamat embed.
+- Saat tab kembali aktif dan URL embed telah kedaluwarsa, ambil ulang `embed_url` dan ganti `src` iframe. Di luar itu iframe tidak dimuat ulang.
 - Komponen `FinanceEmbed` (`features/admin/finance/`) mengelola keadaan: memuat, siap, belum dikonfigurasi (409), tidak tersedia (503), tidak berhak (403). Kegagalan memuat konten lintas origin **tidak dapat dideteksi dengan andal** dari sisi klien, jadi gunakan `onLoad` dengan batas waktu (mis. 15 detik) untuk menampilkan petunjuk "Jika dashboard tidak tampil, buka di tab baru".
-- Atribut iframe dan aturan CSP mengikuti `Rancangan-API-Padindi.md` bagian 11.5.
+- Atribut iframe: `sandbox="allow-scripts allow-same-origin allow-popups allow-forms"` dan `referrerpolicy="no-referrer"`.
 - Alamat embed dibuang dari *breadcrumb* dan laporan Sentry di frontend (scrubbing), dan tidak pernah dicatat ke konsol pada produksi.
 
 ## 7. Arsitektur Data
@@ -398,7 +420,8 @@ Rincian lengkap ada di `Skema-Database-Padindi.md`. Ringkasan keputusan arsitekt
 
 | Keputusan | Alasan |
 |---|---|
-| Satu database PostgreSQL, satu skema aplikasi | Skala dan kebutuhan transaksi (kuota, nomor) cocok untuk RDBMS tunggal |
+| Satu database PostgreSQL Lokal, satu skema aplikasi | Skala dan kebutuhan transaksi (kuota, nomor) pendaftaran cocok untuk RDBMS tunggal |
+| Database Keuangan Terpisah di Supabase Cloud | Mengakomodasi kebiasaan tim keuangan menggunakan Google Sheets + GAS JDBC tanpa mencemari DB pendaftaran lokal |
 | Enum sebagai `varchar` + `CHECK` | Mudah diubah lewat migration tanpa menyentuh tipe enum |
 | Soft delete + *partial unique index* | Slug dan email dapat dipakai ulang; data pendaftaran tidak hilang tak sengaja |
 | Relasi polimorfik untuk `documents` dan `application_status_logs` | Satu mekanisme untuk siswa dan guru; dibatasi `CHECK` dan morph map |
@@ -406,8 +429,8 @@ Rincian lengkap ada di `Skema-Database-Padindi.md`. Ringkasan keputusan arsitekt
 | `jsonb` hanya untuk data semi-terstruktur non-relasional (fasilitas, program unit, properti log) | Data yang dicari/diikat relasi tetap kolom biasa |
 | Indeks trigram untuk pencarian nama | Pencarian admin cepat tanpa mesin pencari terpisah |
 | Migration sebagai satu-satunya jalur perubahan skema | Perubahan terlacak di Git; berkas `schema-padindi.sql` menjadi acuan desain, bukan alat deployment |
-| Nilai rahasia di `settings` ditandai `is_encrypted` | URL dashboard keuangan dapat memuat token, sehingga dienkripsi aplikasi, tidak pernah dikembalikan utuh oleh API, dan dijaga CHECK constraint |
-| Tidak ada data keuangan di database | Dashboard keuangan hanya ditampilkan dari sumber eksternal; website tidak menyalin atau mengolahnya |
+| Nilai rahasia/URL di `settings` ditandai `is_encrypted` | URL Looker Studio dienkripsi aplikasi, tidak pernah dikembalikan utuh oleh API pengaturan |
+| Tidak ada data transaksi keuangan di DB lokal | Dashboard keuangan hanya ditampilkan dari Looker Studio via iframe; website pendaftaran tidak menyalin atau mengolahnya |
 
 **Koneksi database:** pengguna aplikasi memakai hak minimum (DML pada skema aplikasi; tidak punya hak superuser). Pengguna migration terpisah dengan hak DDL, dipakai hanya saat deployment.
 
@@ -423,7 +446,7 @@ Rincian lengkap ada di `Skema-Database-Padindi.md`. Ringkasan keputusan arsitekt
 | Sesi admin | Disarankan masa aktif lebih pendek dan 2FA [prioritas Should] |
 | Pemulihan akun | Tautan reset berumur pendek, sekali pakai, respons seragam |
 | Perlindungan brute force | Rate limit per IP+email, penundaan eksponensial, log percobaan gagal |
-| Dashboard keuangan | Permission `finance.view`, hanya untuk akun `admin`; default hanya Super Admin. Disarankan **2FA wajib** bagi pemegang `finance.view` [Should; menunggu Q15, Q16, dan keputusan 2FA admin] |
+| Dashboard keuangan | Permission `finance.view`, hanya untuk akun `admin`; default hanya Super Admin |
 
 Keputusan tidak memakai token bearer (JWT) untuk SPA: cookie `HttpOnly` tidak dapat dibaca JavaScript sehingga tahan terhadap pencurian token lewat XSS, dan Laravel mengelola siklus hidupnya.
 
@@ -483,7 +506,7 @@ Profil beban tidak merata: sebagian besar waktu sepi, lalu melonjak saat periode
 | **Pekerjaan berat** | Email, gambar, ekspor besar di luar siklus request |
 | **PHP-FPM** | Jumlah worker disetel terhadap memori; OPcache aktif; `config:cache`, `route:cache`, `event:cache`, `view:cache` pada deployment |
 | **Perlindungan** | Rate limit di Nginx dan Laravel; batas ukuran unggahan; batas `per_page` maksimum 100 |
-| **Dashboard keuangan** | Endpoint embed **tidak** di-cache (`Cache-Control: no-store`) karena memuat token. Beban dashboard ditanggung penyedia, bukan server aplikasi |
+| **Dashboard keuangan** | Endpoint embed **tidak** di-cache (`Cache-Control: no-store`) karena memuat URL embed. Beban visualisasi ditanggung Looker Studio, bukan server aplikasi |
 
 Catatan: cache *tags* Laravel tidak didukung driver `file` dan `database`. Jika invalidasi per kelompok diperlukan, gunakan Redis atau kunci cache berversi. Karena itu Redis menjadi komponen pertama yang ditambahkan bila beban menuntut.
 
@@ -524,9 +547,9 @@ flowchart TB
 | Rantai pasok (dependensi) | `composer audit`, `npm audit`, Dependabot/Renovate, kunci versi (`composer.lock`, `package-lock.json`) |
 | Kebocoran rahasia | `.env` di luar Git, rahasia CI di secret store, pemindaian rahasia pada repo |
 | Pengguna tanpa hak mengakses dashboard keuangan | `can:finance.view` di server (menu hanya kemudahan); uji otorisasi untuk pendaftar dan setiap role tanpa permission |
-| Alamat atau token dashboard bocor | Token embed berumur pendek (bila didukung); URL tersimpan terenkripsi dan tidak pernah dikembalikan utuh oleh API pengaturan; `no-store`; alamat embed tidak dicatat di log atau Sentry; sumber dashboard dibatasi aksesnya sendiri |
-| Iframe diarahkan ke host berbahaya (phishing atau clickjacking lewat pengaturan) | Satu host dari `FINANCE_ALLOWED_HOST` (`.env`, bukan database); validasi saat menyimpan dan saat membuat embed; CSP `frame-src` hanya untuk host itu dan hanya pada rute admin |
-| Konten iframe mengakses sesi atau DOM website | Origin berbeda (kebijakan same-origin browser), `sandbox`, `referrerpolicy="no-referrer"`, cookie `HttpOnly` + `SameSite=Lax` |
+| Alamat Looker Studio bocor | URL tersimpan terenkripsi dan tidak pernah dikembalikan utuh oleh API pengaturan; `no-store`; alamat embed tidak dicatat di log atau Sentry; sumber Looker Studio dibatasi hak akses Google-nya |
+| Iframe diarahkan ke host berbahaya (phishing atau clickjacking lewat pengaturan) | Host allowlist `lookerstudio.google.com` berasal dari `.env` (`FINANCE_ALLOWED_HOST`); divalidasi saat menyimpan dan saat membuat embed; CSP `frame-src` hanya untuk host tersebut |
+| Konten iframe mengakses sesi atau DOM website | Origin berbeda (`lookerstudio.google.com`), `sandbox`, `referrerpolicy="no-referrer"`, cookie `HttpOnly` + `SameSite=Lax` |
 
 ### 12.3 Header Keamanan (Nginx)
 
@@ -535,9 +558,9 @@ flowchart TB
 **CSP dan iframe.**
 
 - `frame-src` pada seluruh situs hanya memuat host layanan CAPTCHA, karena widget CAPTCHA memakai iframe.
-- Host dashboard keuangan (`FINANCE_ALLOWED_HOST`) ditambahkan **hanya pada rute `/admin`** lewat blok `location ^~ /admin` terpisah. Dengan begitu halaman publik dan area pendaftar tidak dapat menyematkan dashboard tersebut.
+- Host Looker Studio (`lookerstudio.google.com`) ditambahkan **hanya pada rute `/admin`** lewat blok `location ^~ /admin` terpisah. Dengan begitu halaman publik dan area pendaftar tidak dapat menyematkan Looker Studio.
 - Catatan Nginx: `add_header` pada blok `location` **menggantikan**, bukan menambah, header dari blok induk. Seluruh header keamanan harus diulang, misalnya lewat satu berkas snippet yang di-`include`.
-- `X-Frame-Options: DENY` dan `frame-ancestors 'none'` mengatur siapa yang boleh menyematkan **situs ini**. Keduanya tidak memengaruhi penyematan dashboard eksternal oleh situs ini.
+- `X-Frame-Options: DENY` dan `frame-ancestors 'none'` mengatur siapa yang boleh menyematkan **situs ini**. Keduanya tidak memengaruhi penyematan Looker Studio oleh situs ini.
 
 ### 12.4 Pelindungan Data Pribadi (UU PDP)
 
@@ -549,15 +572,15 @@ flowchart TB
 | Keamanan data | Enkripsi kolom NIK, HTTPS, disk privat, backup terenkripsi |
 | Retensi dan penghapusan | Job `PurgeExpiredApplicantData` sesuai masa retensi [ditetapkan yayasan] |
 | Keterlacakan | `activity_logs` untuk akses/ekspor/ubah oleh admin dan pembukaan dashboard keuangan |
-| Data keuangan | Website tidak menyimpan atau menyalin data keuangan. Bila dashboard memuat data pribadi per siswa atau orang tua, kewajiban UU PDP berlaku pada sumber dashboard, dan akses `finance.view` perlu dibatasi lebih ketat (Q16) |
+| Data keuangan | Website pendaftaran tidak menyimpan atau menyalin data keuangan. Seluruh data transaksi diolah terpisah di Supabase Cloud via Google Sheets |
 | Respons insiden | Prosedur tertulis: deteksi, isolasi, penilaian, pemberitahuan ke pihak berwenang dan subjek data bila disyaratkan [disusun bersama yayasan/konsultan hukum] |
 
 Penafsiran hukum dan kewajiban pasti (mis. penunjukan pejabat pelindungan data, batas waktu pemberitahuan insiden) perlu ditinjau konsultan hukum yayasan; dokumen ini hanya menerjemahkan prinsipnya ke kontrol teknis.
 
 ### 12.5 Pengelolaan Rahasia dan Konfigurasi
 
-- Seluruh rahasia (`APP_KEY`, kredensial DB, SMTP, kunci CAPTCHA, `FINANCE_EMBED_SECRET`) hanya di variabel lingkungan server dan secret CI.
-- Fitur dashboard keuangan memakai dua nilai di `.env`: `FINANCE_EMBED_SECRET` (penandatangan token embed) dan `FINANCE_ALLOWED_HOST` (satu-satunya host yang diizinkan). Rotasi `FINANCE_EMBED_SECRET` aman dilakukan karena token berumur pendek, tetapi harus dilakukan **serentak** dengan kunci embedding di penyedia dashboard.
+- Seluruh rahasia (`APP_KEY`, kredensial DB, SMTP, kunci CAPTCHA) hanya di variabel lingkungan server dan secret CI.
+- Fitur dashboard keuangan memakai `FINANCE_ALLOWED_HOST=lookerstudio.google.com` pada `.env`.
 - `APP_KEY` dipakai untuk enkripsi NIK; **kehilangan atau rotasi tanpa prosedur membuat data terenkripsi tak terbaca**. Simpan salinan aman di luar server dan siapkan prosedur rotasi (enkripsi ulang bertahap).
 - `APP_DEBUG=false` dan `APP_ENV=production` di produksi.
 
@@ -582,9 +605,9 @@ Keputusan ini dicatat sebagai ADR-006. Bila kebutuhan SEO meningkat (banyak kont
 
 | Lingkungan | Tujuan | Data |
 |---|---|---|
-| **Local** | Pengembangan | Docker Compose (app, PostgreSQL, Mailpit, opsional Redis); data seeder |
+| **Local** | Pengembangan | Docker Compose (app, PostgreSQL Local, Mailpit, opsional Redis); data seeder |
 | **Staging** | UAT, uji beban, uji rilis | Data sintetis atau hasil anonimisasi; **tidak** memakai data pendaftar asli |
-| **Production** | Layanan sebenarnya | Data asli |
+| **Production** | Layanan sebenarnya | Data asli pendaftaran di DB lokal; Data keuangan di Supabase Cloud |
 
 ### 14.2 Topologi Produksi (Tahap Awal)
 
@@ -603,19 +626,19 @@ flowchart TB
         FPM --> ST
         SUP --> ST
     end
-    DB[(PostgreSQL\nserver sama atau layanan terkelola)]
-    FPM --> DB
-    SUP --> DB
+    DB_LOCAL[(PostgreSQL Local)]
+    FPM --> DB_LOCAL
+    SUP --> DB_LOCAL
     FPM -->|SMTP/API| MAIL[Layanan email]
     FPM -->|error| SEN[Sentry]
-    U -.->|iframe, khusus admin| BI[Dashboard keuangan eksternal]
-    FPM -.->|URL atau token embed| BI
+    U -.->|iframe, khusus admin| LS[Looker Studio Dashboard]
+    FPM -.->|URL embed Looker Studio| LS
     BK[Backup terenkripsi] --> OFF[(Penyimpanan offsite)]
-    DB --> BK
+    DB_LOCAL --> BK
     ST --> BK
 ```
 
-**Usulan ukuran awal** (harus divalidasi uji beban dan estimasi pendaftar): 2 vCPU, 4 GB RAM, SSD, Ubuntu LTS, PostgreSQL pada server yang sama. Rekomendasi bila anggaran memungkinkan: **PostgreSQL terkelola** (backup, patching, dan pemulihan titik waktu ditangani penyedia), karena database adalah aset paling berharga.
+**Usulan ukuran awal** (harus divalidasi uji beban dan estimasi pendaftar): 2 vCPU, 4 GB RAM, SSD, Ubuntu LTS, PostgreSQL pada server yang sama. Rekomendasi bila anggaran memungkinkan: **PostgreSQL terkelola** (backup, patching, dan pemulihan titik waktu ditangani penyedia), karena database pendaftaran adalah aset paling berharga.
 
 ### 14.3 Konfigurasi Nginx (Gambaran)
 
@@ -625,7 +648,7 @@ flowchart TB
 - `client_max_body_size` selaras batas unggahan aplikasi (usulan 6 MB).
 - Kompresi gzip/brotli, HTTP/2, cache aset ber-hash `immutable`.
 - Blokir akses berkas tersembunyi (`.env`, `.git`) dan eksekusi PHP selain `index.php`.
-- Blok `location ^~ /admin` menambahkan host dashboard keuangan ke `frame-src` pada CSP. Nginx tidak membaca `.env`, jadi hasilkan berkas konfigurasi dari templat saat deployment (mis. `envsubst` dari `FINANCE_ALLOWED_HOST`) dan ulang semua header keamanan di blok itu.
+- Blok `location ^~ /admin` menambahkan host `lookerstudio.google.com` ke `frame-src` pada CSP. Nginx tidak membaca `.env`, jadi hasilkan berkas konfigurasi dari templat saat deployment (mis. `envsubst` dari `FINANCE_ALLOWED_HOST`) dan ulang semua header keamanan di blok itu.
 
 ### 14.4 Strategi Rilis
 
@@ -676,7 +699,7 @@ flowchart LR
 | **Uptime** | Pemantau eksternal (mis. UptimeRobot) pada beranda, `/up`, dan satu endpoint API publik |
 | **Metrik server** | CPU, memori, disk, koneksi PostgreSQL, kedalaman antrean, jumlah job gagal |
 | **Peringatan** | Situs mati, error 5xx melonjak, antrean menumpuk, disk > 80%, backup gagal, sertifikat TLS mendekati kedaluwarsa |
-| **Dashboard keuangan** | Pantau lonjakan respons `503 FINANCE_DASHBOARD_UNAVAILABLE` dan `409 FINANCE_DASHBOARD_NOT_CONFIGURED` pada `GET /admin/finance-dashboard`. Beri peringatan bila validasi host gagal (indikasi konfigurasi berubah tak semestinya). Alamat embed dan token dibuang dari log dan Sentry |
+| **Dashboard keuangan** | Pantau respons `503 FINANCE_DASHBOARD_UNAVAILABLE` dan `409 FINANCE_DASHBOARD_NOT_CONFIGURED` pada `GET /admin/finance-dashboard`. Beri peringatan bila validasi host gagal. Alamat embed Looker Studio dibuang dari log dan Sentry |
 | **Audit bisnis** | `application_status_logs` dan `activity_logs` (bukan pengganti log teknis) |
 | **Runbook** | Dokumen langkah penanganan insiden umum: situs lambat, antrean macet, disk penuh, rollback rilis, restore backup |
 
@@ -684,7 +707,7 @@ flowchart LR
 
 | Aset | Metode | Frekuensi | Retensi (usulan) |
 |---|---|---|---|
-| PostgreSQL | `pg_dump` terkompresi dan terenkripsi (atau snapshot/PITR layanan terkelola) | Harian; lebih sering saat periode pendaftaran | 30 harian + 12 bulanan |
+| PostgreSQL Local | `pg_dump` terkompresi dan terenkripsi (atau snapshot/PITR layanan terkelola) | Harian; lebih sering saat periode pendaftaran | 30 harian + 12 bulanan |
 | Dokumen unggahan (disk privat) | Sinkronisasi inkremental terenkripsi ke penyimpanan offsite | Harian | Mengikuti retensi data pendaftar |
 | Gambar CMS | Sama dengan di atas | Harian | 30 hari |
 | Konfigurasi dan rahasia | Salinan aman di luar server (termasuk `APP_KEY`) | Setiap perubahan | n/a |
@@ -713,7 +736,7 @@ flowchart LR
 | End-to-end | Alur utama: daftar akun → isi formulir → unggah → kirim → admin verifikasi → status berubah | Playwright | Berjalan di staging |
 | Beban | Lonjakan pendaftaran | k6/JMeter | Sebelum musim pendaftaran |
 | Keamanan | OWASP Top 10 dasar, IDOR, unggah berkas, header | Daftar periksa manual + pemindai | Sebelum go-live dan tiap perubahan besar |
-| Dashboard keuangan | Otorisasi (pendaftar dan admin tanpa `finance.view` ditolak), validasi host `FINANCE_ALLOWED_HOST`, URL tidak pernah muncul di `GET /admin/settings`, header `no-store`, log `finance.dashboard_viewed` tanpa URL, dan CSP `frame-src` dashboard hanya pada rute `/admin` | Pest (feature) + pemeriksaan header (curl) di staging |
+| Dashboard keuangan | Otorisasi (pendaftar dan admin tanpa `finance.view` ditolak), validasi host `FINANCE_ALLOWED_HOST`, URL tidak pernah muncul di `GET /admin/settings`, header `no-store`, log `finance.dashboard_viewed` tanpa URL, dan CSP `frame-src` Looker Studio hanya pada rute `/admin` | Pest (feature) + pemeriksaan header (curl) di staging |
 | Aksesibilitas | WCAG 2.1 AA halaman publik dan formulir | axe + uji manual | |
 | UAT | Skenario nyata oleh perwakilan yayasan | Skenario tertulis | Syarat penerimaan proyek |
 
@@ -739,9 +762,9 @@ Format ringkas: konteks, keputusan, konsekuensi. Status semua: **Diusulkan** (me
 | **ADR-012** | **Soft delete + partial unique index** | Mencegah kehilangan data tak sengaja; slug/email dapat dipakai ulang | Query harus konsisten memakai scope soft delete; data perlu retensi/purge terjadwal |
 | **ADR-013** | **Monolit modular, bukan microservices** | Skala dan tim tidak membenarkan kompleksitas operasional | Disiplin batas modul diperlukan agar bisa dipecah kelak |
 | **ADR-014** | **Pengujian backend terhadap PostgreSQL asli** | Skema memakai fitur khusus PostgreSQL | CI sedikit lebih lambat; hasil lebih bisa dipercaya |
-| **ADR-015** | **Dashboard keuangan = iframe tersemat dengan alamat atau token dibuat server** | Memenuhi kebutuhan tampilan di panel admin tanpa menyimpan atau mengolah data keuangan; akses tetap dikendalikan server | Bergantung pada kebijakan embed dan ketersediaan penyedia; kemampuan token berbeda per penyedia, ditangani dengan strategi `EmbedProvider` |
-| **ADR-016** | **Satu host diizinkan dari `.env` + CSP `frame-src` khusus rute `/admin` + URL tersimpan terenkripsi** | Mencegah iframe diarahkan ke host sembarang bila akun admin atau pengaturan disalahgunakan; rahasia tidak ada di repo maupun database plaintext | Mengganti penyedia menuntut perubahan `.env` dan konfigurasi Nginx (deploy), bukan hanya mengubah pengaturan |
-| **ADR-017** | **Permission terpisah `finance.view` (default Super Admin), bukan bagian dari `settings.manage`** | Data keuangan lebih sensitif daripada pengaturan umum; prinsip hak minimum | Satu permission tambahan perlu dikelola; kebijakan pemegangnya menunggu Q15 |
+| **ADR-015** | **Dashboard Keuangan = Looker Studio Iframe + Google Sheets Sync via GAS JDBC ke Supabase** | Mengakomodasi kebiasaan tim keuangan menggunakan spreadsheet, tanpa beban pengembangan UI/pencatatan transaksi di Laravel utama, dan visualisasi Looker Studio gratis/fleksibel | Bergantung pada ketersediaan layanan Google Cloud & Supabase |
+| **ADR-016** | **Allowlist Host (`FINANCE_ALLOWED_HOST=lookerstudio.google.com`) + CSP `frame-src` khusus `/admin`** | Mencegah iframe diarahkan ke host sembarang jika URL disalahgunakan | Penggantian platform BI menuntut penyesuaian `.env` dan Nginx config |
+| **ADR-017** | **Permission terpisah `finance.view` (default Super Admin)** | Data keuangan lebih sensitif daripada pengaturan umum; prinsip hak minimum | Satu permission tambahan perlu dikelola |
 
 ## 20. Risiko Teknis & Utang Teknis
 
@@ -757,10 +780,10 @@ Format ringkas: konteks, keputusan, konsekuensi. Status semua: **Diusulkan** (me
 | T8 | Ketergantungan pada satu developer | Pengetahuan hilang bila berganti | Dokumentasi di `docs/`, ADR, runbook, README per bagian, konvensi kode |
 | T9 | Penyimpanan lokal untuk dokumen tumbuh besar | Disk penuh | Pantau disk, kompres gambar di klien, retensi, siap migrasi ke object storage |
 | T10 | Kepatuhan UU PDP belum ditinjau hukum | Risiko hukum | Tinjauan konsultan hukum sebelum go-live |
-| T11 | Dashboard sumber berstatus tautan publik atau alamatnya bocor | Data keuangan terbuka tanpa melewati website | Wajibkan pembatasan akses di sumber, token berumur pendek, URL terenkripsi, tidak ada URL di repo atau log |
-| T12 | Penyedia mengubah atau menolak kebijakan embed (`X-Frame-Options` atau `frame-ancestors`) | Iframe kosong | Uji kelayakan embed sebelum membangun, tombol "Buka di tab baru" sebagai cadangan, strategi per penyedia memudahkan penggantian |
-| T13 | `FINANCE_EMBED_SECRET` bocor atau tidak sinkron dengan penyedia | Pihak lain dapat membuat token, atau dashboard gagal dimuat | Simpan hanya di `.env`, rotasi terjadwal dan serentak dengan penyedia, peringatan bila respons 503 melonjak |
-| T14 | Ketergantungan pada platform pihak ketiga (SLA, perubahan harga atau kebijakan) | Fitur terganggu di luar kendali tim | Catat penanggung jawab sumber (Q17 di PRD); fitur diisolasi sehingga gangguan tidak memengaruhi pendaftaran |
+| T11 | Skrip Google Apps Script JDBC gagal/gagal koneksi ke Supabase | Data transaksi keuangan di Looker Studio tidak ter-update | Tambahkan error notification / logging di skrip GAS |
+| T12 | Pengguna salah menginput format sel di Google Sheets | Data kotor masuk ke Supabase | Terapkan Data Validation & proteksi rumus di Google Sheets |
+| T13 | Kebocoran URL embed Looker Studio | Pihak luar bisa melihat laporan keuangan | Batasi *sharing permissions* di Looker Studio khusus untuk email Google terotorisasi |
+| T14 | Ketergantungan pada platform pihak ketiga (Looker Studio, Supabase) | Dashboard terganggu di luar kendali tim pendaftaran | Catat penanggung jawab sumber (Q17 di PRD); fitur diisolasi sehingga gangguan tidak memengaruhi pendaftaran |
 
 ## 21. Jalur Evolusi
 
@@ -772,7 +795,7 @@ Urutan peningkatan yang disarankan, dipicu oleh kebutuhan nyata (bukan dijalanka
 4. **Ekspor asinkron** dengan tabel `exports` bila data besar.
 5. **SSR penuh** untuk rute publik bila konten dinamis dan SEO menuntut.
 6. **Notifikasi WhatsApp** sebagai kanal tambahan lewat `Notification` channel baru.
-7. **Modul pembayaran** (payment gateway) sebagai modul baru dengan webhook; menambah tabel `payments`. Bila modul ini dibangun, dashboard keuangan dapat beralih dari iframe ke tampilan native yang membaca data `payments` (menggantikan modul Finance Embed).
+7. **Modul pembayaran** (payment gateway) sebagai modul baru dengan webhook; menambah tabel `payments`. Bila modul ini dibangun, dashboard keuangan dapat beralih dari iframe ke tampilan native yang membaca data `payments`.
 8. **Modul tes seleksi/jadwal wawancara** (`student_assessments`).
 9. **Server aplikasi horizontal** (beberapa instance di belakang load balancer; sesi dan cache di Redis, penyimpanan di object storage).
 10. **Aplikasi mobile/klien lain** dengan autentikasi token Sanctum.
@@ -781,19 +804,19 @@ Aturan modul (bagian 5.2) menjaga agar langkah 7-8 menjadi penambahan, bukan per
 
 ## 22. Pertanyaan Terbuka
 
-| # | Pertanyaan | Dampak arsitektural |
-|---|---|---|
-| 1 | Berapa perkiraan jumlah pendaftar per periode dan pengunjung bersamaan puncak? | Ukuran server, kebutuhan Redis/CDN, target uji beban |
-| 2 | Apakah yayasan sudah memiliki domain dan hosting, atau memilih penyedia baru? | Topologi, pilihan layanan terkelola, anggaran |
-| 3 | Anggaran bulanan infrastruktur (server, DB terkelola, email, CDN, monitoring)? | Pilihan antara VPS tunggal vs layanan terkelola |
-| 4 | Penyedia email transaksional yang akan dipakai? | Konfigurasi SMTP/API, reputasi pengirim (SPF/DKIM/DMARC) |
-| 5 | Target RPO/RTO yang dapat diterima yayasan? | Strategi backup (harian vs PITR) |
-| 6 | Masa retensi data pendaftar yang tidak diterima dan data guru yang tidak lolos? | Job retensi dan kebijakan backup |
-| 7 | Siapa yang bertanggung jawab operasional pasca-peluncuran (patch, backup, pemantauan)? | Kontrak pemeliharaan, tingkat otomatisasi yang diperlukan |
-| 8 | Apakah perlu 2FA untuk admin pada rilis pertama? | Komponen autentikasi tambahan |
-| 9 | Apakah diperlukan pemindaian virus pada unggahan? | Komponen ClamAV dan sumber daya server |
-| 10 | Apakah ada kebijakan pemerintah/dinas yang mewajibkan lokasi data di dalam negeri atau sertifikasi tertentu? | Pilihan wilayah hosting dan penyedia |
-| 11 | Dashboard keuangan memakai penyedia apa, apakah mengizinkan embed, dan mendukung token bertanda tangan? (Q14 di PRD) | Strategi `EmbedProvider`, `FINANCE_ALLOWED_HOST`, kredensial tambahan, uji kelayakan embed |
-| 12 | Siapa saja pemegang `finance.view`? (Q15) | Pemetaan role dan kebutuhan 2FA wajib |
-| 13 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16) | Tingkat pembatasan akses, 2FA wajib, kewajiban UU PDP di sumber |
-| 14 | Apakah host dashboard dapat dipastikan satu host tetap (bukan beberapa subdomain berganti)? | Kebijakan CSP `frame-src` dan allowlist satu host; bila lebih dari satu perlu daftar allowlist |
+| # | Pertanyaan | Dampak arsitektural | Status |
+|---|---|---|---|
+| 1 | Berapa perkiraan jumlah pendaftar per periode dan pengunjung bersamaan puncak? | Ukuran server, kebutuhan Redis/CDN, target uji beban | Open |
+| 2 | Apakah yayasan sudah memiliki domain dan hosting, atau memilih penyedia baru? | Topologi, pilihan layanan terkelola, anggaran | Open |
+| 3 | Anggaran bulanan infrastruktur (server, DB terkelola, email, CDN, monitoring)? | Pilihan antara VPS tunggal vs layanan terkelola | Open |
+| 4 | Penyedia email transaksional yang akan dipakai? | Konfigurasi SMTP/API, reputasi pengirim (SPF/DKIM/DMARC) | Open |
+| 5 | Target RPO/RTO yang dapat diterima yayasan? | Strategi backup (harian vs PITR) | Open |
+| 6 | Masa retensi data pendaftar yang tidak diterima dan data guru yang tidak lolos? | Job retensi dan kebijakan backup | Open |
+| 7 | Siapa yang bertanggung jawab operasional pasca-peluncuran (patch, backup, pemantauan)? | Kontrak pemeliharaan, tingkat otomatisasi yang diperlukan | Open |
+| 8 | Apakah perlu 2FA untuk admin pada rilis pertama? | Komponen autentikasi tambahan | Open |
+| 9 | Apakah diperlukan pemindaian virus pada unggahan? | Komponen ClamAV dan sumber daya server | Open |
+| 10 | Apakah ada kebijakan pemerintah/dinas yang mewajibkan lokasi data di dalam negeri atau sertifikasi tertentu? | Pilihan wilayah hosting dan penyedia | Open |
+| 11 | Dashboard keuangan memakai penyedia apa & arsitekturnya? (Q14 di PRD) | Konfigurasi `FINANCE_ALLOWED_HOST`, `EmbedProvider`, dan arsitektur database terpisah | **Resolved** (Looker Studio + Google Sheets + GAS JDBC + Supabase Cloud DB) |
+| 12 | Siapa saja pemegang `finance.view`? (Q15) | Pemetaan role admin | **Resolved** (Default Super Admin) |
+| 13 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16) | Tingkat pembatasan akses, 2FA wajib, kewajiban UU PDP di sumber | **Resolved** (Hanya data ringkasan/agregat) |
+| 14 | Pemelihara dashboard & data? (Q17) | Pembagian peran operasional | **Resolved** (Tim Keuangan mengelola Google Sheets, tim teknis mengelola Supabase & Looker Studio) |

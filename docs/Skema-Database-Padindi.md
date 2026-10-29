@@ -1,284 +1,606 @@
-# Skema Database — Website Yayasan Padindi
+# Dokumentasi Skema Database - Yayasan Padindi v0.3
 
-| | |
-|---|---|
-| **Versi** | 0.2 (Draft), selaras dengan PRD v0.2 |
-| **DBMS** | PostgreSQL 15+ |
-| **Framework** | Laravel 12 |
-| **File DDL** | `schema-padindi.sql` (30 tabel, sudah lolos validasi sintaks PostgreSQL) |
-
-Dokumen ini menjelaskan **struktur dan alasan desain**. Definisi kolom lengkap (tipe data, constraint, indeks) ada di `schema-padindi.sql`.
-
-### Perubahan pada v0.2 (fitur Dashboard Keuangan)
-
-| Perubahan | Keterangan |
-|---|---|
-| **Tidak ada tabel baru** | Dashboard hanya menampilkan sumber eksternal, jadi tidak ada data keuangan yang disimpan. Jumlah tabel tetap 30 |
-| Kolom baru `settings.is_encrypted` | Menandai nilai rahasia. Dipakai untuk `finance_dashboard_url` karena URL dashboard dapat memuat token |
-| Constraint baru `settings_finance_url_encrypted_check` | Database menolak `finance_dashboard_url` yang tidak ditandai terenkripsi |
-| Permission baru `finance.view` | Default hanya Super Admin (lihat bagian 3.1) |
-| Kunci `settings` baru | Lima kunci berkelompok `finance` (lihat bagian 3.6) |
-| Nilai `activity_logs.action` baru | `finance.dashboard_viewed`, `finance.settings_updated` |
-| Aturan bisnis baru | Nomor 10 pada bagian 6 |
+Dokumen ini memuat spesifikasi teknis lengkap skema basis data terpusat untuk **Yayasan Padindi** dan seluruh unit sekolah di bawah naungannya (SD, SMP, SMA/SMK). Skema dirancang menggunakan basis data relasional **PostgreSQL 15+** dengan dukungan pustaka ekstensi untuk enkripsi data, pencarian teks, dan pembuatan ID unik secara terdistribusi (`uuid-ossp`).
 
 ---
 
-## 1. Konvensi
+## 1. Arsitektur & Prinsip Desain Basis Data
 
-| Topik | Keputusan |
-|---|---|
-| Primary key | `bigint` identity (`$table->id()` di Laravel) |
-| Waktu | `timestamptz` (gunakan `timestampsTz()` di migration) |
-| Enum | `varchar` + `CHECK`, bukan tipe enum native PostgreSQL. Pada PHP gunakan Backed Enum. Lebih mudah diubah lewat migration |
-| Soft delete | Kolom `deleted_at` pada tabel inti (users, aplikasi pendaftaran, unit, periode, konten) |
-| Unique + soft delete | Memakai *partial unique index* `WHERE deleted_at IS NULL` agar slug/email bisa dipakai ulang setelah data dihapus |
-| Gender | `L` / `P` |
-| Data sensitif (NIK) | Kolom `nik` bertipe `text` diisi nilai **terenkripsi** (cast `encrypted` Laravel). Kolom `nik_hash` (SHA-256) dipakai untuk pencarian dan deteksi duplikat, karena data terenkripsi tidak bisa dicari langsung |
-| Relasi polimorfik | `documents` dan `application_status_logs` dipakai bersama oleh pendaftaran siswa dan guru. Gunakan `Relation::enforceMorphMap` dengan alias `student_application` dan `teacher_application` |
-| Pencarian nama | Ekstensi `pg_trgm` + indeks GIN untuk `ILIKE '%...%'` pada panel admin |
-| Tabel bawaan Laravel | `sessions`, `cache`, `jobs`, `job_batches`, `failed_jobs`, `password_reset_tokens`, `personal_access_tokens` dibuat oleh artisan, tidak masuk DDL |
+1. **Mesin Database**: PostgreSQL 15+ / Supabase Infrastructure.
+2. **Pengidentifikasi Utama (Primary Key)**: Penggunaan `UUIDv4` untuk seluruh tabel guna menjamin keunikan ID secara lintas modul dan mencegah *enumeration attack*.
+3. **Konvensi Penamaan**: `snake_case` untuk nama tabel dan kolom, bahasa Inggris untuk entitas teknis, dan konteks spesifik lokal (seperti `nisn`, `nik`, `spp`).
+4. **Audit & Soft Delete**: Setiap tabel utama memiliki kolom standar audit:
+   - `created_at` (TIMESTAMP WITH TIME ZONE)
+   - `updated_at` (TIMESTAMP WITH TIME ZONE)
+   - `deleted_at` (TIMESTAMP WITH TIME ZONE, untuk penanganan *soft delete*)
+5. **Integritas Referensial**: Menggunakan *Foreign Key Constraints* dengan strategi `ON DELETE RESTRICT` pada transaksi sensitif dan `ON DELETE CASCADE` pada data dependen.
+6. **Multi-Unit Isolation**: Pemisahan data per unit sekolah (SD, SMP, SMA/SMK) diikat melalui `unit_id`.
 
-## 2. Diagram Relasi (ERD)
+---
+
+## 2. Diagram Hubungan Entitas (ERD)
 
 ```mermaid
 erDiagram
-    users ||--o{ student_applications : "mendaftar"
-    users ||--o{ teacher_applications : "melamar"
-    users }o--o{ roles : "role_user"
-    roles }o--o{ permissions : "permission_role"
-
-    education_units ||--o{ period_unit_quotas : "kuota"
-    registration_periods ||--o{ period_unit_quotas : "kuota"
-    education_units ||--o{ document_requirements : "syarat khusus"
-    education_units ||--o{ student_applications : "dituju"
-    registration_periods ||--o{ student_applications : "periode"
-    education_units ||--o{ teacher_vacancies : "membuka"
-
-    student_applications ||--|| students : "data siswa"
-    student_applications ||--o{ guardians : "orang tua/wali"
-
-    teacher_vacancies ||--o{ teacher_applications : "dilamar"
-    teacher_applications ||--o{ teacher_educations : "pendidikan"
-    teacher_applications ||--o{ teacher_experiences : "pengalaman"
-    teacher_applications ||--o{ teacher_certifications : "sertifikasi"
-
-    student_applications ||--o{ documents : "berkas (morph)"
-    teacher_applications ||--o{ documents : "berkas (morph)"
-    student_applications ||--o{ application_status_logs : "riwayat (morph)"
-    teacher_applications ||--o{ application_status_logs : "riwayat (morph)"
-
-    post_categories ||--o{ posts : "kategori"
-    galleries ||--o{ gallery_items : "foto"
-    users ||--o{ activity_logs : "aktivitas"
+    units ||--o{ users : "memiliki staff/admin"
+    units ||--o{ classes : "memiliki rombel"
+    units ||--o{ ppdb_waves : "membuka PPDB"
+    
+    roles ||--o{ users : "diberikan ke"
+    users ||--o| user_profiles : "memiliki profil"
+    users ||--o{ staff_profiles : "detail pegawai"
+    users ||--o{ parent_student_relations : "orang tua dari"
+    
+    academic_years ||--o{ semesters : "terdiri dari"
+    academic_years ||--o{ classes : "tahun berjalan"
+    
+    classes ||--o{ class_subjects : "memiliki matpel"
+    classes ||--o{ students : "menampung siswa"
+    subjects ||--o{ class_subjects : "diajarkan di"
+    
+    students ||--o| user_profiles : "profil siswa"
+    students ||--o{ parent_student_relations : "memiliki wali"
+    students ||--o{ student_bills : "memiliki tagihan"
+    
+    ppdb_waves ||--o{ ppdb_registrations : "menerima pendaftaran"
+    ppdb_registrations ||--o{ ppdb_documents : "melampirkan berkas"
+    ppdb_registrations ||--o| ppdb_payments : "pembayaran pendaftaran"
+    
+    fee_categories ||--o{ student_bills : "tipe pembayaran"
+    student_bills ||--o{ payments : "dibayar via"
+    
+    news_categories ||--o{ posts : "kategori berita"
+    users ||--o{ posts : "ditulis oleh"
 ```
 
-## 3. Kamus Tabel
+---
 
-### 3.1 Pengguna & Hak Akses
+## 3. Ekstensi & Tipe Enum (Custom Types)
 
-| Tabel | Fungsi | Catatan |
-|---|---|---|
-| `users` | Semua akun, dibedakan oleh `user_type` (`applicant` / `admin`) | Email unik (case-insensitive) di antara akun yang belum dihapus |
-| `roles` | Role admin: `super_admin`, `admin_registration`, `admin_content` | |
-| `permissions` | Hak akses granular, contoh `applications.verify`, `applications.export` | |
-| `permission_role`, `role_user` | Tabel pivot | |
+```sql
+-- Ekstensi PostgreSQL yang Diperlukan
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "citext";
 
-> Jika memakai paket **spatie/laravel-permission**, lewati keempat tabel terakhir dan gunakan migration bawaan paket.
+-- Tipe Enum untuk Role Pengguna
+CREATE TYPE user_role_enum AS ENUM (
+    'super_admin',
+    'admin_yayasan',
+    'admin_unit',
+    'guru',
+    'staf_keuangan',
+    'staf_tu',
+    'siswa',
+    'orang_tua'
+);
 
-**Daftar permission awal** (diisi `RoleSeeder`; selaras dengan `Rancangan-API-Padindi.md` bagian 2.3-2.4, ditambah `finance.view`):
+-- Tipe Enum untuk Status Siswa
+CREATE TYPE student_status_enum AS ENUM (
+    'calon_siswa',
+    'aktif',
+    'cuti',
+    'lulus',
+    'pindah',
+    'drop_out'
+);
 
-| Permission | Super Admin | Admin Pendaftaran | Admin Konten |
-|---|:---:|:---:|:---:|
-| `dashboard.view` | ✅ | ✅ | ✅ |
-| `applications.view` | ✅ | ✅ | ❌ |
-| `applications.view_sensitive` | ✅ | ✅ | ❌ |
-| `applications.verify` | ✅ | ✅ | ❌ |
-| `applications.export` | ✅ | ✅ | ❌ |
-| `periods.manage` | ✅ | ✅ | ❌ |
-| `requirements.manage` | ✅ | ✅ | ❌ |
-| `vacancies.manage` | ✅ | ✅ | ❌ |
-| `units.manage` | ✅ | ❌ | ✅ |
-| `content.manage` | ✅ | ❌ | ✅ |
-| `messages.manage` | ✅ | ❌ | ✅ |
-| `users.manage` | ✅ | ❌ | ❌ |
-| `settings.manage` | ✅ | ❌ | ❌ |
-| `logs.view` | ✅ | ❌ | ❌ |
-| **`finance.view`** (baru) | ✅ | ❌ | ❌ |
+-- Tipe Enum untuk Status PPDB
+CREATE TYPE ppdb_status_enum AS ENUM (
+    'draft',
+    'terdaftar',
+    'terverifikasi',
+    'lulus_seleksi',
+    'tidak_lulus',
+    'batal'
+);
 
-`finance.view` hanya boleh diberikan kepada akun ber-`user_type = admin`. Pembatasan ini ditegakkan di aplikasi saat permission ditetapkan, bukan oleh database. Super Admin dapat memberikannya ke role lain lewat manajemen role (sesuai keputusan PRD, menunggu Q15).
+-- Tipe Enum untuk Status Pembayaran
+CREATE TYPE payment_status_enum AS ENUM (
+    'pending',
+    'paid',
+    'failed',
+    'expired',
+    'refunded'
+);
 
-### 3.2 Master Data Pendaftaran
-
-| Tabel | Fungsi | Aturan penting |
-|---|---|---|
-| `education_units` | Unit pendidikan (PAUD/TK/SD/SMP/SMA/SMK/lainnya) | `facilities` dan `programs` bertipe `jsonb` agar fleksibel untuk halaman profil unit |
-| `registration_periods` | Periode/gelombang PPDB | `closes_at > opens_at`; `registration_fee` hanya informasi (pembayaran online di luar lingkup) |
-| `period_unit_quotas` | Kuota per periode per unit | Unik pada pasangan (periode, unit) |
-| `document_requirements` | Daftar dokumen wajib yang dapat diatur per jenis pendaftar (siswa/guru) dan per unit | `education_unit_id` NULL berarti berlaku untuk semua unit. Menjawab risiko R6 (syarat berbeda antar-unit) |
-| `registration_counters` | Penghitung nomor pendaftaran | Aman terhadap akses bersamaan (lihat bagian 6) |
-
-### 3.3 Pendaftaran Siswa
-
-| Tabel | Fungsi | Aturan penting |
-|---|---|---|
-| `student_applications` | Entitas utama pendaftaran: pemilik akun, periode, unit, status, nomor | Satu akun dapat memiliki banyak pendaftaran (mendukung FR-043). `current_step` (1-5) menyimpan posisi form multi-step untuk draft. Status selain `draft` wajib memiliki nomor pendaftaran dan `submitted_at` |
-| `students` | Data calon siswa (1:1 dengan pendaftaran) | NIK terenkripsi + `nik_hash` |
-| `guardians` | Ayah, ibu, wali | Unik per (pendaftaran, hubungan); satu baris ditandai `is_primary_contact` |
-
-### 3.4 Pendaftaran Guru
-
-| Tabel | Fungsi | Aturan penting |
-|---|---|---|
-| `teacher_vacancies` | Lowongan guru | Tampil di publik bila `is_published` dan belum lewat `closes_at` |
-| `teacher_applications` | Lamaran guru, memuat data diri pelamar | `teacher_vacancy_id` boleh NULL untuk lamaran terbuka (tanpa lowongan spesifik) |
-| `teacher_educations` | Riwayat pendidikan (banyak) | IPK 0-4,00 |
-| `teacher_experiences` | Riwayat pengalaman (banyak) | `end_date` NULL = masih berjalan |
-| `teacher_certifications` | Sertifikasi, misal sertifikat pendidik (banyak) | Tabel tambahan dari PRD untuk memenuhi FR-052 |
-
-### 3.5 Dokumen & Riwayat
-
-| Tabel | Fungsi | Aturan penting |
-|---|---|---|
-| `documents` | Berkas unggahan milik pendaftaran siswa/guru | Disimpan di disk **privat**. Satu "slot" dokumen unik per (pemilik, `document_type`, `sequence`) selama belum dihapus, sehingga unggah ulang = ganti berkas lama (soft delete). Status verifikasi: `pending` / `valid` / `invalid` |
-| `application_status_logs` | Riwayat setiap perubahan status beserta catatan dan pelaku | Hanya ditambah (append-only), tidak diubah. Sumber tampilan "riwayat status" untuk pendaftar |
-
-### 3.6 Konten (CMS)
-
-| Tabel | Fungsi |
-|---|---|
-| `posts`, `post_categories` | Berita/kegiatan. Status `draft` / `published` / `archived` |
-| `pages` | Halaman statis (tentang, visi misi, kebijakan privasi, dll.) |
-| `organization_members` | Struktur organisasi sebagai data (nama, jabatan, foto, urutan) |
-| `galleries`, `gallery_items` | Album dan foto |
-| `banners` | Banner beranda, dengan jadwal tayang opsional |
-| `contact_messages` | Pesan dari formulir kontak. Status `new` / `read` / `replied` |
-| `settings` | Pengaturan situs berbentuk key-value (nama situs, kontak, media sosial, dan konfigurasi Dashboard Keuangan). Kolom `is_encrypted` menandai nilai rahasia yang disimpan terenkripsi |
-
-**Kunci `settings` untuk Dashboard Keuangan** (`group_name = 'finance'`):
-
-| Kunci | Contoh nilai | Terenkripsi | Keterangan |
-|---|---|:---:|---|
-| `finance_dashboard_enabled` | `false` | Tidak | Saklar fitur. Default mati sampai dikonfigurasi |
-| `finance_dashboard_provider` | `looker_studio`, `metabase`, `power_bi`, `other` | Tidak | Menentukan cara pembuatan URL atau token embed (menunggu Q14 di PRD) |
-| `finance_dashboard_title` | `Dashboard Keuangan` | Tidak | Judul yang tampil di halaman |
-| `finance_dashboard_url` | URL dasar dashboard | **Ya** | Dapat memuat token atau parameter, sehingga dianggap rahasia. Constraint `settings_finance_url_encrypted_check` memaksa `is_encrypted = true` |
-| `finance_dashboard_token_ttl_minutes` | `10` | Tidak | Umur token embed, hanya untuk penyedia dengan token bertanda tangan |
-
-**Rahasia yang tidak masuk database** (hanya di `.env` server): `FINANCE_EMBED_SECRET` (kunci penandatangan token embed) dan `FINANCE_ALLOWED_HOST` (satu-satunya host yang diizinkan untuk URL dashboard, juga dipakai pada CSP `frame-src`).
-
-### 3.7 Audit
-
-| Tabel | Fungsi |
-|---|---|
-| `activity_logs` | Jejak aksi penting admin (ubah status, ekspor data, hapus, buka dashboard keuangan). Detail perubahan disimpan di `properties` (`jsonb`). Aksi baru pada v0.2: `finance.dashboard_viewed` dan `finance.settings_updated` |
-
-## 4. Nilai Status
-
-**Pendaftaran siswa** (`student_applications.status`)
-
-```
-draft → submitted → in_review ⇄ revision_required
-                        ↓
-                    verified → accepted | rejected | waitlisted
+-- Tipe Enum untuk Metode Pembayaran
+CREATE TYPE payment_method_enum AS ENUM (
+    'bank_transfer',
+    'virtual_account',
+    'qris',
+    'cash_tu',
+    'e_wallet'
+);
 ```
 
-**Lamaran guru** (`teacher_applications.status`)
+---
 
+## 4. DDL & Definisi Tabel Terperinci
+
+### Modul 1: Autentikasi & Pengguna (`auth_` & `users`)
+
+#### Tabel `roles`
+Menyimpan daftar peran dan kewenangan akses dalam sistem.
+
+| Kolom | Tipe Data | Constraint | Keterangan |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PRIMARY KEY, DEFAULT `uuid_generate_v4()` | ID Unik Peran |
+| `name` | `user_role_enum` | UNIQUE, NOT NULL | Nama peran akses |
+| `description` | TEXT | NULLABLE | Deskripsi rincian wewenang |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT `NOW()` | Waktu dibuat |
+
+#### Tabel `users`
+Tabel utama autentikasi akun pengguna.
+
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email CITEXT UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+    unit_id UUID NULLABLE, -- Foreign key ditambahkan setelah tabel units dibuat
+    phone_number VARCHAR(20) UNIQUE NULLABLE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login_at TIMESTAMPTZ NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULLABLE
+);
 ```
-draft → submitted → administrative_review → interview_test → passed | failed | reserve
+
+#### Tabel `user_profiles`
+Menyimpan data identitas personal pengguna secara detail.
+
+```sql
+CREATE TABLE user_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    full_name VARCHAR(150) NOT NULL,
+    nik VARCHAR(16) UNIQUE NULLABLE,
+    gender CHAR(1) CHECK (gender IN ('L', 'P')),
+    birth_place VARCHAR(100) NULLABLE,
+    birth_date DATE NULLABLE,
+    address TEXT NULLABLE,
+    religion VARCHAR(30) NULLABLE,
+    avatar_url TEXT NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 ```
 
-> Pada versi ini lamaran guru belum memiliki status revisi. Jika yayasan membutuhkannya, cukup tambahkan nilai `revision_required` pada CHECK constraint.
+---
 
-Transisi status divalidasi di aplikasi (misalnya lewat state machine sederhana pada Service/Enum), sedangkan database menjaga nilai yang valid dan kelengkapan nomor pendaftaran.
+### Modul 2: Keorganisasian & Unit Yayasan (`foundation_`)
 
-## 5. Strategi Indeks
+#### Tabel `units`
+Menyimpan daftar unit pendidikan/lembaga di bawah Yayasan Padindi.
 
-| Kebutuhan | Indeks |
-|---|---|
-| Tabel pendaftar admin dengan filter periode/unit/status | `student_applications (registration_period_id, education_unit_id, status)` |
-| Pendaftar melihat pendaftarannya | `student_applications (user_id)` |
-| Cari berdasarkan nomor pendaftaran | Unique `registration_number` |
-| Cari berdasarkan nama | GIN trigram pada `students.full_name` dan `teacher_applications.full_name` |
-| Cek duplikat NIK | `nik_hash` pada `students` dan `teacher_applications` |
-| Halaman publik berita | `posts (status, published_at DESC)` |
-| Cek periode aktif | `registration_periods (is_active, opens_at, closes_at)` |
-| Riwayat dan dokumen per pendaftaran | `(type, id)` pada `documents` dan `application_status_logs` |
+```sql
+CREATE TABLE units (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(20) UNIQUE NOT NULL, -- e.g., 'SD_PADINDI', 'SMP_PADINDI', 'SMA_PADINDI'
+    name VARCHAR(100) NOT NULL,
+    level VARCHAR(20) NOT NULL, -- 'SD', 'SMP', 'SMA', 'SMK', 'YAYASAN'
+    npsn VARCHAR(10) UNIQUE NULLABLE,
+    address TEXT NOT NULL,
+    phone VARCHAR(20) NULLABLE,
+    email VARCHAR(100) NULLABLE,
+    logo_url TEXT NULLABLE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-## 6. Aturan Bisnis yang Perlu Ditangani di Aplikasi
+-- Penambahan Foreign Key unit_id ke tabel users
+ALTER TABLE users ADD CONSTRAINT fk_users_unit FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE SET NULL;
+```
 
-1. **Nomor pendaftaran.** Dibuat saat pendaftaran dikirim, bukan saat draft. Contoh format `PPDB-2027-00001`. Gunakan `registration_counters` dengan satu statement atomik:
-   ```sql
-   INSERT INTO registration_counters (scope, last_number)
-   VALUES ('student-2027', 1)
-   ON CONFLICT (scope) DO UPDATE
-     SET last_number = registration_counters.last_number + 1,
-         updated_at = now()
-   RETURNING last_number;
-   ```
-   Jalankan di dalam transaksi yang sama dengan pengiriman pendaftaran.
-2. **Kuota.** Hitung jumlah pendaftaran berstatus `accepted` (atau `verified`, sesuai kebijakan yayasan) per unit/periode dan bandingkan dengan `period_unit_quotas.quota`. Gunakan transaksi + penguncian baris saat menerima pendaftar agar kuota tidak terlewati.
-3. **Periode aktif.** Pendaftaran baru hanya boleh dikirim jika `now()` berada di antara `opens_at` dan `closes_at`.
-4. **Deteksi duplikat.** Sebelum kirim, cek `nik_hash` yang sama pada periode yang sama dan tampilkan peringatan (jangan langsung blokir, karena bisa jadi salah ketik atau pendaftaran ulang).
-5. **Kelengkapan dokumen.** Validasi terhadap `document_requirements` untuk jenis pendaftar dan unit terkait sebelum status boleh menjadi `submitted`.
-6. **Hak akses data.** Pendaftar hanya dapat membaca/ubah pendaftaran miliknya (Laravel Policy). Pendaftaran hanya bisa diubah saat status `draft` atau `revision_required`.
-7. **Setiap perubahan status** menulis satu baris ke `application_status_logs` dan, untuk aksi admin, satu baris ke `activity_logs`.
-8. **File dokumen** diakses lewat endpoint terotorisasi atau URL bertanda tangan, tidak pernah lewat URL publik langsung.
-9. **Retensi data.** Siapkan job terjadwal untuk menghapus/anonimkan data pendaftar yang tidak diterima setelah masa retensi yang disepakati yayasan (UU PDP).
-10. **Dashboard Keuangan.** Aturan yang ditegakkan di aplikasi:
-    - Permission `finance.view` hanya boleh ditetapkan pada akun `user_type = admin`.
-    - Host pada `finance_dashboard_url` harus sama dengan `FINANCE_ALLOWED_HOST`, divalidasi saat menyimpan dan saat membuat embed. Ini mencegah iframe diarahkan ke host sembarang.
-    - Nilai `finance_dashboard_url` tidak pernah dikembalikan utuh oleh `GET /admin/settings` (ditampilkan tersamar); nilai hanya dapat diganti. URL atau token embed hanya keluar lewat endpoint terotorisasi `GET /admin/finance-dashboard`.
-    - Setiap pembukaan menulis `activity_logs` dengan `action = 'finance.dashboard_viewed'`. Kolom `properties` hanya memuat penyedia, **tanpa URL atau token**.
-    - Perubahan konfigurasi menulis `finance.settings_updated` tanpa mencatat nilai URL.
-    - Tidak ada data keuangan yang disalin atau disimpan ke database.
+#### Tabel `staff_profiles`
+Detail profil khusus untuk Tenaga Pendidik (Guru) dan Kependidikan (Staf TU/Keuangan).
 
-## 7. Urutan Migration yang Disarankan
+```sql
+CREATE TABLE staff_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
+    nip VARCHAR(30) UNIQUE NULLABLE,
+    nuptk VARCHAR(30) UNIQUE NULLABLE,
+    position VARCHAR(100) NOT NULL, -- e.g., 'Kepala Sekolah', 'Guru Matematika', 'Bendahara'
+    employment_status VARCHAR(50) DEFAULT 'Tetap', -- 'Tetap', 'Honorer', 'Kontrak'
+    hire_date DATE NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
-1. `users`, `roles`, `permissions`, `permission_role`, `role_user`
-2. `education_units`, `registration_periods`, `period_unit_quotas`, `document_requirements`, `registration_counters`
-3. `student_applications`, `students`, `guardians`
-4. `teacher_vacancies`, `teacher_applications`, `teacher_educations`, `teacher_experiences`, `teacher_certifications`
-5. `documents`, `application_status_logs`
-6. `post_categories`, `posts`, `pages`, `organization_members`, `galleries`, `gallery_items`, `banners`, `contact_messages`, `settings`
-7. `activity_logs`
-8. Migration khusus PostgreSQL: `CREATE EXTENSION pg_trgm`, indeks GIN, partial unique index, dan CHECK constraint. Gunakan `DB::statement(...)` karena Schema Builder tidak mendukung semuanya.
+---
 
-## 8. Seeder Awal
+### Modul 3: Akademik & Kesiswaan (`academic_`)
 
-| Seeder | Isi |
-|---|---|
-| `RoleSeeder` | `super_admin`, `admin_registration`, `admin_content` + daftar permission di bagian 3.1, termasuk `finance.view` (default hanya `super_admin`) |
-| `AdminUserSeeder` | Satu akun Super Admin awal (kata sandi diganti saat login pertama) |
-| `EducationUnitSeeder` | Unit pendidikan yayasan (menunggu data dari yayasan) |
-| `DocumentRequirementSeeder` | Dokumen siswa: akta kelahiran, kartu keluarga, pas foto, rapor/ijazah terakhir. Dokumen guru: CV, ijazah, transkrip, sertifikat, KTP, pas foto, surat lamaran |
-| `SettingSeeder` | Kunci pengaturan: `site_name`, `site_logo`, `contact_email`, `contact_phone`, `contact_address`, `social_*`, serta lima kunci `finance_*` (bagian 3.6) dengan `finance_dashboard_enabled = false` dan `is_encrypted = true` untuk `finance_dashboard_url` |
-| `PageSeeder` | Halaman statis awal: tentang, visi misi, kebijakan privasi |
+#### Tabel `academic_years`
+Tahun ajaran akademik (contoh: 2025/2026).
 
-## 9. Catatan Implementasi Laravel
+```sql
+CREATE TABLE academic_years (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(20) NOT NULL, -- e.g., '2025/2026'
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
-- Pasang `Relation::enforceMorphMap(['student_application' => StudentApplication::class, 'teacher_application' => TeacherApplication::class])`.
-- Pada model `Student`, `Guardian`, `TeacherApplication`: `protected $casts = ['nik' => 'encrypted']`, dan isi `nik_hash` lewat mutator (`hash('sha256', $nik)`; pertimbangkan menambah *pepper* dari config agar hash tidak mudah ditebak).
-- Pakai `SoftDeletes` pada model yang memiliki `deleted_at`.
-- Pakai Backed Enum PHP untuk status dan cast di model, supaya nilai tidak menyebar sebagai string literal.
-- Untuk `jsonb`, gunakan `$table->jsonb('facilities')->default('[]')` dan cast `array`.
-- Model `Setting`: bila `is_encrypted = true`, enkripsi saat menyimpan (`Crypt::encryptString`) dan dekripsi saat membaca lewat accessor/mutator. Jangan memakai cast `encrypted` statis karena hanya sebagian baris yang terenkripsi. Resource API harus menyamarkan nilai terenkripsi.
-- Tambahkan `config/finance.php` yang membaca `FINANCE_EMBED_SECRET` dan `FINANCE_ALLOWED_HOST` dari `.env`, dan **jangan** memakai `env()` di luar berkas config.
-- Migration kolom `is_encrypted`: `$table->boolean('is_encrypted')->default(false)`; constraint CHECK ditambahkan lewat `DB::statement(...)`.
+#### Tabel `classes`
+Rombongan Belajar (Rombel) atau kelas pada setiap unit sekolah.
 
-## 10. Hal yang Perlu Dikonfirmasi dengan Yayasan
+```sql
+CREATE TABLE classes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
+    academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
+    grade_level INT NOT NULL, -- e.g., 1-6 (SD), 7-9 (SMP), 10-12 (SMA)
+    name VARCHAR(50) NOT NULL, -- e.g., '10 IPA 1', '7 A'
+    homeroom_teacher_id UUID NULLABLE REFERENCES staff_profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
-Jawaban berikut dapat mengubah skema:
+#### Tabel `students`
+Data pokok siswa terdaftar di unit sekolah.
 
-| # | Pertanyaan | Dampak pada skema |
-|---|---|---|
-| 1 | Adakah jalur pendaftaran (reguler, prestasi, afirmasi)? | Kolom `track` bisa menjadi tabel master `registration_tracks` dengan kuota sendiri |
-| 2 | Apakah ada tes/wawancara siswa yang nilainya perlu disimpan? | Tabel baru `student_assessments` (jadwal, skor, penguji) |
-| 3 | Apakah data penghasilan orang tua wajib? | Kolom `income_range` bisa dibuang atau dijadikan wajib |
-| 4 | Perlu format data selaras Dapodik/PPDB daerah? | Penambahan kolom (misalnya NPSN, kode wilayah) dan format ekspor khusus |
-| 5 | Biaya pendaftaran dibayar online? | Tabel `payments` + integrasi payment gateway (saat ini di luar lingkup) |
-| 6 | Satu anak boleh memilih lebih dari satu unit/pilihan? | `education_unit_id` menjadi tabel `application_choices` (pilihan 1, 2, dst.) |
-| 7 | Berapa lama retensi data pendaftar yang tidak diterima? | Aturan job penghapusan terjadwal |
-| 8 | Dashboard keuangan dibuat dengan alat apa, dan mendukung token embed bertanda tangan? (Q14 di PRD) | Nilai `finance_dashboard_provider`, kebutuhan `FINANCE_EMBED_SECRET`, dan ada tidaknya `finance_dashboard_token_ttl_minutes` |
-| 9 | Siapa saja yang boleh memegang `finance.view`? (Q15 di PRD) | Pemetaan permission pada `RoleSeeder` (saat ini hanya Super Admin) |
-| 10 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16 di PRD) | Bila ya, perlu pembatasan akses lebih ketat dan pencatatan audit yang lebih rinci |
+```sql
+CREATE TABLE students (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NULLABLE REFERENCES users(id) ON DELETE SET NULL,
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
+    current_class_id UUID NULLABLE REFERENCES classes(id) ON DELETE SET NULL,
+    nisn VARCHAR(10) UNIQUE NULLABLE,
+    nis VARCHAR(20) NULLABLE,
+    status student_status_enum NOT NULL DEFAULT 'aktif',
+    entry_year INT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULLABLE
+);
+```
+
+#### Tabel `subjects` & `class_subjects`
+Mata pelajaran dan alokasi guru pengampu di setiap kelas.
+
+```sql
+CREATE TABLE subjects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+    code VARCHAR(20) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(50) DEFAULT 'Wajib', -- 'Wajib', 'Peminatan', 'Ekstrakurikuler'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE class_subjects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    teacher_id UUID NULLABLE REFERENCES staff_profiles(id) ON DELETE SET NULL,
+    kkm NUMERIC(5,2) DEFAULT 75.00,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(class_id, subject_id)
+);
+```
+
+#### Tabel `parent_student_relations`
+Pemetaan hubungan relasi antara akun orang tua/wali dengan siswa.
+
+```sql
+CREATE TABLE parent_student_relations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    parent_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    relationship_type VARCHAR(20) NOT NULL, -- 'Ayah', 'Ibu', 'Wali'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(parent_user_id, student_id)
+);
+```
+
+---
+
+### Modul 4: Penerimaan Peserta Didik Baru (`ppdb_`)
+
+#### Tabel `ppdb_waves`
+Gelombang pendaftaran siswa baru per unit sekolah.
+
+```sql
+CREATE TABLE ppdb_waves (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+    academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL, -- e.g., 'Gelombang 1 Ujian Masuk'
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    registration_fee NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### Tabel `ppdb_registrations`
+Data formulir pendaftaran calon siswa baru.
+
+```sql
+CREATE TABLE ppdb_registrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    registration_number VARCHAR(30) UNIQUE NOT NULL, -- e.g., 'PPDB-2026-SD-001'
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
+    wave_id UUID NOT NULL REFERENCES ppdb_waves(id) ON DELETE RESTRICT,
+    full_name VARCHAR(150) NOT NULL,
+    nisn VARCHAR(10) NULLABLE,
+    gender CHAR(1) CHECK (gender IN ('L', 'P')),
+    birth_place VARCHAR(100) NOT NULL,
+    birth_date DATE NOT NULL,
+    parent_name VARCHAR(150) NOT NULL,
+    parent_phone VARCHAR(20) NOT NULL,
+    parent_email VARCHAR(100) NULLABLE,
+    address TEXT NOT NULL,
+    previous_school VARCHAR(150) NULLABLE,
+    status ppdb_status_enum NOT NULL DEFAULT 'draft',
+    notes TEXT NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### Tabel `ppdb_documents`
+Dokumen lampiran fisik calon siswa (Kartu Keluarga, Akta Kelahiran, Ijazah).
+
+```sql
+CREATE TABLE ppdb_documents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    registration_id UUID NOT NULL REFERENCES ppdb_registrations(id) ON DELETE CASCADE,
+    document_type VARCHAR(50) NOT NULL, -- 'kk', 'akta_kelahiran', 'ijazah', 'pas_foto'
+    file_url TEXT NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verified_at TIMESTAMPTZ NULLABLE,
+    verified_by UUID NULLABLE REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+### Modul 5: Keuangan & Pembayaran (`finance_`)
+
+#### Tabel `fee_categories`
+Kategori jenis tagihan keuangan sekolah/yayasan.
+
+```sql
+CREATE TABLE fee_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+    code VARCHAR(30) NOT NULL, -- 'SPP', 'UANG_GEDUNG', 'SERAGAM', 'EKTRA'
+    name VARCHAR(100) NOT NULL,
+    description TEXT NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### Tabel `student_bills`
+Daftar tagihan wajib bagi setiap siswa.
+
+```sql
+CREATE TABLE student_bills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    fee_category_id UUID NOT NULL REFERENCES fee_categories(id) ON DELETE RESTRICT,
+    title VARCHAR(150) NOT NULL, -- e.g., 'SPP Bulan Oktober 2026'
+    amount NUMERIC(12,2) NOT NULL,
+    due_date DATE NOT NULL,
+    status payment_status_enum NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### Tabel `payments`
+Data transaksi pembayaran yang berhasil diselesaikan maupun yang sedang berlangsung.
+
+```sql
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bill_id UUID NULLABLE REFERENCES student_bills(id) ON DELETE SET NULL,
+    ppdb_registration_id UUID NULLABLE REFERENCES ppdb_registrations(id) ON DELETE SET NULL,
+    transaction_code VARCHAR(50) UNIQUE NOT NULL,
+    amount_paid NUMERIC(12,2) NOT NULL,
+    payment_method payment_method_enum NOT NULL,
+    payment_status payment_status_enum NOT NULL DEFAULT 'pending',
+    proof_url TEXT NULLABLE, -- URL bukti transfer jika manual
+    gateway_reference VARCHAR(100) NULLABLE, -- Reference ID Midtrans/Xendit/Doku
+    paid_at TIMESTAMPTZ NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT check_payment_source CHECK (
+        (bill_id IS NOT NULL AND ppdb_registration_id IS NULL) OR
+        (bill_id IS NULL AND ppdb_registration_id IS NOT NULL)
+    )
+);
+```
+
+---
+
+### Modul 6: Content Management System & Website Publik (`cms_`)
+
+#### Tabel `news_categories` & `posts`
+Pengelolaan publikasi berita, pengumuman, dan artikel kegiatan sekolah/yayasan.
+
+```sql
+CREATE TABLE news_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(50) NOT NULL,
+    slug VARCHAR(60) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NULLABLE REFERENCES units(id) ON DELETE SET NULL, -- NULL jika berita tingkat Yayasan
+    category_id UUID NOT NULL REFERENCES news_categories(id) ON DELETE RESTRICT,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    title VARCHAR(200) NOT NULL,
+    slug VARCHAR(220) UNIQUE NOT NULL,
+    content TEXT NOT NULL,
+    featured_image TEXT NULLABLE,
+    is_published BOOLEAN DEFAULT FALSE,
+    published_at TIMESTAMPTZ NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULLABLE
+);
+```
+
+#### Tabel `events` & `facilities`
+Pengelolaan jadwal agenda kegiatan dan sarana prasarana unit.
+
+```sql
+CREATE TABLE events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NULLABLE REFERENCES units(id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    description TEXT NULLABLE,
+    location VARCHAR(150) NULLABLE,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    banner_url TEXT NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE facilities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unit_id UUID NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT NULLABLE,
+    image_url TEXT NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+### Modul 7: Audit Log & Pengaturan Sistem (`audit_` & `system_`)
+
+#### Tabel `activity_logs`
+Mencatat seluruh rekam jejak aktivitas kritis pengguna untuk keperluan audit keamanan.
+
+```sql
+CREATE TABLE activity_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NULLABLE REFERENCES users(id) ON DELETE SET NULL,
+    action VARCHAR(100) NOT NULL, -- e.g., 'UPDATE_STUDENT_STATUS', 'CREATE_PAYMENT'
+    entity_name VARCHAR(50) NOT NULL, -- e.g., 'students', 'payments'
+    entity_id UUID NULLABLE,
+    payload JSONB NULLABLE, -- Perubahan data sebelum dan sesudah
+    ip_address VARCHAR(45) NULLABLE,
+    user_agent TEXT NULLABLE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## 5. Strategi Indeks & Optimalisasi Performa
+
+Untuk menjaga kinerja pencarian dan skalabilitas data seiring berjalannya waktu, indeks B-Tree dan GIN diterapkan pada kolom yang sering diakses:
+
+```sql
+-- Indeks Pencarian Autentikasi
+CREATE INDEX idx_users_email ON users(email) WHERE deleted_at IS NULL;
+CREATE INDEX idx_users_role_unit ON users(role_id, unit_id);
+
+-- Indeks Akademik & Kesiswaan
+CREATE INDEX idx_students_nisn ON students(nisn);
+CREATE INDEX idx_students_unit_class ON students(unit_id, current_class_id);
+
+-- Indeks Transaksi Keuangan & PPDB
+CREATE INDEX idx_student_bills_student_status ON student_bills(student_id, status);
+CREATE INDEX idx_payments_transaction_code ON payments(transaction_code);
+CREATE INDEX idx_ppdb_reg_number ON ppdb_registrations(registration_number);
+
+-- Indeks CMS & JSONB Audit
+CREATE INDEX idx_posts_slug ON posts(slug) WHERE is_published = TRUE;
+CREATE INDEX idx_activity_logs_user_action ON activity_logs(user_id, action);
+CREATE INDEX idx_activity_logs_payload_gin ON activity_logs USING GIN (payload);
+```
+
+---
+
+## 6. Kebijakan Keamanan Data (Row Level Security - RLS)
+
+Prinsip keamanan diterapkan menggunakan *Row Level Security* (RLS) PostgreSQL untuk membatasi akses data antar-unit sekolah dan hak akses peran:
+
+```sql
+-- Mengaktifkan RLS pada tabel sensitif
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_bills ENABLE ROW LEVEL SECURITY;
+
+-- Kebijakan: Admin Unit hanya dapat melihat siswa di unit miliknya
+CREATE POLICY admin_unit_students_policy ON students
+    FOR ALL
+    USING (
+        unit_id = (SELECT unit_id FROM users WHERE id = auth.uid())
+        OR 
+        (SELECT name FROM roles WHERE id = (SELECT role_id FROM users WHERE id = auth.uid())) IN ('super_admin', 'admin_yayasan')
+    );
+
+-- Kebijakan: Orang Tua hanya dapat melihat tagihan anaknya sendiri
+CREATE POLICY parent_bills_policy ON student_bills
+    FOR SELECT
+    USING (
+        student_id IN (
+            SELECT student_id 
+            FROM parent_student_relations 
+            WHERE parent_user_id = auth.uid()
+        )
+    );
+```
+
+---
+
+## 7. Pemetaaan Foreign Key & Relasi Utama
+
+| Tabel Sumber | Kolom FK | Tabel Acuan | Kolom PK | Strategi Hapus |
+| :--- | :--- | :--- | :--- | :--- |
+| `users` | `role_id` | `roles` | `id` | RESTRICT |
+| `users` | `unit_id` | `units` | `id` | SET NULL |
+| `user_profiles` | `user_id` | `users` | `id` | CASCADE |
+| `staff_profiles` | `user_id` | `users` | `id` | CASCADE |
+| `students` | `unit_id` | `units` | `id` | RESTRICT |
+| `students` | `current_class_id`| `classes` | `id` | SET NULL |
+| `ppdb_registrations` | `wave_id` | `ppdb_waves` | `id` | RESTRICT |
+| `student_bills` | `student_id` | `students` | `id` | CASCADE |
+| `payments` | `bill_id` | `student_bills` | `id` | SET NULL |
+| `posts` | `author_id` | `users` | `id` | RESTRICT |
+
+---
+
+## 8. Data Inisialisasi Sistem (Seeding Reference)
+
+```sql
+-- Inisialisasi Peran Utama Sistem (Roles)
+INSERT INTO roles (id, name, description) VALUES
+    ('11111111-1111-1111-1111-111111111111', 'super_admin', 'Akses penuh ke seluruh konfigurasi sistem'),
+    ('22222222-2222-2222-2222-222222222222', 'admin_yayasan', 'Akses pengawasan seluruh unit Yayasan Padindi'),
+    ('33333333-3333-3333-3333-333333333333', 'admin_unit', 'Administrator khusus unit sekolah (SD/SMP/SMA)'),
+    ('44444444-4444-4444-4444-444444444444', 'guru', 'Akses input nilai, materi, dan absensi'),
+    ('55555555-5555-5555-5555-555555555555', 'staf_keuangan', 'Akses tata kelola SPP & pembayaran'),
+    ('66666666-6666-6666-6666-666666666666', 'siswa', 'Akses portal siswa dan materi'),
+    ('77777777-7777-7777-7777-777777777777', 'orang_tua', 'Akses laporan nilai dan pembayaran anak');
+
+-- Inisialisasi Unit Sekolah Yayasan Padindi
+INSERT INTO units (code, name, level, address) VALUES
+    ('YAYASAN', 'Yayasan Padindi Pusat', 'YAYASAN', 'Jl. Prepedan Dalam No.38, Kamal, Kalideres, Jakarta Barat'),
+    ('SD_PADINDI', 'SD Padindi', 'SD', 'Jl. Papanggo II D No.70, Tanjung Priok, Jakarta Utara'),
+    ('SMP_PADINDI', 'SMP Padindi', 'SMP', 'Jl. Papanggo II D No.70, Tanjung Priok, Jakarta Utara'),
+    ('SMA_PADINDI', 'SMAS Padindi', 'SMA', 'Jl. Prepedan Dalam No.38, Kamal, Kalideres, Jakarta Barat');
+```

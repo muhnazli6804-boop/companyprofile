@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Versi** | 0.2 (Draft), selaras dengan PRD v0.2 dan Skema Database v0.2 (Struktur Folder masih v0.1) |
-| **Perubahan v0.2** | Menambah endpoint **Dashboard Keuangan** (`GET /admin/finance-dashboard`), permission `finance.view`, aturan kunci pengaturan `finance_*`, dua kode error, dan contoh. Lihat bagian 11.5 |
+| **Versi** | 0.3 (Revisi Kebijakan Keuangan), selaras dengan PRD v0.3 dan Skema Database v0.3 |
+| **Perubahan v0.3** | Menyesuaikan default `finance_dashboard_provider` ke `looker_studio`, mengatur contoh `FINANCE_ALLOWED_HOST` ke `lookerstudio.google.com`, memperbarui contoh respons `GET /admin/finance-dashboard` untuk Looker Studio (dengan `expires_at` & `refresh_after_seconds` bernilai `null`), serta memperbarui status Pertanyaan #11 pada Bagian 16 menjadi Resolved. |
 | **Gaya API** | REST, JSON |
 | **Base URL** | `/api/v1` |
 | **Backend** | Laravel 12 + Sanctum |
@@ -200,7 +200,7 @@ Konfigurasi yang diperlukan: `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN`, CORS 
 
 > Baris `units.manage` dan `messages.manage` belum ada di matriks PRD. Ini usulan yang perlu dikonfirmasi.
 >
-> Baris `finance.view` mengikuti PRD v0.2 bagian 7.6. Default hanya Super Admin dan dapat diberikan ke role lain lewat `PUT /roles/{id}/permissions` (menunggu Q15). Permission ini hanya boleh dimiliki akun `user_type = admin`; percobaan memberikannya ke akun lain ditolak dengan `422`.
+> Baris `finance.view` mengikuti PRD v0.3 bagian 7.6. Default hanya Super Admin dan dapat diberikan ke role lain lewat `PUT /roles/{id}/permissions`. Permission ini hanya boleh dimiliki akun `user_type = admin`; percobaan memberikannya ke akun lain ditolak dengan `422`.
 
 ### 2.5 Perlindungan Data Sensitif pada Respons
 
@@ -715,19 +715,19 @@ Aksi yang dicatat (usulan): `auth.login`, `auth.login_failed`, `application.stat
 | Kunci | Aturan |
 |---|---|
 | `finance_dashboard_enabled` | Boolean. Tidak boleh `true` bila `finance_dashboard_url` belum diisi (`422`) |
-| `finance_dashboard_provider` | Salah satu: `metabase`, `power_bi`, `looker_studio`, `other` |
+| `finance_dashboard_provider` | Default: `looker_studio`. Pilihan lain: `metabase`, `power_bi`, `other` |
 | `finance_dashboard_title` | String, maks. 100 karakter |
-| `finance_dashboard_url` | Hanya `https`, maks. 2048 karakter, tanpa kredensial di URL (`user:pass@`). **Host harus sama dengan `FINANCE_ALLOWED_HOST`** di `.env`. Disimpan terenkripsi. Hanya dapat diganti, tidak dapat dibaca kembali |
-| `finance_dashboard_token_ttl_minutes` | Bilangan bulat 1-60 (default 10). Dipakai bila penyedia menggunakan token bertanda tangan |
+| `finance_dashboard_url` | Hanya `https`, maks. 2048 karakter, tanpa kredensial di URL (`user:pass@`). **Host harus sama dengan `FINANCE_ALLOWED_HOST`** di `.env` (contoh: `lookerstudio.google.com`). Disimpan terenkripsi. Hanya dapat diganti, tidak dapat dibaca kembali |
+| `finance_dashboard_token_ttl_minutes` | Bilangan bulat 1-60 (default 10). Dipakai jika penyedia menggunakan token bertanda tangan; diabaikan bila memakai `looker_studio` / URL statis |
 
 Contoh bagian `finance` pada respons `GET /settings`:
 
 ```json
 "finance": {
   "finance_dashboard_enabled": false,
-  "finance_dashboard_provider": "metabase",
+  "finance_dashboard_provider": "looker_studio",
   "finance_dashboard_title": "Dashboard Keuangan",
-  "finance_dashboard_url": { "is_set": true, "host": "bi.example.org" },
+  "finance_dashboard_url": { "is_set": true, "host": "lookerstudio.google.com" },
   "finance_dashboard_token_ttl_minutes": 10
 }
 ```
@@ -744,39 +744,38 @@ Menampilkan dashboard keuangan dari sumber eksternal di panel admin lewat iframe
 
 Middleware: `auth:sanctum`, `EnsureUserIsAdmin`, `can:finance.view`, `throttle` 30 permintaan/menit per pengguna.
 
-**Respons `200`**
+**Respons `200` (Default: Looker Studio)**
 
 ```json
 {
   "data": {
     "title": "Dashboard Keuangan",
-    "provider": "metabase",
-    "embed_url": "https://bi.example.org/embed/dashboard/<token>#bordered=false",
-    "expires_at": "2027-01-15T09:40:00+07:00",
-    "refresh_after_seconds": 480
+    "provider": "looker_studio",
+    "embed_url": "https://lookerstudio.google.com/embed/reporting/12345678-abcd-efgh-ijkl-9876543210fe/page/p_1234567890",
+    "expires_at": null,
+    "refresh_after_seconds": null
   }
 }
 ```
 
-- `expires_at` dan `refresh_after_seconds` bernilai `null` untuk penyedia tanpa token bertanda tangan (URL statis yang akses-nya dibatasi di sumber).
-- Pada penyedia berURL statis, `embed_url` adalah URL tersimpan. URL itu hanya dapat diambil lewat endpoint ini oleh pengguna yang berhak.
+- `expires_at` dan `refresh_after_seconds` bernilai `null` untuk penyedia tanpa token bertanda tangan seperti `looker_studio` (URL statis di mana otorisasi/akses dikendalikan langsung di sisi Google/Looker).
+- Pada penyedia berURL statis, `embed_url` adalah URL tersimpan yang divalidasi terhadap `FINANCE_ALLOWED_HOST`. URL itu hanya dapat diambil lewat endpoint ini oleh pengguna yang berhak.
 - Header respons: `Cache-Control: no-store` dan `Referrer-Policy: no-referrer`.
-- Nama host pada contoh (`bi.example.org`) hanya ilustrasi.
 
-**Cara pembuatan `embed_url` per penyedia** (menunggu Q14; periksa dokumentasi penyedia saat implementasi karena kemampuan embed dapat berubah):
+**Cara pembuatan `embed_url` per penyedia**:
 
 | Penyedia | `embed_url` | Token | Catatan |
 |---|---|:---:|---|
+| `looker_studio` | URL embed statis | Tidak | **Default.** Akses dikendalikan lewat pembagian per akun di sumber Google/Looker Studio; `expires_at` & `refresh_after_seconds` bernilai `null` |
 | `metabase` | URL embed + JWT yang ditandatangani `FINANCE_EMBED_SECRET`, `exp` sesuai TTL | Ya | Signed embedding harus diaktifkan di Metabase |
-| `power_bi` | URL embed + token dari API penyedia | Ya | Membutuhkan kredensial tambahan di `.env` (dirinci setelah Q14) |
-| `looker_studio` | URL embed statis | Tidak | Akses dikendalikan lewat pembagian per akun di sumber; pengguna mungkin perlu login dengan akun yang diizinkan |
-| `other` | URL tersimpan | Tidak | Hanya bila sumber punya pembatasan akses sendiri. Tampilkan peringatan saat konfigurasi |
+| `power_bi` | URL embed + token dari API penyedia | Ya | Membutuhkan kredensial tambahan di `.env` |
+| `other` | URL tersimpan | Tidak | Hanya bila sumber punya pembatasan akses sendiri |
 
 **Urutan pemrosesan**
 
 1. Periksa permission (`403 FORBIDDEN` bila tidak berhak).
 2. Periksa `finance_dashboard_enabled` dan URL tersedia (`409 FINANCE_DASHBOARD_NOT_CONFIGURED`).
-3. Validasi ulang host URL terhadap `FINANCE_ALLOWED_HOST`. Bila tidak cocok, kembalikan `409 FINANCE_DASHBOARD_NOT_CONFIGURED` dan catat peringatan di log aplikasi.
+3. Validasi ulang host URL terhadap `FINANCE_ALLOWED_HOST` (contoh: `lookerstudio.google.com`). Bila tidak cocok, kembalikan `409 FINANCE_DASHBOARD_NOT_CONFIGURED` dan catat peringatan di log aplikasi.
 4. Buat `embed_url` sesuai penyedia. Bila gagal (rahasia tidak ada atau penyedia tidak merespons), kembalikan `503 FINANCE_DASHBOARD_UNAVAILABLE`.
 5. Tulis `activity_logs` dengan `action = finance.dashboard_viewed` dan `properties` berisi penyedia saja, **tanpa URL atau token**. Pembukaan oleh pengguna yang sama dalam 5 menit tidak dicatat ulang agar log tidak membanjir saat token diperbarui.
 6. Kembalikan respons.
@@ -784,7 +783,7 @@ Middleware: `auth:sanctum`, `EnsureUserIsAdmin`, `can:finance.view`, `throttle` 
 **Pemakaian di frontend**
 
 - Panggil endpoint saat halaman Keuangan dibuka. Menu **Keuangan** hanya ditampilkan bila `GET /auth/me` memuat permission `finance.view`.
-- Bila `refresh_after_seconds` tidak `null`, ambil `embed_url` baru sebelum kedaluwarsa. Banyak penyedia hanya memeriksa token saat dashboard dimuat, jadi iframe yang sudah terbuka tidak perlu dimuat ulang. Cukup ganti `src` saat pengguna kembali ke tab setelah token habis atau menekan "Muat ulang".
+- Bila `refresh_after_seconds` bernilai `null` (seperti pada Looker Studio), iframe dimuat secara statis dan tidak memerlukan mekanisme auto-refresh token.
 - Atribut iframe yang disarankan:
 
 ```html
@@ -794,7 +793,7 @@ Middleware: `auth:sanctum`, `EnsureUserIsAdmin`, `can:finance.view`, `throttle` 
 ```
 
 - Tombol "Buka di tab baru" memakai `embed_url` yang sama.
-- Kebijakan CSP `frame-src https://<FINANCE_ALLOWED_HOST>` diatur di Nginx (`ARCHITECTURE.md`). Browser memblokir host lain.
+- Kebijakan CSP `frame-src https://lookerstudio.google.com` (atau host yang dikonfigurasi pada `FINANCE_ALLOWED_HOST`) diatur di Nginx (`ARCHITECTURE.md`). Browser memblokir host lain.
 
 **Respons error**
 
@@ -959,7 +958,7 @@ Respons `201`:
     "guardians": [],
     "documents": [],
     "submitted_at": null,
-    "created_at": "2027-01-10T08:00:00+07:00"
+    "created_at": "2027-01-10T08:12:00+07:00"
   }
 }
 ```
@@ -1079,7 +1078,20 @@ Respons `201`: lihat contoh bagian 7.2.
 
 ### 14.9 `GET /admin/finance-dashboard`
 
-Berhasil (`200`), penyedia dengan token bertanda tangan:
+Berhasil (`200`), penyedia Looker Studio (Default):
+```json
+{
+  "data": {
+    "title": "Dashboard Keuangan",
+    "provider": "looker_studio",
+    "embed_url": "https://lookerstudio.google.com/embed/reporting/12345678-abcd-efgh-ijkl-9876543210fe/page/p_1234567890",
+    "expires_at": null,
+    "refresh_after_seconds": null
+  }
+}
+```
+
+Berhasil (`200`), penyedia dengan token bertanda tangan (misalnya Metabase):
 ```json
 {
   "data": {
@@ -1088,19 +1100,6 @@ Berhasil (`200`), penyedia dengan token bertanda tangan:
     "embed_url": "https://bi.example.org/embed/dashboard/<token>#bordered=false",
     "expires_at": "2027-01-15T09:40:00+07:00",
     "refresh_after_seconds": 480
-  }
-}
-```
-
-Berhasil (`200`), penyedia berURL statis:
-```json
-{
-  "data": {
-    "title": "Dashboard Keuangan",
-    "provider": "looker_studio",
-    "embed_url": "https://lookerstudio.google.com/embed/reporting/<id>/page/<page>",
-    "expires_at": null,
-    "refresh_after_seconds": null
   }
 }
 ```
@@ -1166,7 +1165,7 @@ Gagal membuat token (`503`):
 
 ## 16. Hal yang Perlu Dikonfirmasi
 
-| # | Pertanyaan | Dampak pada API |
+| # | Pertanyaan | Dampak pada API / Status |
 |---|---|---|
 | 1 | Kuota dihitung dari pendaftar `accepted` saja, atau juga `submitted`/`verified`? Apakah pendaftaran ditutup otomatis saat penuh (FR-044)? | Titik pengecekan `QUOTA_FULL` (saat buat/kirim vs saat diterima) |
 | 2 | Apakah verifikasi email wajib sebelum pendaftar bisa mengisi formulir? | Middleware `verified` pada area pendaftar |
@@ -1175,9 +1174,9 @@ Gagal membuat token (`503`):
 | 5 | Notifikasi hanya email, atau ditambah WhatsApp? | Channel notifikasi dan penyedia pihak ketiga |
 | 6 | Apakah ekspor cukup sinkron? Estimasi jumlah pendaftar per periode | Perlu atau tidaknya tabel `exports` dan pola asinkron |
 | 7 | Apakah admin boleh melihat NIK lengkap, dan siapa saja? | Penetapan `applications.view_sensitive` per role |
-| 8 | Format nomor pendaftaran yang diinginkan | `RegistrationNumberGenerator` dan `config/registration.php` |
+| 8 | Format nomor pendaftaran yang diinginkan | `RegistrationNumberGenerator` dan `config/registration.php` | 
 | 9 | Perlu API khusus untuk cek status tanpa login (misalnya dengan nomor pendaftaran + tanggal lahir)? | Endpoint publik baru; perlu dipertimbangkan dari sisi privasi |
 | 10 | Apakah ada klien non-browser (aplikasi mobile) pada fase berikutnya? | Autentikasi token Sanctum |
-| 11 | Dashboard keuangan memakai penyedia apa, dan apakah mendukung token bertanda tangan? (Q14 di PRD) | Cara membuat `embed_url`, ada tidaknya `expires_at`, kredensial tambahan di `.env` |
+| 11 | Dashboard keuangan memakai penyedia apa, dan apakah mendukung token bertanda tangan? (Q14 di PRD) | **Resolved:** Menggunakan Looker Studio (`looker_studio`) dengan URL embed statis (`lookerstudio.google.com`). Akses dan otorisasi dikendalikan di sisi Google/Looker. `expires_at` dan `refresh_after_seconds` bernilai `null`. |
 | 12 | Siapa saja yang boleh memegang `finance.view`? (Q15 di PRD) | Pemetaan role, dan perlu tidaknya role khusus "Admin Keuangan" |
 | 13 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16 di PRD) | Bila ya, pertimbangkan 2FA wajib bagi pemegang `finance.view` dan pencatatan log yang lebih rinci |
