@@ -1,3 +1,7 @@
+/**
+ * StarIcon — ikon bintang lima sudut milik merek Yayasan Padindi.
+ * Sesuai DESIGN.md bagian 6.4.
+ */
 import React from 'react';
 
 interface StarIconProps extends React.SVGProps<SVGSVGElement> {
@@ -5,8 +9,11 @@ interface StarIconProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
 }
 
-// TODO: see DESIGN.md section 6.4 (poligon bintang lima sudut)
-export const StarIcon: React.FC<StarIconProps> = ({ size = 24, className = 'text-star', ...props }) => (
+export const StarIcon: React.FC<StarIconProps> = ({
+  size = 24,
+  className = 'text-star',
+  ...props
+}) => (
   <svg
     viewBox="0 0 24 24"
     width={size}

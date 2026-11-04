@@ -1,21 +1,31 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// TODO: see ADR 0001 (baseURL: http://localhost:5173 for local dev testing)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  fullyParallel: false,
+  reporter: 'list',
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    channel: 'chrome',
+    trace: 'off',
+  },
+  webServer: {
+    command: 'npm run preview -- --port 5173',
+    port: 5173,
+    cwd: __dirname,
+    reuseExistingServer: true,
+    timeout: 30000,
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'chrome',
+      use: {
+        channel: 'chrome',
+      },
     },
   ],
 });
