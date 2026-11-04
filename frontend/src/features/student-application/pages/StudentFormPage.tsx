@@ -69,6 +69,10 @@ export const StudentFormPage: React.FC = () => {
 
   const selectedUnitId = watch('education_unit_id');
 
+  useEffect(() => {
+    register('education_unit_id');
+  }, [register]);
+
   // Load existing application if ID is present
   useEffect(() => {
     if (!id) return;
@@ -247,9 +251,10 @@ export const StudentFormPage: React.FC = () => {
                     <span className="font-sans font-bold text-base text-ink">{unit.name}</span>
                     <input
                       type="radio"
+                      name="education_unit_id"
                       value={unit.id}
                       checked={selectedUnitId === unit.id}
-                      onChange={() => setValue('education_unit_id', unit.id)}
+                      onChange={() => setValue('education_unit_id', unit.id, { shouldValidate: true })}
                       className="w-4 h-4 text-primary focus:ring-primary"
                     />
                   </div>

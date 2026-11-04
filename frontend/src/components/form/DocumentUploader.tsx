@@ -92,7 +92,10 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2 p-4 bg-white border border-line rounded-panel">
+    <div
+      data-document-type={documentType}
+      className="flex flex-col gap-2 p-4 bg-white border border-line rounded-panel"
+    >
       {/* Label & Requirement Rule */}
       <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
         <label className="font-sans font-bold text-base text-ink">
@@ -212,6 +215,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
+        data-testid={`file-input-${documentType}`}
         type="file"
         accept={acceptAttr}
         className="hidden"

@@ -48,6 +48,9 @@ export const RegisterPage: React.FC = () => {
       if (token) {
         localStorage.setItem('auth_token', token);
       }
+      if (res.data.data?.user) {
+        queryClient.setQueryData(['currentUser'], res.data.data.user);
+      }
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
 
       const destination = returnTo ? decodeURIComponent(returnTo) : '/pendaftaran';

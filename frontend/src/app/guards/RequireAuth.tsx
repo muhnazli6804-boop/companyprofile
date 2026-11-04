@@ -6,8 +6,9 @@ import type { ApiResponse, User } from '@/types';
 
 export const RequireAuth: React.FC = () => {
   const location = useLocation();
+  const token = localStorage.getItem('auth_token');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
       try {
@@ -17,11 +18,17 @@ export const RequireAuth: React.FC = () => {
         return null;
       }
     },
+    enabled: Boolean(token),
     retry: false,
     staleTime: 60 * 1000,
   });
 
-  if (isLoading) {
+  if (!token) {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/masuk?returnTo=${returnTo}`} replace />;
+  }
+
+  if (isLoading || (isFetching && !data)) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center font-sans text-muted">
         Memeriksa autentikasi...
@@ -30,9 +37,12 @@ export const RequireAuth: React.FC = () => {
   }
 
   if (!data) {
+    localStorage.removeItem('auth_token');
     const returnTo = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/masuk?returnTo=${returnTo}`} replace />;
   }
 
   return <Outlet />;
 };
+
+export default RequireAuth;

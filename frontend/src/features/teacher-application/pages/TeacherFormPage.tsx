@@ -580,10 +580,12 @@ export const TeacherFormPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-sans font-semibold text-ink mb-1">
+                      <label htmlFor={`edu-level-${index}`} className="block text-xs font-sans font-semibold text-ink mb-1">
                         Jenjang <span className="text-danger">*</span>
                       </label>
                       <select
+                        id={`edu-level-${index}`}
+                        aria-label="Jenjang Pendidikan"
                         {...register(`educations.${index}.level`)}
                         className="w-full h-10 px-2.5 bg-white border border-line-input rounded-control font-sans text-sm text-ink focus:outline-none focus:border-primary"
                       >

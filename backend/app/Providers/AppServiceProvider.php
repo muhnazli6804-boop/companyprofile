@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\StudentApplication;
 use App\Models\TeacherApplication;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap([
             'student_application' => StudentApplication::class,
             'teacher_application' => TeacherApplication::class,
+            'user' => User::class,
         ]);
 
         // Named rate limiters per Rancangan-API-Padindi.md section 1.6

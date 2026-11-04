@@ -78,6 +78,7 @@ export const Stepper: React.FC<StepperProps> = ({
               <div className="relative z-10 flex items-center justify-center">
                 {isDone && (
                   <div
+                    role="img"
                     className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center"
                     aria-label={`Langkah ${step.number}: ${step.label} (selesai)`}
                   >
@@ -87,6 +88,7 @@ export const Stepper: React.FC<StepperProps> = ({
 
                 {isCurrent && (
                   <div
+                    role="img"
                     className="w-10 h-10 rounded-full bg-primary text-star flex items-center justify-center ring-4 ring-tint-100"
                     aria-label={`Langkah ${step.number}: ${step.label} (saat ini)`}
                   >
@@ -96,6 +98,7 @@ export const Stepper: React.FC<StepperProps> = ({
 
                 {isPending && (
                   <div
+                    role="img"
                     className="w-8 h-8 rounded-full bg-white border-2 border-line-input text-muted font-sans text-sm flex items-center justify-center"
                     aria-label={`Langkah ${step.number}: ${step.label}`}
                   >
