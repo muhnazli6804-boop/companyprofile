@@ -56,7 +56,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 className="
                   inline-flex items-center justify-center px-5 py-3 rounded-control
                   bg-star text-ink font-sans font-bold text-base
-                  hover:opacity-90
+                  hover:bg-[#E0BE16] active:bg-[#CCA80C] transition-colors
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
                 "
                 style={{ minHeight: 44 }}
@@ -71,7 +71,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   inline-flex items-center justify-center px-5 py-3 rounded-control
                   bg-transparent text-white font-sans font-bold text-base
                   border-2 border-white
-                  hover:bg-white/10
+                  hover:bg-white/10 active:bg-white/20 transition-colors
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
                 "
                 style={{ minHeight: 44 }}
