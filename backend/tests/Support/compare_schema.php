@@ -7,12 +7,13 @@
  * Jalankan: php tests/Support/compare_schema.php
  */
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__.'/../../vendor/autoload.php';
 
-$app = require_once __DIR__ . '/../../bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$app = require_once __DIR__.'/../../bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
 $config = config('database.connections.pgsql');
@@ -47,13 +48,13 @@ $stmt = $pdoApp->query("
 $appTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 $missingTables = array_diff($refTables, $appTables);
-if (!empty($missingTables)) {
+if (! empty($missingTables)) {
     echo "[GALAT] Tabel berikut ada di padindi_ref tapi belum ada di padindi:\n";
     foreach ($missingTables as $t) {
         echo "  - $t\n";
     }
 } else {
-    echo "[OK] Semua " . count($refTables) . " tabel referensi ada di padindi.\n";
+    echo '[OK] Semua '.count($refTables)." tabel referensi ada di padindi.\n";
 }
 
 $differences = 0;
@@ -90,13 +91,15 @@ foreach ($refTables as $table) {
     }
 
     $missingCols = array_diff(array_keys($colsRefMap), array_keys($colsAppMap));
-    if (!empty($missingCols)) {
-        echo "[GALAT] Tabel $table kehilangan kolom: " . implode(', ', $missingCols) . "\n";
+    if (! empty($missingCols)) {
+        echo "[GALAT] Tabel $table kehilangan kolom: ".implode(', ', $missingCols)."\n";
         $differences++;
     }
 
     foreach ($colsRefMap as $colName => $cRef) {
-        if (!isset($colsAppMap[$colName])) continue;
+        if (! isset($colsAppMap[$colName])) {
+            continue;
+        }
         $cApp = $colsAppMap[$colName];
 
         if ($cRef['udt_name'] !== $cApp['udt_name']) {

@@ -4,20 +4,19 @@ namespace App\Support\Concerns;
 
 trait HasNikHash
 {
-    /**
-     * Set the NIK attribute and calculate its HMAC-SHA256 hash.
-     */
-    public function setNikAttribute(?string $value): void
+    public static function bootHasNikHash(): void
     {
-        $cleanValue = $value !== null ? trim($value) : null;
-        $this->attributes['nik'] = $cleanValue;
-
-        if (!empty($cleanValue)) {
-            $pepper = config('app.nik_hash_pepper') ?: (string) env('NIK_HASH_PEPPER', '');
-            $this->attributes['nik_hash'] = hash_hmac('sha256', $cleanValue, $pepper);
-        } else {
-            $this->attributes['nik_hash'] = null;
-        }
+        static::saving(function ($model) {
+            if ($model->isDirty('nik')) {
+                $rawNik = $model->nik;
+                if (! empty($rawNik)) {
+                    $pepper = (string) config('app.nik_hash_pepper', '');
+                    $model->nik_hash = hash_hmac('sha256', trim($rawNik), $pepper);
+                } else {
+                    $model->nik_hash = null;
+                }
+            }
+        });
     }
 
     /**
@@ -25,7 +24,8 @@ trait HasNikHash
      */
     public static function hashNik(string $nik): string
     {
-        $pepper = config('app.nik_hash_pepper') ?: (string) env('NIK_HASH_PEPPER', '');
+        $pepper = (string) config('app.nik_hash_pepper', '');
+
         return hash_hmac('sha256', trim($nik), $pepper);
     }
 }

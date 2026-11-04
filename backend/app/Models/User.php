@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -18,8 +19,8 @@ use Illuminate\Notifications\Notifiable;
  * @property string|null $phone
  * @property UserType $user_type
  * @property bool $is_active
- * @property \Illuminate\Support\Carbon|null $email_verified_at
- * @property \Illuminate\Support\Carbon|null $last_login_at
+ * @property Carbon|null $email_verified_at
+ * @property Carbon|null $last_login_at
  */
 class User extends Authenticatable
 {

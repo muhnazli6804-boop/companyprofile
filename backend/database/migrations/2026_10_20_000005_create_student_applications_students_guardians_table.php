@@ -30,12 +30,12 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE student_applications ADD CONSTRAINT student_applications_status_check CHECK (status IN ('draft', 'submitted', 'in_review', 'revision_required', 'verified', 'accepted', 'rejected', 'waitlisted'))");
-        DB::statement("ALTER TABLE student_applications ADD CONSTRAINT student_applications_step_check CHECK (current_step BETWEEN 1 AND 5)");
+        DB::statement('ALTER TABLE student_applications ADD CONSTRAINT student_applications_step_check CHECK (current_step BETWEEN 1 AND 5)');
         DB::statement("ALTER TABLE student_applications ADD CONSTRAINT student_applications_submitted_check CHECK (status = 'draft' OR (registration_number IS NOT NULL AND submitted_at IS NOT NULL))");
-        DB::statement("CREATE UNIQUE INDEX student_applications_number_unique ON student_applications (registration_number)");
-        DB::statement("CREATE INDEX student_applications_user_idx ON student_applications (user_id)");
-        DB::statement("CREATE INDEX student_applications_filter_idx ON student_applications (registration_period_id, education_unit_id, status)");
-        DB::statement("CREATE INDEX student_applications_status_idx ON student_applications (status)");
+        DB::statement('CREATE UNIQUE INDEX student_applications_number_unique ON student_applications (registration_number)');
+        DB::statement('CREATE INDEX student_applications_user_idx ON student_applications (user_id)');
+        DB::statement('CREATE INDEX student_applications_filter_idx ON student_applications (registration_period_id, education_unit_id, status)');
+        DB::statement('CREATE INDEX student_applications_status_idx ON student_applications (status)');
 
         Schema::create('students', function (Blueprint $table) {
             $table->id();
@@ -63,8 +63,8 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE students ADD CONSTRAINT students_gender_check CHECK (gender IN ('L', 'P'))");
-        DB::statement("CREATE INDEX students_nik_hash_idx ON students (nik_hash)");
-        DB::statement("CREATE INDEX students_full_name_trgm ON students USING gin (full_name gin_trgm_ops)");
+        DB::statement('CREATE INDEX students_nik_hash_idx ON students (nik_hash)');
+        DB::statement('CREATE INDEX students_full_name_trgm ON students USING gin (full_name gin_trgm_ops)');
 
         Schema::create('guardians', function (Blueprint $table) {
             $table->id();

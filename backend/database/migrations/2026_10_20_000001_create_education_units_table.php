@@ -35,8 +35,8 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE education_units ADD CONSTRAINT education_units_level_check CHECK (level IN ('paud', 'tk', 'sd', 'smp', 'sma', 'smk', 'other'))");
-        DB::statement("CREATE UNIQUE INDEX education_units_code_unique ON education_units (code) WHERE deleted_at IS NULL");
-        DB::statement("CREATE UNIQUE INDEX education_units_slug_unique ON education_units (slug) WHERE deleted_at IS NULL");
+        DB::statement('CREATE UNIQUE INDEX education_units_code_unique ON education_units (code) WHERE deleted_at IS NULL');
+        DB::statement('CREATE UNIQUE INDEX education_units_slug_unique ON education_units (slug) WHERE deleted_at IS NULL');
     }
 
     public function down(): void

@@ -27,9 +27,9 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE document_requirements ADD CONSTRAINT document_requirements_type_check CHECK (applicant_type IN ('student', 'teacher'))");
-        DB::statement("ALTER TABLE document_requirements ADD CONSTRAINT document_requirements_size_check CHECK (max_size_kb > 0)");
-        DB::statement("ALTER TABLE document_requirements ADD CONSTRAINT document_requirements_files_check CHECK (max_files >= 1)");
-        DB::statement("CREATE UNIQUE INDEX document_requirements_unique ON document_requirements (applicant_type, COALESCE(education_unit_id, 0), document_type)");
+        DB::statement('ALTER TABLE document_requirements ADD CONSTRAINT document_requirements_size_check CHECK (max_size_kb > 0)');
+        DB::statement('ALTER TABLE document_requirements ADD CONSTRAINT document_requirements_files_check CHECK (max_files >= 1)');
+        DB::statement('CREATE UNIQUE INDEX document_requirements_unique ON document_requirements (applicant_type, COALESCE(education_unit_id, 0), document_type)');
     }
 
     public function down(): void

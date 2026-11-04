@@ -37,6 +37,7 @@ class RegistrationPeriod extends Model
     public function isOpen(): bool
     {
         $now = now();
+
         return $this->is_active && $now->between($this->opens_at, $this->closes_at);
     }
 }

@@ -22,8 +22,8 @@ return new class extends Migration
             $table->timestampTz('updated_at')->useCurrent();
         });
 
-        DB::statement("ALTER TABLE teacher_educations ADD CONSTRAINT teacher_educations_gpa_check CHECK (gpa IS NULL OR (gpa >= 0 AND gpa <= 4.00))");
-        DB::statement("CREATE INDEX teacher_educations_app_idx ON teacher_educations (teacher_application_id)");
+        DB::statement('ALTER TABLE teacher_educations ADD CONSTRAINT teacher_educations_gpa_check CHECK (gpa IS NULL OR (gpa >= 0 AND gpa <= 4.00))');
+        DB::statement('CREATE INDEX teacher_educations_app_idx ON teacher_educations (teacher_application_id)');
 
         Schema::create('teacher_experiences', function (Blueprint $table) {
             $table->id();
@@ -38,8 +38,8 @@ return new class extends Migration
             $table->timestampTz('updated_at')->useCurrent();
         });
 
-        DB::statement("ALTER TABLE teacher_experiences ADD CONSTRAINT teacher_experiences_dates_check CHECK (end_date IS NULL OR end_date >= start_date)");
-        DB::statement("CREATE INDEX teacher_experiences_app_idx ON teacher_experiences (teacher_application_id)");
+        DB::statement('ALTER TABLE teacher_experiences ADD CONSTRAINT teacher_experiences_dates_check CHECK (end_date IS NULL OR end_date >= start_date)');
+        DB::statement('CREATE INDEX teacher_experiences_app_idx ON teacher_experiences (teacher_application_id)');
 
         Schema::create('teacher_certifications', function (Blueprint $table) {
             $table->id();
@@ -52,7 +52,7 @@ return new class extends Migration
             $table->timestampTz('updated_at')->useCurrent();
         });
 
-        DB::statement("CREATE INDEX teacher_certifications_app_idx ON teacher_certifications (teacher_application_id)");
+        DB::statement('CREATE INDEX teacher_certifications_app_idx ON teacher_certifications (teacher_application_id)');
     }
 
     public function down(): void

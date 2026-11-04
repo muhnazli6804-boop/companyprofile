@@ -28,9 +28,9 @@ return new class extends Migration
             $table->softDeletesTz();
         });
 
-        DB::statement("ALTER TABLE teacher_vacancies ADD CONSTRAINT teacher_vacancies_dates_check CHECK (closes_at IS NULL OR opens_at IS NULL OR closes_at > opens_at)");
-        DB::statement("CREATE UNIQUE INDEX teacher_vacancies_slug_unique ON teacher_vacancies (slug) WHERE deleted_at IS NULL");
-        DB::statement("CREATE INDEX teacher_vacancies_published_idx ON teacher_vacancies (is_published, closes_at)");
+        DB::statement('ALTER TABLE teacher_vacancies ADD CONSTRAINT teacher_vacancies_dates_check CHECK (closes_at IS NULL OR opens_at IS NULL OR closes_at > opens_at)');
+        DB::statement('CREATE UNIQUE INDEX teacher_vacancies_slug_unique ON teacher_vacancies (slug) WHERE deleted_at IS NULL');
+        DB::statement('CREATE INDEX teacher_vacancies_published_idx ON teacher_vacancies (is_published, closes_at)');
 
         Schema::create('teacher_applications', function (Blueprint $table) {
             $table->id();
@@ -69,14 +69,14 @@ return new class extends Migration
 
         DB::statement("ALTER TABLE teacher_applications ADD CONSTRAINT teacher_applications_status_check CHECK (status IN ('draft', 'submitted', 'administrative_review', 'interview_test', 'passed', 'failed', 'reserve'))");
         DB::statement("ALTER TABLE teacher_applications ADD CONSTRAINT teacher_applications_gender_check CHECK (gender IN ('L', 'P'))");
-        DB::statement("ALTER TABLE teacher_applications ADD CONSTRAINT teacher_applications_step_check CHECK (current_step BETWEEN 1 AND 5)");
+        DB::statement('ALTER TABLE teacher_applications ADD CONSTRAINT teacher_applications_step_check CHECK (current_step BETWEEN 1 AND 5)');
         DB::statement("ALTER TABLE teacher_applications ADD CONSTRAINT teacher_applications_submitted_check CHECK (status = 'draft' OR (registration_number IS NOT NULL AND submitted_at IS NOT NULL))");
-        DB::statement("CREATE UNIQUE INDEX teacher_applications_number_unique ON teacher_applications (registration_number)");
-        DB::statement("CREATE INDEX teacher_applications_user_idx ON teacher_applications (user_id)");
-        DB::statement("CREATE INDEX teacher_applications_vacancy_idx ON teacher_applications (teacher_vacancy_id)");
-        DB::statement("CREATE INDEX teacher_applications_filter_idx ON teacher_applications (education_unit_id, status)");
-        DB::statement("CREATE INDEX teacher_applications_nik_hash_idx ON teacher_applications (nik_hash)");
-        DB::statement("CREATE INDEX teacher_applications_name_trgm ON teacher_applications USING gin (full_name gin_trgm_ops)");
+        DB::statement('CREATE UNIQUE INDEX teacher_applications_number_unique ON teacher_applications (registration_number)');
+        DB::statement('CREATE INDEX teacher_applications_user_idx ON teacher_applications (user_id)');
+        DB::statement('CREATE INDEX teacher_applications_vacancy_idx ON teacher_applications (teacher_vacancy_id)');
+        DB::statement('CREATE INDEX teacher_applications_filter_idx ON teacher_applications (education_unit_id, status)');
+        DB::statement('CREATE INDEX teacher_applications_nik_hash_idx ON teacher_applications (nik_hash)');
+        DB::statement('CREATE INDEX teacher_applications_name_trgm ON teacher_applications USING gin (full_name gin_trgm_ops)');
     }
 
     public function down(): void

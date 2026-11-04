@@ -36,9 +36,9 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE posts ADD CONSTRAINT posts_status_check CHECK (status IN ('draft', 'published', 'archived'))");
-        DB::statement("CREATE UNIQUE INDEX posts_slug_unique ON posts (slug) WHERE deleted_at IS NULL");
-        DB::statement("CREATE INDEX posts_list_idx ON posts (status, published_at DESC)");
-        DB::statement("CREATE INDEX posts_category_idx ON posts (post_category_id)");
+        DB::statement('CREATE UNIQUE INDEX posts_slug_unique ON posts (slug) WHERE deleted_at IS NULL');
+        DB::statement('CREATE INDEX posts_list_idx ON posts (status, published_at DESC)');
+        DB::statement('CREATE INDEX posts_category_idx ON posts (post_category_id)');
 
         Schema::create('pages', function (Blueprint $table) {
             $table->id();
@@ -54,7 +54,7 @@ return new class extends Migration
             $table->softDeletesTz();
         });
 
-        DB::statement("CREATE UNIQUE INDEX pages_slug_unique ON pages (slug) WHERE deleted_at IS NULL");
+        DB::statement('CREATE UNIQUE INDEX pages_slug_unique ON pages (slug) WHERE deleted_at IS NULL');
 
         Schema::create('organization_members', function (Blueprint $table) {
             $table->id();
@@ -81,7 +81,7 @@ return new class extends Migration
             $table->softDeletesTz();
         });
 
-        DB::statement("CREATE UNIQUE INDEX galleries_slug_unique ON galleries (slug) WHERE deleted_at IS NULL");
+        DB::statement('CREATE UNIQUE INDEX galleries_slug_unique ON galleries (slug) WHERE deleted_at IS NULL');
 
         Schema::create('gallery_items', function (Blueprint $table) {
             $table->id();
@@ -93,7 +93,7 @@ return new class extends Migration
             $table->timestampTz('updated_at')->useCurrent();
         });
 
-        DB::statement("CREATE INDEX gallery_items_gallery_idx ON gallery_items (gallery_id, sort_order)");
+        DB::statement('CREATE INDEX gallery_items_gallery_idx ON gallery_items (gallery_id, sort_order)');
 
         Schema::create('banners', function (Blueprint $table) {
             $table->id();
@@ -126,7 +126,7 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE contact_messages ADD CONSTRAINT contact_messages_status_check CHECK (status IN ('new', 'read', 'replied'))");
-        DB::statement("CREATE INDEX contact_messages_status_idx ON contact_messages (status, created_at DESC)");
+        DB::statement('CREATE INDEX contact_messages_status_idx ON contact_messages (status, created_at DESC)');
 
         Schema::create('settings', function (Blueprint $table) {
             $table->id();
@@ -149,9 +149,9 @@ return new class extends Migration
             $table->timestampTz('created_at')->useCurrent();
         });
 
-        DB::statement("CREATE INDEX activity_logs_user_idx ON activity_logs (user_id, created_at DESC)");
-        DB::statement("CREATE INDEX activity_logs_subject_idx ON activity_logs (subject_type, subject_id)");
-        DB::statement("CREATE INDEX activity_logs_action_idx ON activity_logs (action, created_at DESC)");
+        DB::statement('CREATE INDEX activity_logs_user_idx ON activity_logs (user_id, created_at DESC)');
+        DB::statement('CREATE INDEX activity_logs_subject_idx ON activity_logs (subject_type, subject_id)');
+        DB::statement('CREATE INDEX activity_logs_action_idx ON activity_logs (action, created_at DESC)');
     }
 
     public function down(): void

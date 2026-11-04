@@ -1,11 +1,12 @@
 <?php
 
-test('public settings endpoint returns 501 not implemented with standard error format', function () {
+test('public settings endpoint returns 200 with settings data', function () {
     $response = $this->getJson('/api/v1/public/settings');
 
-    $response->assertStatus(501)
-        ->assertJson([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
+    $response->assertStatus(200)
+        ->assertJsonStructure([
+            'data' => [
+                'site_name',
+            ],
         ]);
 });

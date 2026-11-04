@@ -24,7 +24,7 @@ class AdminUserSeeder extends Seeder
         );
 
         $superAdminRole = Role::where('name', 'super_admin')->first();
-        if ($superAdminRole && !$admin->roles()->where('roles.id', $superAdminRole->id)->exists()) {
+        if ($superAdminRole && ! $admin->roles()->where('roles.id', $superAdminRole->id)->exists()) {
             $admin->roles()->attach($superAdminRole->id);
         }
     }

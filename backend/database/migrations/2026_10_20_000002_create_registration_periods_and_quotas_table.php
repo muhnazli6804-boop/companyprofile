@@ -25,9 +25,9 @@ return new class extends Migration
             $table->softDeletesTz();
         });
 
-        DB::statement("ALTER TABLE registration_periods ADD CONSTRAINT registration_periods_dates_check CHECK (closes_at > opens_at)");
-        DB::statement("ALTER TABLE registration_periods ADD CONSTRAINT registration_periods_fee_check CHECK (registration_fee >= 0)");
-        DB::statement("CREATE INDEX registration_periods_window_idx ON registration_periods (is_active, opens_at, closes_at)");
+        DB::statement('ALTER TABLE registration_periods ADD CONSTRAINT registration_periods_dates_check CHECK (closes_at > opens_at)');
+        DB::statement('ALTER TABLE registration_periods ADD CONSTRAINT registration_periods_fee_check CHECK (registration_fee >= 0)');
+        DB::statement('CREATE INDEX registration_periods_window_idx ON registration_periods (is_active, opens_at, closes_at)');
 
         Schema::create('period_unit_quotas', function (Blueprint $table) {
             $table->id();
@@ -40,7 +40,7 @@ return new class extends Migration
             $table->unique(['registration_period_id', 'education_unit_id'], 'period_unit_quotas_unique');
         });
 
-        DB::statement("ALTER TABLE period_unit_quotas ADD CONSTRAINT period_unit_quotas_quota_check CHECK (quota >= 0)");
+        DB::statement('ALTER TABLE period_unit_quotas ADD CONSTRAINT period_unit_quotas_quota_check CHECK (quota >= 0)');
     }
 
     public function down(): void

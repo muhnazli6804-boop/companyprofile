@@ -31,8 +31,8 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE users ADD CONSTRAINT users_user_type_check CHECK (user_type IN ('applicant', 'admin'))");
-        DB::statement("CREATE UNIQUE INDEX users_email_unique ON users (lower(email)) WHERE deleted_at IS NULL");
-        DB::statement("CREATE INDEX users_user_type_idx ON users (user_type)");
+        DB::statement('CREATE UNIQUE INDEX users_email_unique ON users (lower(email)) WHERE deleted_at IS NULL');
+        DB::statement('CREATE INDEX users_user_type_idx ON users (user_type)');
 
         Schema::create('roles', function (Blueprint $table) {
             $table->id();

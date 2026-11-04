@@ -31,9 +31,9 @@ return new class extends Migration
 
         DB::statement("ALTER TABLE documents ADD CONSTRAINT documents_type_check CHECK (documentable_type IN ('student_application', 'teacher_application'))");
         DB::statement("ALTER TABLE documents ADD CONSTRAINT documents_verification_check CHECK (verification_status IN ('pending', 'valid', 'invalid'))");
-        DB::statement("ALTER TABLE documents ADD CONSTRAINT documents_size_check CHECK (size_bytes > 0)");
-        DB::statement("CREATE INDEX documents_owner_idx ON documents (documentable_type, documentable_id)");
-        DB::statement("CREATE UNIQUE INDEX documents_slot_unique ON documents (documentable_type, documentable_id, document_type, sequence) WHERE deleted_at IS NULL");
+        DB::statement('ALTER TABLE documents ADD CONSTRAINT documents_size_check CHECK (size_bytes > 0)');
+        DB::statement('CREATE INDEX documents_owner_idx ON documents (documentable_type, documentable_id)');
+        DB::statement('CREATE UNIQUE INDEX documents_slot_unique ON documents (documentable_type, documentable_id, document_type, sequence) WHERE deleted_at IS NULL');
 
         Schema::create('application_status_logs', function (Blueprint $table) {
             $table->id();
@@ -47,7 +47,7 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE application_status_logs ADD CONSTRAINT application_status_logs_type_check CHECK (loggable_type IN ('student_application', 'teacher_application'))");
-        DB::statement("CREATE INDEX application_status_logs_owner_idx ON application_status_logs (loggable_type, loggable_id, created_at)");
+        DB::statement('CREATE INDEX application_status_logs_owner_idx ON application_status_logs (loggable_type, loggable_id, created_at)');
     }
 
     public function down(): void
