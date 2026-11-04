@@ -6,6 +6,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PublicLayout } from '@/layouts/PublicLayout';
 
 // Mock Outlet
@@ -17,11 +18,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
 function renderLayout(path = '/') {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <PublicLayout />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <PublicLayout />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

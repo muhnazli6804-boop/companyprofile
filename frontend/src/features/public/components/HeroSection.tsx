@@ -50,9 +50,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             )}
 
             <div className="flex flex-wrap gap-3">
-              {/* Tombol "Hubungi kami" — Aksen: Kuning Bintang */}
+              {/* Tombol "Daftar sekarang" — Aksen: Kuning Bintang */}
               <a
-                href="#kontak"
+                href="/pendaftaran"
                 className="
                   inline-flex items-center justify-center px-5 py-3 rounded-control
                   bg-star text-ink font-sans font-bold text-base
@@ -61,12 +61,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 "
                 style={{ minHeight: 44 }}
               >
-                Hubungi kami
+                Daftar sekarang
               </a>
 
-              {/* Tombol "Lihat kegiatan" — Sekunder di atas biru */}
+              {/* Tombol "Hubungi kami" — Sekunder di atas biru */}
               <a
-                href="#kegiatan"
+                href="#kontak"
                 className="
                   inline-flex items-center justify-center px-5 py-3 rounded-control
                   bg-transparent text-white font-sans font-bold text-base
@@ -76,10 +76,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 "
                 style={{ minHeight: 44 }}
               >
-                Lihat kegiatan
+                Hubungi kami
               </a>
-
-              {/* TODO: Tombol pendaftaran BELUM dipasang karena halaman pendaftaran belum ada */}
             </div>
           </div>
 

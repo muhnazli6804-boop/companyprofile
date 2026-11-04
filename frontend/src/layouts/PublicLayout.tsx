@@ -10,15 +10,19 @@
  * - Tautan aktif (aria-current) berdasarkan intersection observer
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import { Menu, X, User as UserIcon, LogOut } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import type { ApiResponse, User } from '@/types';
 
-// Navigasi halaman beranda
+// Navigasi halaman beranda & publik
 const NAV_LINKS = [
-  { label: 'Tentang', href: '#tentang' },
-  { label: 'Visi dan misi', href: '#visi-misi' },
-  { label: 'Kegiatan', href: '#kegiatan' },
-  { label: 'Kontak', href: '#kontak' },
+  { label: 'Tentang', anchor: 'tentang' },
+  { label: 'Visi dan misi', anchor: 'visi-misi' },
+  { label: 'Kegiatan', anchor: 'kegiatan' },
+  { label: 'Pendaftaran', path: '/pendaftaran' },
+  { label: 'Kontak', anchor: 'kontak' },
 ] as const;
 
 const SECTION_IDS = ['tentang', 'visi-misi', 'kegiatan', 'kontak'] as const;
@@ -29,7 +33,35 @@ export const PublicLayout: React.FC = () => {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isHomePage = location.pathname === '/';
+
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<ApiResponse<User>>('/auth/me');
+        return res.data.data;
+      } catch {
+        return null;
+      }
+    },
+    retry: false,
+    staleTime: 60 * 1000,
+  });
+
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Continue cleanup
+    }
+    localStorage.removeItem('auth_token');
+    queryClient.setQueryData(['currentUser'], null);
+    queryClient.invalidateQueries();
+    navigate('/');
+  };
 
   // Intersection observer untuk menentukan bagian aktif
   useEffect(() => {
@@ -47,7 +79,7 @@ export const PublicLayout: React.FC = () => {
             setActiveSection(id);
           }
         },
-        { rootMargin: '-20% 0px -70% 0px', threshold: 0 },
+        { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
       );
       obs.observe(el);
       observers.push(obs);
@@ -63,20 +95,18 @@ export const PublicLayout: React.FC = () => {
 
   // Gulir halus ke target (hormati prefers-reduced-motion)
   const handleAnchorClick = useCallback(
-    (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-      if (!href.startsWith('#')) return;
-      const id = href.slice(1);
-      const el = document.getElementById(id);
-      if (!el) return;
-
-      e.preventDefault();
-      const prefersReduced = window.matchMedia(
-        '(prefers-reduced-motion: reduce)',
-      ).matches;
-      el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
+    (e: React.MouseEvent<HTMLAnchorElement>, anchor: string) => {
+      if (isHomePage) {
+        e.preventDefault();
+        const el = document.getElementById(anchor);
+        if (el) {
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
+        }
+      }
       handleNavLinkClick();
     },
-    [handleNavLinkClick],
+    [isHomePage, handleNavLinkClick]
   );
 
   // Tutup menu saat Escape
@@ -108,15 +138,12 @@ export const PublicLayout: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  const navLinkClass = (sectionId: string) => {
-    const isActive = isHomePage && activeSection === sectionId;
-    return `
-      font-sans text-base px-1 py-2
-      ${isActive ? 'text-primary font-bold' : 'text-ink hover:text-primary'}
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
-      transition-colors
-    `;
-  };
+  const navLinkClass = (isActive: boolean) => `
+    font-sans text-base px-1 py-2
+    ${isActive ? 'text-primary font-bold' : 'text-ink hover:text-primary'}
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+    transition-colors
+  `;
 
   return (
     <div className="min-h-screen flex flex-col bg-paper text-ink overflow-x-hidden">
@@ -140,12 +167,11 @@ export const PublicLayout: React.FC = () => {
           className="max-w-content mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between"
         >
           {/* Logo / wordmark */}
-          <a
-            href="/"
+          <Link
+            to="/"
             className="font-display font-semibold text-xl text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
             aria-label="Yayasan Padindi — Beranda"
           >
-            {/* Logo bila ada, fallback wordmark teks */}
             <img
               src="/images/logo.png"
               alt="Logo Yayasan Padindi"
@@ -153,30 +179,73 @@ export const PublicLayout: React.FC = () => {
               height={40}
               className="inline-block mr-2 align-middle"
               onError={(e) => {
-                // Logo tidak ada: sembunyikan gambar, tampilkan teks
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
             Yayasan Padindi
-          </a>
+          </Link>
 
           {/* Tautan desktop */}
           <div className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map(({ label, href }) => {
-              const sectionId = href.slice(1);
-              const isActive = isHomePage && activeSection === sectionId;
+            {NAV_LINKS.map((item) => {
+              if ('path' in item) {
+                const isActive = location.pathname.startsWith(item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={navLinkClass(isActive)}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              }
+
+              const href = isHomePage ? `#${item.anchor}` : `/#${item.anchor}`;
+              const isActive = isHomePage && activeSection === item.anchor;
               return (
                 <a
-                  key={href}
+                  key={item.anchor}
                   href={href}
-                  onClick={(e) => handleAnchorClick(e, href)}
+                  onClick={(e) => handleAnchorClick(e, item.anchor)}
                   aria-current={isActive ? 'true' : undefined}
-                  className={navLinkClass(sectionId)}
+                  className={navLinkClass(isActive)}
                 >
-                  {label}
+                  {item.label}
                 </a>
               );
             })}
+
+            {/* Menu Akun / Masuk */}
+            {currentUser ? (
+              <div className="flex items-center gap-3 pl-2 border-l border-line">
+                <Link
+                  to="/akun/pendaftaran"
+                  className="inline-flex items-center gap-1.5 font-sans font-bold text-sm text-primary hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-control px-2 py-1"
+                >
+                  <UserIcon className="w-4 h-4" />
+                  <span>Pendaftaran Saya</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-1 font-sans text-sm text-muted hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger rounded-control p-1"
+                  title="Keluar dari akun"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="sr-only">Keluar</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/masuk"
+                className="inline-flex items-center justify-center px-4 py-2 rounded-control bg-primary text-white font-sans font-bold text-sm hover:bg-primary-hover active:bg-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ minHeight: 40 }}
+              >
+                Masuk
+              </Link>
+            )}
           </div>
 
           {/* Tombol menu mobile */}
@@ -195,32 +264,42 @@ export const PublicLayout: React.FC = () => {
             "
             style={{ minWidth: 44, minHeight: 44 }}
           >
-            {menuOpen ? (
-              <X size={24} aria-hidden="true" />
-            ) : (
-              <Menu size={24} aria-hidden="true" />
-            )}
+            {menuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
           </button>
         </nav>
 
         {/* Menu mobile */}
         {menuOpen && (
-          <div
-            id="mobile-menu"
-            ref={mobileMenuRef}
-            className="md:hidden bg-white border-t border-line"
-          >
+          <div id="mobile-menu" ref={mobileMenuRef} className="md:hidden bg-white border-t border-line">
             <nav aria-label="Menu navigasi mobile" className="flex flex-col py-2">
-              {NAV_LINKS.map(({ label, href }) => {
-                const sectionId = href.slice(1);
-                const isActive = isHomePage && activeSection === sectionId;
+              {NAV_LINKS.map((item) => {
+                if ('path' in item) {
+                  const isActive = location.pathname.startsWith(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={handleNavLinkClick}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`
+                        px-6 py-4 font-sans text-base
+                        ${isActive ? 'text-primary font-bold bg-tint-100' : 'text-ink hover:text-primary hover:bg-tint-100'}
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary
+                      `}
+                      style={{ minHeight: 44 }}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                }
+
+                const href = isHomePage ? `#${item.anchor}` : `/#${item.anchor}`;
+                const isActive = isHomePage && activeSection === item.anchor;
                 return (
                   <a
-                    key={href}
+                    key={item.anchor}
                     href={href}
-                    onClick={(e) => {
-                      handleAnchorClick(e, href);
-                    }}
+                    onClick={(e) => handleAnchorClick(e, item.anchor)}
                     aria-current={isActive ? 'true' : undefined}
                     className={`
                       px-6 py-4 font-sans text-base
@@ -229,10 +308,42 @@ export const PublicLayout: React.FC = () => {
                     `}
                     style={{ minHeight: 44 }}
                   >
-                    {label}
+                    {item.label}
                   </a>
                 );
               })}
+
+              <div className="pt-2 mt-2 border-t border-line px-6 py-3">
+                {currentUser ? (
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      to="/akun/pendaftaran"
+                      onClick={handleNavLinkClick}
+                      className="font-sans font-bold text-base text-primary py-2"
+                    >
+                      Pendaftaran Saya
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleNavLinkClick();
+                        handleLogout();
+                      }}
+                      className="font-sans text-base text-danger text-left py-2"
+                    >
+                      Keluar
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    to="/masuk"
+                    onClick={handleNavLinkClick}
+                    className="inline-flex items-center justify-center w-full px-4 py-3 rounded-control bg-primary text-white font-sans font-bold text-base"
+                  >
+                    Masuk
+                  </Link>
+                )}
+              </div>
             </nav>
           </div>
         )}
@@ -246,9 +357,7 @@ export const PublicLayout: React.FC = () => {
       {/* Footer minimal */}
       <footer className="bg-navy text-white py-6">
         <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8 text-center">
-          <p className="font-sans text-sm text-white/80">
-            &copy; {new Date().getFullYear()} Yayasan Padindi
-          </p>
+          <p className="font-sans text-sm text-white/80">&copy; {new Date().getFullYear()} Yayasan Padindi</p>
         </div>
       </footer>
     </div>

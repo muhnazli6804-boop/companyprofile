@@ -8,7 +8,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { env } from '@/lib/env';
-import { fetchPublicSettings, fetchActivities } from './api';
+import { fetchPublicSettings, fetchActivities, fetchRegistrationInfo, type PublicRegistrationInfo } from './api';
 import { mockSettings } from './mocks/settings.mock';
 import { mockActivities } from './mocks/activities.mock';
 import type { SiteSettings, Activity, PaginatedResponse } from './types';
@@ -36,5 +36,15 @@ export function useActivities() {
       ? () => Promise.resolve({ data: mockActivities })
       : fetchActivities,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ---------- useRegistrationInfo ----------
+
+export function useRegistrationInfo() {
+  return useQuery<PublicRegistrationInfo, Error>({
+    queryKey: ['public', 'registration-info'],
+    queryFn: fetchRegistrationInfo,
+    staleTime: 60 * 1000,
   });
 }
