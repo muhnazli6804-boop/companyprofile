@@ -4,13 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-// TODO: see Skema-Database-Padindi.md section 3.1
 class Role extends Model
 {
     use HasFactory;
 
     protected $guarded = ['id'];
 
-    // TODO: relasi users(), permissions()
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'role_user');
+    }
+
+    public function permissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'permission_role');
+    }
 }

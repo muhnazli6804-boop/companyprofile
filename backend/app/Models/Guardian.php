@@ -6,12 +6,11 @@ use App\Enums\GuardianRelationship;
 use App\Support\Concerns\HasNikHash;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.3
 class Guardian extends Model
 {
-    use HasFactory, HasNikHash, SoftDeletes;
+    use HasFactory, HasNikHash;
 
     protected $guarded = ['id'];
 
@@ -20,9 +19,13 @@ class Guardian extends Model
         return [
             'nik' => 'encrypted',
             'relationship' => GuardianRelationship::class,
+            'birth_year' => 'integer',
             'is_primary_contact' => 'boolean',
         ];
     }
 
-    // TODO: relasi studentApplication()
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(StudentApplication::class, 'student_application_id');
+    }
 }

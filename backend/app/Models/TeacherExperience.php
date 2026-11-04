@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.4
 class TeacherExperience extends Model
 {
     use HasFactory;
+
+    protected $table = 'teacher_experiences';
 
     protected $guarded = ['id'];
 
@@ -17,8 +19,12 @@ class TeacherExperience extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'sort_order' => 'integer',
         ];
     }
 
-    // TODO: relasi teacherApplication()
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(TeacherApplication::class, 'teacher_application_id');
+    }
 }

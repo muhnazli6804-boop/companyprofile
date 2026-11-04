@@ -4,9 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-// TODO: see Skema-Database-Padindi.md section 3.4
 class TeacherVacancy extends Model
 {
     use HasFactory, SoftDeletes;
@@ -19,8 +20,22 @@ class TeacherVacancy extends Model
             'is_published' => 'boolean',
             'opens_at' => 'datetime',
             'closes_at' => 'datetime',
+            'quota' => 'integer',
         ];
     }
 
-    // TODO: relasi educationUnit(), applications()
+    public function educationUnit(): BelongsTo
+    {
+        return $this->belongsTo(EducationUnit::class);
+    }
+
+    public function applications(): HasMany
+    {
+        return $this->hasMany(TeacherApplication::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

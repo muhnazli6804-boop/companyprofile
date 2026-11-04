@@ -4,8 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.5
 class ApplicationStatusLog extends Model
 {
     use HasFactory;
@@ -21,5 +22,13 @@ class ApplicationStatusLog extends Model
         ];
     }
 
-    // TODO: relasi morphTo application, user()
+    public function loggable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function changedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'changed_by');
+    }
 }

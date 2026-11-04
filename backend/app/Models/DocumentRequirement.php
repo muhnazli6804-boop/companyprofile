@@ -5,8 +5,8 @@ namespace App\Models;
 use App\Enums\ApplicantType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.2
 class DocumentRequirement extends Model
 {
     use HasFactory;
@@ -18,9 +18,17 @@ class DocumentRequirement extends Model
         return [
             'applicant_type' => ApplicantType::class,
             'is_required' => 'boolean',
-            'allowed_mimes' => 'array',
+            'is_active' => 'boolean',
         ];
     }
 
-    // TODO: relasi educationUnit()
+    public function educationUnit(): BelongsTo
+    {
+        return $this->belongsTo(EducationUnit::class);
+    }
+
+    public function getAllowedMimesListAttribute(): array
+    {
+        return array_map('trim', explode(',', $this->allowed_mimes ?? ''));
+    }
 }
