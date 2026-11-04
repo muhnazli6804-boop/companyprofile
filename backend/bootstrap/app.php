@@ -30,6 +30,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Enable Sanctum stateful cookies for SPA
         $middleware->statefulApi();
 
+        // Exempt API routes from CSRF verification (pure token & stateful API support)
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+        ]);
+
         // Global middleware
         $middleware->append(RequestId::class);
 

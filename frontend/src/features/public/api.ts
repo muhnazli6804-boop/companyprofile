@@ -107,3 +107,44 @@ export async function fetchActivities(): Promise<PaginatedResponse<Activity>> {
     meta: res.data.meta,
   };
 }
+
+export interface PublicRegistrationInfo {
+  active_period: {
+    id: number;
+    name: string;
+    academic_year: string;
+    wave: number;
+    opens_at: string;
+    closes_at: string;
+    announcement_at?: string;
+    registration_fee: number;
+    is_open: boolean;
+  } | null;
+  units: Array<{
+    id: number;
+    code: string;
+    name: string;
+    slug: string;
+    level: string;
+    quota: number;
+    filled: number;
+    is_full: boolean;
+    required_documents: Array<{
+      document_type: string;
+      label: string;
+      description?: string;
+      is_required: boolean;
+      max_size_kb: number;
+      allowed_mimes: string;
+    }>;
+  }>;
+  next_steps: {
+    student_test_info: string;
+    teacher_interview_info: string;
+  };
+}
+
+export async function fetchRegistrationInfo(): Promise<PublicRegistrationInfo> {
+  const res = await apiClient.get<{ data: PublicRegistrationInfo }>('/public/registration-info');
+  return res.data.data;
+}

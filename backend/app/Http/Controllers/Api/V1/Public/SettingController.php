@@ -3,34 +3,57 @@
 namespace App\Http\Controllers\Api\V1\Public;
 
 use App\Http\Controllers\Controller;
+use App\Models\Banner;
+use App\Models\OrganizationMember;
+use App\Models\Setting;
+use Illuminate\Http\JsonResponse;
 
-// TODO: see Rancangan-API-Padindi.md section 3
 class SettingController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $settings = Setting::all()->pluck('value', 'key')->toArray();
+
+        // Decode JSON fields if applicable
+        if (isset($settings['mission'])) {
+            $decoded = json_decode($settings['mission'], true);
+            if (is_array($decoded)) {
+                $settings['mission'] = $decoded;
+            }
+        }
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $settings,
+        ]);
     }
 
-    public function banners()
+    public function banners(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $banners = Banner::query()
+            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('starts_at')->orWhere('starts_at', '<=', now());
+            })
+            ->where(function ($q) {
+                $q->whereNull('ends_at')->orWhere('ends_at', '>=', now());
+            })
+            ->orderBy('sort_order', 'asc')
+            ->get();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $banners,
+        ]);
     }
 
-    public function organization()
+    public function organization(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $members = OrganizationMember::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order', 'asc')
+            ->get();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $members,
+        ]);
     }
 }

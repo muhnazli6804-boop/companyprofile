@@ -8,5 +8,7 @@ parameters:
         - config/
         - routes/
 
+    treatPhpDocTypesAsCertain: false
+
     # Level 5 per prompt and ADR 0001
     level: 5

@@ -5,9 +5,10 @@ namespace App\Models;
 use App\Enums\DocumentVerificationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-// TODO: see Skema-Database-Padindi.md section 3.5
 class Document extends Model
 {
     use HasFactory, SoftDeletes;
@@ -17,10 +18,20 @@ class Document extends Model
     protected function casts(): array
     {
         return [
+            'sequence' => 'integer',
+            'size_bytes' => 'integer',
             'verification_status' => DocumentVerificationStatus::class,
             'verified_at' => 'datetime',
         ];
     }
 
-    // TODO: relasi morphTo documentable, verifiedBy()
+    public function documentable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
 }

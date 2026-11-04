@@ -2,15 +2,30 @@
 
 namespace App\Support\Concerns;
 
-// TODO: see Skema-Database-Padindi.md section 9 and ARCHITECTURE.md section 10
 trait HasNikHash
 {
-    /**
-     * Set the NIK attribute and calculate its SHA-256 hash.
-     */
-    public function setNikAttribute(?string $value): void
+    public static function bootHasNikHash(): void
     {
-        $this->attributes['nik'] = $value;
-        $this->attributes['nik_hash'] = $value ? hash('sha256', $value) : null;
+        static::saving(function ($model) {
+            if ($model->isDirty('nik')) {
+                $rawNik = $model->nik;
+                if (! empty($rawNik)) {
+                    $pepper = (string) config('app.nik_hash_pepper', '');
+                    $model->nik_hash = hash_hmac('sha256', trim($rawNik), $pepper);
+                } else {
+                    $model->nik_hash = null;
+                }
+            }
+        });
+    }
+
+    /**
+     * Generate hash for NIK lookup.
+     */
+    public static function hashNik(string $nik): string
+    {
+        $pepper = (string) config('app.nik_hash_pepper', '');
+
+        return hash_hmac('sha256', trim($nik), $pepper);
     }
 }

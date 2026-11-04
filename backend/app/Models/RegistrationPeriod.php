@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-// TODO: see Skema-Database-Padindi.md section 3.2
 class RegistrationPeriod extends Model
 {
     use HasFactory, SoftDeletes;
@@ -19,9 +19,25 @@ class RegistrationPeriod extends Model
             'opens_at' => 'datetime',
             'closes_at' => 'datetime',
             'announcement_at' => 'datetime',
+            'registration_fee' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
 
-    // TODO: relasi quotas(), studentApplications()
+    public function quotas(): HasMany
+    {
+        return $this->hasMany(PeriodUnitQuota::class);
+    }
+
+    public function studentApplications(): HasMany
+    {
+        return $this->hasMany(StudentApplication::class);
+    }
+
+    public function isOpen(): bool
+    {
+        $now = now();
+
+        return $this->is_active && $now->between($this->opens_at, $this->closes_at);
+    }
 }

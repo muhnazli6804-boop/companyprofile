@@ -4,13 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.2
 class PeriodUnitQuota extends Model
 {
     use HasFactory;
 
     protected $guarded = ['id'];
 
-    // TODO: relasi registrationPeriod(), educationUnit()
+    public function registrationPeriod(): BelongsTo
+    {
+        return $this->belongsTo(RegistrationPeriod::class);
+    }
+
+    public function educationUnit(): BelongsTo
+    {
+        return $this->belongsTo(EducationUnit::class);
+    }
 }

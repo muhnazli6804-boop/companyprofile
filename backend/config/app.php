@@ -41,6 +41,8 @@ return [
 
     'debug' => (bool) env('APP_DEBUG', false),
 
+    'nik_hash_pepper' => env('NIK_HASH_PEPPER', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application URL

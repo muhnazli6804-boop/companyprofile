@@ -223,7 +223,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
                   w-12 h-12 rounded-full flex items-center justify-center
                   bg-primary text-white
                   disabled:bg-line disabled:text-muted disabled:cursor-not-allowed
-                  hover:enabled:bg-primary-hover
+                  hover:enabled:bg-primary-hover active:enabled:bg-primary-active
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-star focus-visible:ring-offset-2 focus-visible:ring-offset-paper
                   transition-colors
                   on-blue
@@ -245,7 +245,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
                   w-12 h-12 rounded-full flex items-center justify-center
                   bg-primary text-white
                   disabled:bg-line disabled:text-muted disabled:cursor-not-allowed
-                  hover:enabled:bg-primary-hover
+                  hover:enabled:bg-primary-hover active:enabled:bg-primary-active
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-star focus-visible:ring-offset-2 focus-visible:ring-offset-paper
                   transition-colors
                   on-blue

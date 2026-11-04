@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             AdminUserSeeder::class,
             EducationUnitSeeder::class,
+            RegistrationPeriodSeeder::class,
             DocumentRequirementSeeder::class,
             SettingSeeder::class,
             PageSeeder::class,

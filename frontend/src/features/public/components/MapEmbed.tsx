@@ -80,7 +80,8 @@ export const MapEmbed: React.FC<MapEmbedProps> = ({
           inline-flex items-center gap-2
           px-5 py-3 rounded-control
           bg-star text-ink font-sans font-bold text-base
-          hover:opacity-90 focus-visible:outline-none
+          hover:bg-[#E0BE16] active:bg-[#CCA80C] transition-colors
+          focus-visible:outline-none
           focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2
           focus-visible:ring-offset-navy
           w-fit

@@ -50,36 +50,34 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             )}
 
             <div className="flex flex-wrap gap-3">
-              {/* Tombol "Hubungi kami" — Aksen: Kuning Bintang */}
+              {/* Tombol "Daftar sekarang" — Aksen: Kuning Bintang */}
+              <a
+                href="/pendaftaran"
+                className="
+                  inline-flex items-center justify-center px-5 py-3 rounded-control
+                  bg-star text-ink font-sans font-bold text-base
+                  hover:bg-[#E0BE16] active:bg-[#CCA80C] transition-colors
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
+                "
+                style={{ minHeight: 44 }}
+              >
+                Daftar sekarang
+              </a>
+
+              {/* Tombol "Hubungi kami" — Sekunder di atas biru */}
               <a
                 href="#kontak"
                 className="
                   inline-flex items-center justify-center px-5 py-3 rounded-control
-                  bg-star text-ink font-sans font-bold text-base
-                  hover:opacity-90
+                  bg-transparent text-white font-sans font-bold text-base
+                  border-2 border-white
+                  hover:bg-white/10 active:bg-white/20 transition-colors
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
                 "
                 style={{ minHeight: 44 }}
               >
                 Hubungi kami
               </a>
-
-              {/* Tombol "Lihat kegiatan" — Sekunder di atas biru */}
-              <a
-                href="#kegiatan"
-                className="
-                  inline-flex items-center justify-center px-5 py-3 rounded-control
-                  bg-transparent text-white font-sans font-bold text-base
-                  border-2 border-white
-                  hover:bg-white/10
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
-                "
-                style={{ minHeight: 44 }}
-              >
-                Lihat kegiatan
-              </a>
-
-              {/* TODO: Tombol pendaftaran BELUM dipasang karena halaman pendaftaran belum ada */}
             </div>
           </div>
 

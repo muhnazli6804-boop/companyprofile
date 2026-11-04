@@ -1,7 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { PublicLayout } from '@/layouts/PublicLayout';
-import { ApplicantLayout } from '@/layouts/ApplicantLayout';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { RequireAuth } from '@/app/guards/RequireAuth';
@@ -21,6 +20,7 @@ const RegistrationInfoPage = lazy(() => import('@/features/public/pages/Registra
 const VacancyListPage = lazy(() => import('@/features/public/pages/VacancyListPage'));
 const ContactPage = lazy(() => import('@/features/public/pages/ContactPage'));
 const PrivacyPolicyPage = lazy(() => import('@/features/public/pages/PrivacyPolicyPage'));
+const RegistrationHubPage = lazy(() => import('@/features/public/pages/RegistrationHubPage'));
 
 // Lazy-loaded Auth Pages
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
@@ -30,13 +30,21 @@ const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswo
 const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
 const VerifyEmailPage = lazy(() => import('@/features/auth/pages/VerifyEmailPage'));
 
-// Lazy-loaded Applicant Pages
-const StudentAppListPage = lazy(() => import('@/features/student-application/pages/ApplicationListPage'));
-const StudentAppFormPage = lazy(() => import('@/features/student-application/pages/ApplicationFormPage'));
-const StudentAppStatusPage = lazy(() => import('@/features/student-application/pages/ApplicationStatusPage'));
-const TeacherAppListPage = lazy(() => import('@/features/teacher-application/pages/ApplicationListPage'));
-const TeacherAppFormPage = lazy(() => import('@/features/teacher-application/pages/ApplicationFormPage'));
-const TeacherAppStatusPage = lazy(() => import('@/features/teacher-application/pages/ApplicationStatusPage'));
+// Lazy-loaded Student Application Pages
+const StudentFormPage = lazy(() => import('@/features/student-application/pages/StudentFormPage'));
+const StudentRequirementsPage = lazy(() => import('@/features/student-application/pages/StudentRequirementsPage'));
+const StudentConfirmationPage = lazy(() => import('@/features/student-application/pages/StudentConfirmationPage'));
+const StudentSuccessPage = lazy(() => import('@/features/student-application/pages/StudentSuccessPage'));
+
+// Lazy-loaded Teacher Application Pages
+const TeacherFormPage = lazy(() => import('@/features/teacher-application/pages/TeacherFormPage'));
+const TeacherRequirementsPage = lazy(() => import('@/features/teacher-application/pages/TeacherRequirementsPage'));
+const TeacherConfirmationPage = lazy(() => import('@/features/teacher-application/pages/TeacherConfirmationPage'));
+const TeacherSuccessPage = lazy(() => import('@/features/teacher-application/pages/TeacherSuccessPage'));
+
+// Applicant Account / Status Pages
+const ApplicationListPage = lazy(() => import('@/features/student-application/pages/ApplicationListPage'));
+const ApplicationStatusPage = lazy(() => import('@/features/student-application/pages/ApplicationStatusPage'));
 
 // Lazy-loaded Admin Pages
 const AdminDashboardPage = lazy(() => import('@/features/admin/dashboard/pages/DashboardAdminPage'));
@@ -53,13 +61,13 @@ const AdminLogsPage = lazy(() => import('@/features/admin/activity-logs/pages/Ac
 const AdminSettingsPage = lazy(() => import('@/features/admin/settings/pages/SettingsPage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<div className="p-8 text-center text-muted">Memuat halaman...</div>}>
+  <Suspense fallback={<div className="p-8 text-center text-muted font-sans">Memuat halaman...</div>}>
     {children}
   </Suspense>
 );
 
 export const router = createBrowserRouter([
-  // 1. Public Routes
+  // 1. Public & Main Layout Routes
   {
     path: '/',
     element: <PublicLayout />,
@@ -76,10 +84,61 @@ export const router = createBrowserRouter([
       { path: 'lowongan-guru', element: <SuspenseWrapper><VacancyListPage /></SuspenseWrapper> },
       { path: 'kontak', element: <SuspenseWrapper><ContactPage /></SuspenseWrapper> },
       { path: 'kebijakan-privasi', element: <SuspenseWrapper><PrivacyPolicyPage /></SuspenseWrapper> },
+
+      // Hub Pendaftaran
+      { path: 'pendaftaran', element: <SuspenseWrapper><RegistrationHubPage /></SuspenseWrapper> },
+
+      // Rute Masuk / Daftar Publik
+      { path: 'masuk', element: <SuspenseWrapper><LoginPage /></SuspenseWrapper> },
+      { path: 'daftar-akun', element: <SuspenseWrapper><RegisterPage /></SuspenseWrapper> },
+      { path: 'lupa-kata-sandi', element: <SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper> },
+
+      // Rute Pendaftaran Murid (Dilindungi Autentikasi)
+      {
+        path: 'pendaftaran/murid',
+        element: <RequireAuth />,
+        children: [
+          { index: true, element: <SuspenseWrapper><StudentFormPage /></SuspenseWrapper> },
+          { path: ':id', element: <SuspenseWrapper><StudentFormPage /></SuspenseWrapper> },
+          { path: ':id/persyaratan', element: <SuspenseWrapper><StudentRequirementsPage /></SuspenseWrapper> },
+          { path: ':id/konfirmasi', element: <SuspenseWrapper><StudentConfirmationPage /></SuspenseWrapper> },
+          { path: ':id/selesai', element: <SuspenseWrapper><StudentSuccessPage /></SuspenseWrapper> },
+        ],
+      },
+
+      // Rute Pendaftaran Guru (Dilindungi Autentikasi)
+      {
+        path: 'pendaftaran/guru',
+        element: <RequireAuth />,
+        children: [
+          { index: true, element: <SuspenseWrapper><TeacherFormPage /></SuspenseWrapper> },
+          { path: ':id', element: <SuspenseWrapper><TeacherFormPage /></SuspenseWrapper> },
+          { path: ':id/persyaratan', element: <SuspenseWrapper><TeacherRequirementsPage /></SuspenseWrapper> },
+          { path: ':id/konfirmasi', element: <SuspenseWrapper><TeacherConfirmationPage /></SuspenseWrapper> },
+          { path: ':id/selesai', element: <SuspenseWrapper><TeacherSuccessPage /></SuspenseWrapper> },
+        ],
+      },
+
+      // Rute Akun / Dasbor Status Pendaftaran
+      {
+        path: 'akun',
+        element: <RequireAuth />,
+        children: [
+          { index: true, element: <Navigate to="pendaftaran" replace /> },
+          { path: 'pendaftaran', element: <SuspenseWrapper><ApplicationListPage /></SuspenseWrapper> },
+          { path: 'pendaftaran/murid/:id', element: <SuspenseWrapper><ApplicationStatusPage /></SuspenseWrapper> },
+          { path: 'pendaftaran/guru/:id', element: <SuspenseWrapper><ApplicationStatusPage /></SuspenseWrapper> },
+          // Backward compatibility aliases
+          { path: 'pendaftaran-siswa', element: <Navigate to="/akun/pendaftaran" replace /> },
+          { path: 'pendaftaran-siswa/:id', element: <SuspenseWrapper><ApplicationStatusPage /></SuspenseWrapper> },
+          { path: 'lamaran-guru', element: <Navigate to="/akun/pendaftaran" replace /> },
+          { path: 'lamaran-guru/:id', element: <SuspenseWrapper><ApplicationStatusPage /></SuspenseWrapper> },
+        ],
+      },
     ],
   },
 
-  // 2. Auth Routes (Guest Only)
+  // 2. Auth Standalone Routes (Guest Only)
   {
     path: 'auth',
     element: <GuestOnly />,
@@ -98,27 +157,7 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // 3. Applicant Routes (Protected)
-  {
-    path: 'akun',
-    element: <RequireAuth />,
-    children: [
-      {
-        element: <ApplicantLayout />,
-        children: [
-          { index: true, element: <Navigate to="pendaftaran-siswa" replace /> },
-          { path: 'pendaftaran-siswa', element: <SuspenseWrapper><StudentAppListPage /></SuspenseWrapper> },
-          { path: 'pendaftaran-siswa/baru', element: <SuspenseWrapper><StudentAppFormPage /></SuspenseWrapper> },
-          { path: 'pendaftaran-siswa/:id', element: <SuspenseWrapper><StudentAppStatusPage /></SuspenseWrapper> },
-          { path: 'lamaran-guru', element: <SuspenseWrapper><TeacherAppListPage /></SuspenseWrapper> },
-          { path: 'lamaran-guru/baru', element: <SuspenseWrapper><TeacherAppFormPage /></SuspenseWrapper> },
-          { path: 'lamaran-guru/:id', element: <SuspenseWrapper><TeacherAppStatusPage /></SuspenseWrapper> },
-        ],
-      },
-    ],
-  },
-
-  // 4. Admin Routes (Protected)
+  // 3. Admin Routes (Protected)
   {
     path: 'admin',
     element: <RequireAdmin />,

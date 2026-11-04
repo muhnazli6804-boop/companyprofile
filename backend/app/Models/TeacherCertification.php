@@ -4,13 +4,25 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.4
 class TeacherCertification extends Model
 {
     use HasFactory;
 
+    protected $table = 'teacher_certifications';
+
     protected $guarded = ['id'];
 
-    // TODO: relasi teacherApplication()
+    protected function casts(): array
+    {
+        return [
+            'year' => 'integer',
+        ];
+    }
+
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(TeacherApplication::class, 'teacher_application_id');
+    }
 }

@@ -6,12 +6,11 @@ use App\Enums\Gender;
 use App\Support\Concerns\HasNikHash;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.3
 class Student extends Model
 {
-    use HasFactory, HasNikHash, SoftDeletes;
+    use HasFactory, HasNikHash;
 
     protected $guarded = ['id'];
 
@@ -21,8 +20,12 @@ class Student extends Model
             'nik' => 'encrypted',
             'gender' => Gender::class,
             'birth_date' => 'date',
+            'graduation_year' => 'integer',
         ];
     }
 
-    // TODO: relasi studentApplication()
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(StudentApplication::class, 'student_application_id');
+    }
 }
