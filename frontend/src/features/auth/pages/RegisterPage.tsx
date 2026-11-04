@@ -35,6 +35,7 @@ export const RegisterPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -56,8 +57,30 @@ export const RegisterPage: React.FC = () => {
       const destination = returnTo ? decodeURIComponent(returnTo) : '/pendaftaran';
       navigate(destination, { replace: true });
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { message?: string } } };
-      setServerError(errObj.response?.data?.message || 'Pendaftaran akun gagal. Silakan coba lagi.');
+      const errObj = err as {
+        response?: {
+          data?: {
+            message?: string;
+            errors?: Record<string, string[]>;
+          };
+        };
+      };
+
+      const fieldErrors = errObj.response?.data?.errors;
+      if (fieldErrors) {
+        Object.entries(fieldErrors).forEach(([field, msgs]) => {
+          if (field in data && msgs?.[0]) {
+            setError(field as keyof RegisterFormData, {
+              type: 'server',
+              message: msgs[0],
+            });
+          }
+        });
+        const firstError = Object.values(fieldErrors).flat()[0];
+        setServerError(firstError || errObj.response?.data?.message || 'Data yang dikirim tidak valid.');
+      } else {
+        setServerError(errObj.response?.data?.message || 'Pendaftaran akun gagal. Silakan coba lagi.');
+      }
     }
   };
 

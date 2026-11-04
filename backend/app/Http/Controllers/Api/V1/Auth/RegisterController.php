@@ -15,6 +15,12 @@ class RegisterController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
+        if ($request->has('email')) {
+            $request->merge([
+                'email' => strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],

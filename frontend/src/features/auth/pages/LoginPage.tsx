@@ -27,6 +27,7 @@ export const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -48,8 +49,30 @@ export const LoginPage: React.FC = () => {
       const destination = returnTo ? decodeURIComponent(returnTo) : '/pendaftaran';
       navigate(destination, { replace: true });
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { message?: string } } };
-      setServerError(errObj.response?.data?.message || 'Email atau kata sandi salah. Silakan periksa kembali.');
+      const errObj = err as {
+        response?: {
+          data?: {
+            message?: string;
+            errors?: Record<string, string[]>;
+          };
+        };
+      };
+
+      const fieldErrors = errObj.response?.data?.errors;
+      if (fieldErrors) {
+        Object.entries(fieldErrors).forEach(([field, msgs]) => {
+          if (field in data && msgs?.[0]) {
+            setError(field as keyof LoginFormData, {
+              type: 'server',
+              message: msgs[0],
+            });
+          }
+        });
+        const firstError = Object.values(fieldErrors).flat()[0];
+        setServerError(firstError || errObj.response?.data?.message || 'Email atau kata sandi salah.');
+      } else {
+        setServerError(errObj.response?.data?.message || 'Email atau kata sandi salah. Silakan periksa kembali.');
+      }
     }
   };
 
