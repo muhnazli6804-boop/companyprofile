@@ -44,3 +44,8 @@ Thumbs.db
 *.log
 *.bak
 *.tmp
+CLAUDE.md
+
+# Superpowers (spec, rencana, dan state kerja agen)
+.superpowers/
+docs/superpowers/

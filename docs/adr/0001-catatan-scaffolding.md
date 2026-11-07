@@ -87,6 +87,14 @@ Guard `RequireAuth`, `RequireAdmin`, dan `GuestOnly` membaca hasil query `GET /a
 
 ---
 
+## Login Admin Digabung ke `/masuk` (2026-11-07)
+
+Dokumen awal memisahkan `POST /auth/admin/login`. Keputusan: satu halaman `/masuk` dan satu endpoint `POST /auth/login` untuk `applicant` dan `admin`.
+Admin hanya memakai cookie sesi (sesi diregenerasi, tanpa token Bearer, tanpa `remember`); pendaftar tidak berubah. `/auth/admin/login` di frontend dialihkan ke `/masuk`.
+Penyimpangan kecil: akun admin nonaktif mendapat `ACCOUNT_DISABLED`, pendaftar nonaktif tetap `ACCOUNT_INACTIVE`. Spec: `docs/superpowers/specs/2026-11-07-admin-login-design.md`.
+
+---
+
 ## Hal yang Harus Ditindaklanjuti Tim
 
 1. Konfirmasi kode warna resmi yayasan dan ganti nilai placeholder di `globals.css`.
