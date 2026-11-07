@@ -440,7 +440,7 @@ Rincian lengkap ada di `Skema-Database-Padindi.md`. Ringkasan keputusan arsitekt
 |---|---|
 | Mekanisme | Laravel Sanctum mode SPA (sesi berbasis cookie + token CSRF) |
 | Cookie | `HttpOnly`, `Secure`, `SameSite=Lax`; kedaluwarsa sesi [120 menit tidak aktif; konfirmasi] |
-| Jenis akun | `applicant` dan `admin`, login terpisah (`/auth/login`, `/auth/admin/login`) |
+| Jenis akun | `applicant` dan `admin`, satu halaman (`/masuk`) dan satu endpoint (`/auth/login`); admin hanya cookie sesi |
 | Otorisasi admin | Role + permission granular (`can:<permission>` per rute) |
 | Otorisasi data pendaftar | Policy berbasis kepemilikan; akses ke data orang lain mengembalikan 404 |
 | Sesi admin | Disarankan masa aktif lebih pendek dan 2FA [prioritas Should] |

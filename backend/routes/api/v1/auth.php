@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Route;
 // Guest auth routes
 Route::post('/register', [RegisterController::class, 'register']);
 Route::post('/login', [LoginController::class, 'login']);
-Route::post('/admin/login', [LoginController::class, 'adminLogin']);
 Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
 Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])

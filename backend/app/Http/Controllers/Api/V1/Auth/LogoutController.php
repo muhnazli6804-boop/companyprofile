@@ -6,14 +6,16 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class LogoutController extends Controller
 {
     public function logout(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if ($user && method_exists($user, 'currentAccessToken') && $user->currentAccessToken()) {
-            $user->currentAccessToken()->delete();
+        // Admin berbasis cookie memakai TransientToken (tanpa delete()); hanya token Bearer yang dihapus.
+        $token = $request->user()?->currentAccessToken();
+        if ($token instanceof PersonalAccessToken) {
+            $token->delete();
         }
 
         Auth::guard('web')->logout();

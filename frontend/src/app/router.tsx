@@ -24,7 +24,6 @@ const RegistrationHubPage = lazy(() => import('@/features/public/pages/Registrat
 
 // Lazy-loaded Auth Pages
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
-const AdminLoginPage = lazy(() => import('@/features/auth/pages/AdminLoginPage'));
 const RegisterPage = lazy(() => import('@/features/auth/pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
@@ -56,6 +55,7 @@ const AdminRequirementsPage = lazy(() => import('@/features/admin/document-requi
 const AdminVacanciesPage = lazy(() => import('@/features/admin/vacancies/pages/VacanciesPage'));
 const AdminCmsPage = lazy(() => import('@/features/admin/cms/pages/CmsPage'));
 const AdminMessagesPage = lazy(() => import('@/features/admin/messages/pages/MessagesPage'));
+const AdminFinancePage = lazy(() => import('@/features/admin/finance/pages/FinancePage'));
 const AdminUsersPage = lazy(() => import('@/features/admin/users-roles/pages/UsersRolesPage'));
 const AdminLogsPage = lazy(() => import('@/features/admin/activity-logs/pages/ActivityLogsPage'));
 const AdminSettingsPage = lazy(() => import('@/features/admin/settings/pages/SettingsPage'));
@@ -147,7 +147,7 @@ export const router = createBrowserRouter([
         element: <AuthLayout />,
         children: [
           { path: 'login', element: <SuspenseWrapper><LoginPage /></SuspenseWrapper> },
-          { path: 'admin/login', element: <SuspenseWrapper><AdminLoginPage /></SuspenseWrapper> },
+          { path: 'admin/login', element: <Navigate to="/masuk" replace /> },
           { path: 'register', element: <SuspenseWrapper><RegisterPage /></SuspenseWrapper> },
           { path: 'forgot-password', element: <SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper> },
           { path: 'reset-password', element: <SuspenseWrapper><ResetPasswordPage /></SuspenseWrapper> },
@@ -175,6 +175,7 @@ export const router = createBrowserRouter([
           { path: 'lowongan-guru', element: <SuspenseWrapper><AdminVacanciesPage /></SuspenseWrapper> },
           { path: 'cms', element: <SuspenseWrapper><AdminCmsPage /></SuspenseWrapper> },
           { path: 'pesan-kontak', element: <SuspenseWrapper><AdminMessagesPage /></SuspenseWrapper> },
+          { path: 'keuangan', element: <SuspenseWrapper><AdminFinancePage /></SuspenseWrapper> },
           { path: 'pengguna', element: <SuspenseWrapper><AdminUsersPage /></SuspenseWrapper> },
           { path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> },
           { path: 'pengaturan', element: <SuspenseWrapper><AdminSettingsPage /></SuspenseWrapper> },

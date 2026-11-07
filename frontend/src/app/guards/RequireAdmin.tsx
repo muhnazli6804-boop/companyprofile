@@ -19,7 +19,7 @@ export const RequireAdmin: React.FC = () => {
   }
 
   if (!data || data.user_type !== 'admin') {
-    return <Navigate to="/auth/admin/login" replace />;
+    return <Navigate to="/masuk" replace />;
   }
 
   return <Outlet />;

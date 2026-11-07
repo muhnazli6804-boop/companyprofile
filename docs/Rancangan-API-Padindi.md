@@ -139,7 +139,7 @@ Respons `429` menyertakan header `Retry-After`.
 Alur dari frontend:
 
 1. `GET /sanctum/csrf-cookie` untuk mendapatkan cookie `XSRF-TOKEN`.
-2. `POST /api/v1/auth/login` (atau `/auth/admin/login`) dengan header `X-XSRF-TOKEN`. Sesi dibuat lewat cookie.
+2. `POST /api/v1/auth/login` (pendaftar dan admin, satu endpoint) dengan header `X-XSRF-TOKEN`. Sesi dibuat lewat cookie.
 3. Request berikutnya otomatis membawa cookie (`withCredentials: true`).
 4. `POST /api/v1/auth/logout` mengakhiri sesi.
 
@@ -248,8 +248,7 @@ Prefiks `/api/v1/auth`.
 |---|---|---|---|
 | GET | `/sanctum/csrf-cookie` | Tidak | Mengambil cookie CSRF (rute bawaan Sanctum, di luar prefiks `/api/v1`) |
 | POST | `/register` | Tidak | Registrasi akun pendaftar |
-| POST | `/login` | Tidak | Login pendaftar |
-| POST | `/admin/login` | Tidak | Login admin (terpisah dari pendaftar, FR-060) |
+| POST | `/login` | Tidak | Login pendaftar dan admin; respons memuat `user_type` (FR-060). Admin hanya cookie sesi, tanpa token Bearer |
 | POST | `/logout` | Ya | Logout |
 | POST | `/forgot-password` | Tidak | Kirim tautan reset |
 | POST | `/reset-password` | Tidak | Setel kata sandi baru dengan token |
@@ -274,8 +273,8 @@ Prefiks `/api/v1/auth`.
 | `consent_accepted` | wajib `true` (persetujuan kebijakan privasi) |
 
 **Catatan keamanan login**
-- `POST /login` hanya menerima akun `user_type = applicant`; `POST /admin/login` hanya `admin`. Akun salah jenis mendapat pesan yang sama dengan kredensial salah (tidak membocorkan keberadaan akun).
-- Akun `is_active = false` ditolak dengan `ACCOUNT_DISABLED`.
+- `POST /login` menerima `user_type = applicant` dan `admin`. Kredensial salah atau email tak dikenal mendapat pesan yang sama (tidak membocorkan keberadaan akun). Admin tidak mendapat token Bearer; frontend mengarahkan berdasarkan `user_type`.
+- Akun `is_active = false` ditolak setelah kredensial benar: admin dengan `ACCOUNT_DISABLED`, pendaftar tetap `ACCOUNT_INACTIVE`.
 - Respons `forgot-password` selalu sama, apa pun status emailnya.
 - Setelah login sukses, sesi diregenerasi dan `last_login_at` diperbarui.
 
@@ -1138,7 +1137,7 @@ Gagal membuat token (`503`):
 | FR-043 (banyak anak per akun) | `POST /student-applications` berulang |
 | FR-044 (tutup otomatis) | Middleware `EnsureRegistrationOpen`, kode `REGISTRATION_CLOSED`, `QUOTA_FULL` |
 | FR-050-FR-058 (guru) | `/teacher-applications/*`, `/public/vacancies` |
-| FR-060 (login admin) | `/auth/admin/login` |
+| FR-060 (login admin) | `/auth/login` (cabang `user_type=admin`) |
 | FR-061 (dashboard) | `/admin/dashboard` |
 | FR-062-FR-066 (kelola pendaftar) | `/admin/student-applications`, `/admin/teacher-applications` |
 | FR-064 (verifikasi dokumen) | `/admin/documents/{id}/verification` |

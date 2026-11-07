@@ -37,6 +37,15 @@ export const LoginPage: React.FC = () => {
     setServerError(null);
     try {
       const res = await apiClient.post('/auth/login', data);
+
+      if (res.data.data?.user_type === 'admin') {
+        // Admin hanya memakai cookie sesi: buang token Bearer basi, tunggu /auth/me sebelum pindah.
+        localStorage.removeItem('auth_token');
+        await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+        navigate('/admin/dashboard', { replace: true });
+        return;
+      }
+
       const token = res.data.data?.token;
       if (token) {
         localStorage.setItem('auth_token', token);
@@ -85,7 +94,7 @@ export const LoginPage: React.FC = () => {
           Masuk ke Akun
         </h1>
         <p className="font-sans text-sm text-muted">
-          Masuk untuk memulai atau melanjutkan pendaftaran murid dan guru.
+          Masuk sebagai pendaftar atau administrator Yayasan Padindi.
         </p>
       </div>
 
