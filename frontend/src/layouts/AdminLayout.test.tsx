@@ -44,11 +44,20 @@ function renderAt(path: string, queryClient = new QueryClient({ defaultOptions: 
 }
 
 const sidebar = () => screen.getByRole('navigation', { name: 'Navigasi Admin' });
+const menuReady = () => within(sidebar()).findAllByRole('link');
+const menuHrefs = async () => (await menuReady()).map((a) => a.getAttribute('href'));
+
+const ALL_PERMISSIONS = [
+  'dashboard.view', 'applications.view', 'periods.manage', 'units.manage', 'requirements.manage', 'vacancies.manage',
+  'content.manage', 'messages.manage', 'finance.view', 'users.manage', 'logs.view', 'settings.manage',
+];
+const me = (roles: string[], permissions: string[], name = 'Budi Admin') =>
+  api.get.mockResolvedValue({ data: { data: { name, user_type: 'admin', roles, permissions } } });
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
-  api.get.mockResolvedValue({ data: { data: { name: 'Budi Admin', user_type: 'admin' } } });
+  me(['super_admin'], ALL_PERMISSIONS);
   api.post.mockResolvedValue({ data: { message: 'Berhasil keluar.' } });
 });
 
@@ -113,20 +122,23 @@ describe('AdminLayout — menu dan header', () => {
       .filter((a) => a.getAttribute('aria-current') === 'page')
       .map((a) => a.textContent);
 
-  it('menandai hanya menu aktif', () => {
+  it('menandai hanya menu aktif', async () => {
     renderAt('/admin/lamaran-guru');
+    await menuReady();
 
     expect(activeLinks()).toEqual(['Lamaran Guru']);
   });
 
-  it('rute bersarang tetap menandai menu induk', () => {
+  it('rute bersarang tetap menandai menu induk', async () => {
     renderAt('/admin/pendaftaran-siswa/12');
+    await menuReady();
 
     expect(activeLinks()).toEqual(['Pendaftaran Siswa']);
   });
 
-  it('rute admin tak dikenal tidak menandai menu apa pun dan tidak crash', () => {
+  it('rute admin tak dikenal tidak menandai menu apa pun dan tidak crash', async () => {
     renderAt('/admin/tidak-ada');
+    await menuReady();
 
     expect(activeLinks()).toEqual([]);
     expect(screen.getByRole('button', { name: 'Keluar' })).toBeInTheDocument();
@@ -140,22 +152,64 @@ describe('AdminLayout — menu dan header', () => {
     expect(within(screen.getByRole('banner')).queryByText('Dashboard')).not.toBeInTheDocument();
   });
 
-  it('setiap grup menu punya nama yang bisa dibaca pembaca layar', () => {
+  it('setiap grup menu punya nama yang bisa dibaca pembaca layar', async () => {
     renderAt('/admin/dashboard');
+    await menuReady();
 
     for (const name of ['Ringkasan', 'Pendaftaran', 'Master Data', 'Konten', 'Sistem']) {
       expect(within(sidebar()).getByRole('list', { name })).toBeInTheDocument();
     }
   });
 
-  it('memuat 13 menu: 12 rute lama ditambah Keuangan', () => {
+  it('super_admin: memuat 13 menu, 12 rute lama ditambah Keuangan', async () => {
     renderAt('/admin/dashboard');
 
-    const hrefs = within(sidebar())
-      .getAllByRole('link')
-      .map((a) => a.getAttribute('href'));
+    const hrefs = await menuHrefs();
     expect(hrefs).toHaveLength(13);
     expect(hrefs).toEqual(expect.arrayContaining([...ADMIN_ROUTES, '/admin/keuangan']));
+  });
+
+  it('admin_content: hanya Dashboard, Unit Pendidikan, CMS, Pesan Kontak; grup lain hilang seluruhnya', async () => {
+    me(['admin_content'], ['dashboard.view', 'units.manage', 'content.manage', 'messages.manage']);
+    renderAt('/admin/dashboard');
+
+    expect(await menuHrefs()).toEqual(['/admin/dashboard', '/admin/unit-pendidikan', '/admin/cms', '/admin/pesan-kontak']);
+    for (const name of ['Pendaftaran', 'Sistem']) {
+      expect(within(sidebar()).queryByRole('list', { name })).not.toBeInTheDocument();
+      expect(within(sidebar()).queryByText(name)).not.toBeInTheDocument();
+    }
+  });
+
+  it('admin_registration: tanpa CMS, Pesan Kontak, Pengguna & Role, Keuangan, Log, Pengaturan', async () => {
+    me(['admin_registration'], [
+      'dashboard.view', 'applications.view', 'periods.manage', 'requirements.manage', 'vacancies.manage',
+    ]);
+    renderAt('/admin/dashboard');
+
+    expect(await menuHrefs()).toEqual([
+      '/admin/dashboard', '/admin/pendaftaran-siswa', '/admin/lamaran-guru',
+      '/admin/periode', '/admin/syarat-dokumen', '/admin/lowongan-guru',
+    ]);
+    expect(within(sidebar()).queryByRole('list', { name: 'Sistem' })).not.toBeInTheDocument();
+  });
+
+  it('Keuangan hanya muncul untuk finance.view', async () => {
+    me(['kustom'], ['dashboard.view', 'users.manage']);
+    renderAt('/admin/dashboard');
+
+    const hrefs = await menuHrefs();
+    expect(hrefs).toContain('/admin/pengguna');
+    expect(hrefs).not.toContain('/admin/keuangan');
+  });
+
+  it('tanpa izin sama sekali: tidak ada menu, header Keluar tetap ada', async () => {
+    me([], []);
+    renderAt('/admin/dashboard');
+
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    await screen.findByText('Budi Admin');
+    expect(within(sidebar()).queryAllByRole('link')).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Keluar' })).toBeInTheDocument();
   });
 
   it('nama admin hanya tampil sekali, di blok bawah sidebar, dengan title untuk nama panjang', async () => {
@@ -164,9 +218,18 @@ describe('AdminLayout — menu dan header', () => {
     const block = screen.getByTestId('sidebar-user');
     const name = await within(block).findByText('Budi Admin');
     expect(name).toHaveAttribute('title', 'Budi Admin');
-    expect(within(block).getByText('Administrator')).toBeInTheDocument();
+    expect(within(block).getByText('Super Admin')).toBeInTheDocument();
+    expect(within(block).queryByText('Administrator')).not.toBeInTheDocument();
     expect(screen.getAllByText('Budi Admin')).toHaveLength(1);
     expect(within(screen.getByRole('banner')).queryByText('Budi Admin')).not.toBeInTheDocument();
+  });
+
+  it('beberapa role ditampilkan sebagai label dipisah koma', async () => {
+    me(['admin_content', 'admin_registration'], ['dashboard.view']);
+    renderAt('/admin/dashboard');
+
+    const block = screen.getByTestId('sidebar-user');
+    expect(await within(block).findByText('Admin Konten, Admin Pendaftaran')).toBeInTheDocument();
   });
 
   it('tautan Lihat situs menuju / dan berada di luar daftar menu', () => {
@@ -193,6 +256,7 @@ describe('AdminLayout — laci layar kecil', () => {
 
   it('hamburger membuka laci; Esc menutup dan fokus kembali ke hamburger', async () => {
     renderAt('/admin/dashboard');
+    await menuReady();
     const user = userEvent.setup();
 
     expect(hamburger()).toHaveAttribute('aria-expanded', 'false');
@@ -210,6 +274,7 @@ describe('AdminLayout — laci layar kecil', () => {
 
   it('klik menu menutup laci', async () => {
     renderAt('/admin/dashboard');
+    await menuReady();
     const user = userEvent.setup();
 
     await user.click(hamburger());

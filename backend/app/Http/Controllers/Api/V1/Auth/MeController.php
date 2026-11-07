@@ -22,6 +22,7 @@ class MeController extends Controller
                 'phone' => $user->phone,
                 'user_type' => $user->user_type->value,
                 'email_verified' => $user->email_verified_at !== null,
+                'roles' => $user->roles()->orderBy('name')->pluck('name')->values(),
                 'permissions' => $user->roles()->with('permissions')->get()
                     ->pluck('permissions')
                     ->flatten()

@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Briefcase,
   Building2,
@@ -23,45 +23,44 @@ import { apiClient } from '@/lib/api-client';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Button } from '@/components/ui/Button';
 import { Roundel } from '@/components/brand/Roundel';
-import type { ApiResponse, User } from '@/types';
+import { hasPermission, roleLabel, useCurrentUser } from '@/features/auth/permissions';
 
-// TODO: filter menu per permission/peran, lihat PRD §7.6 dan FR-081 (menu Keuangan hanya untuk finance.view).
-// Belum dilakukan: RoleSeeder belum mengisi permission, jadi semua menu akan hilang untuk super_admin.
-const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: LucideIcon }[] }[] = [
+// Menu disaring per permission hanya demi tampilan (PRD §7.6, FR-081); backend tetap memutuskan lewat 403.
+const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: LucideIcon; permission: string }[] }[] = [
   {
     label: 'Ringkasan',
-    items: [{ to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+    items: [{ to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' }],
   },
   {
     label: 'Pendaftaran',
     items: [
-      { to: '/admin/pendaftaran-siswa', label: 'Pendaftaran Siswa', icon: Users },
-      { to: '/admin/lamaran-guru', label: 'Lamaran Guru', icon: GraduationCap },
+      { to: '/admin/pendaftaran-siswa', label: 'Pendaftaran Siswa', icon: Users, permission: 'applications.view' },
+      { to: '/admin/lamaran-guru', label: 'Lamaran Guru', icon: GraduationCap, permission: 'applications.view' },
     ],
   },
   {
     label: 'Master Data',
     items: [
-      { to: '/admin/periode', label: 'Periode & Kuota', icon: CalendarRange },
-      { to: '/admin/unit-pendidikan', label: 'Unit Pendidikan', icon: Building2 },
-      { to: '/admin/syarat-dokumen', label: 'Syarat Dokumen', icon: FileCheck2 },
-      { to: '/admin/lowongan-guru', label: 'Lowongan Guru', icon: Briefcase },
+      { to: '/admin/periode', label: 'Periode & Kuota', icon: CalendarRange, permission: 'periods.manage' },
+      { to: '/admin/unit-pendidikan', label: 'Unit Pendidikan', icon: Building2, permission: 'units.manage' },
+      { to: '/admin/syarat-dokumen', label: 'Syarat Dokumen', icon: FileCheck2, permission: 'requirements.manage' },
+      { to: '/admin/lowongan-guru', label: 'Lowongan Guru', icon: Briefcase, permission: 'vacancies.manage' },
     ],
   },
   {
     label: 'Konten',
     items: [
-      { to: '/admin/cms', label: 'CMS Konten', icon: Newspaper },
-      { to: '/admin/pesan-kontak', label: 'Pesan Kontak', icon: Mail },
+      { to: '/admin/cms', label: 'CMS Konten', icon: Newspaper, permission: 'content.manage' },
+      { to: '/admin/pesan-kontak', label: 'Pesan Kontak', icon: Mail, permission: 'messages.manage' },
     ],
   },
   {
     label: 'Sistem',
     items: [
-      { to: '/admin/keuangan', label: 'Keuangan', icon: Wallet },
-      { to: '/admin/pengguna', label: 'Pengguna & Role', icon: ShieldCheck },
-      { to: '/admin/log-aktivitas', label: 'Log Aktivitas', icon: History },
-      { to: '/admin/pengaturan', label: 'Pengaturan Situs', icon: Settings },
+      { to: '/admin/keuangan', label: 'Keuangan', icon: Wallet, permission: 'finance.view' },
+      { to: '/admin/pengguna', label: 'Pengguna & Role', icon: ShieldCheck, permission: 'users.manage' },
+      { to: '/admin/log-aktivitas', label: 'Log Aktivitas', icon: History, permission: 'logs.view' },
+      { to: '/admin/pengaturan', label: 'Pengaturan Situs', icon: Settings, permission: 'settings.manage' },
     ],
   },
 ];
@@ -83,15 +82,11 @@ export const AdminLayout: React.FC = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
-  // Kunci dan queryFn sama dengan RequireAdmin; useAuth tidak dipakai karena bentuk cache-nya berbeda.
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: async () => {
-      const res = await apiClient.get<ApiResponse<User>>('/auth/me');
-      return res.data.data;
-    },
-    retry: false,
-  });
+  const { data: user } = useCurrentUser();
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => hasPermission(user, item.permission)),
+  })).filter((group) => group.items.length > 0);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -174,7 +169,7 @@ export const AdminLayout: React.FC = () => {
           aria-label="Navigasi Admin"
           className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 px-3 pb-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.3)_transparent]"
         >
-          {NAV_GROUPS.map((group, index) => (
+          {visibleGroups.map((group, index) => (
             <div key={group.label}>
               {/* text-white/70 di atas Biru Dalam = 8,12:1 (AA dan AAA, DESIGN.md §3.4). */}
               <p id={`${navId}-${index}`} className="px-3 mb-0.5 text-xs font-bold uppercase tracking-wide text-white/70">
@@ -206,8 +201,11 @@ export const AdminLayout: React.FC = () => {
         <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-2">
           <div className="px-3 pb-1 min-w-0 leading-tight">
             {user?.name && <p className="font-bold truncate" title={user.name}>{user.name}</p>}
-            {/* TODO: tampilkan nama role bila /auth/me mengembalikannya; saat ini hanya user_type. */}
-            <p className="text-sm text-white/70">Administrator</p>
+            {user && (
+              <p className="text-sm text-white/70">
+                {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
+              </p>
+            )}
           </div>
           <Link
             to="/"

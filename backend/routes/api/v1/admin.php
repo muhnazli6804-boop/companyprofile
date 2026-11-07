@@ -24,39 +24,39 @@ use Illuminate\Support\Facades\Route;
 // TODO: see Rancangan-API-Padindi.md section 8, 9, 10, 11
 
 // 8.1 Dashboard
-Route::get('/dashboard', [DashboardController::class, 'index']);
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('can:dashboard.view');
 
 // 8.2 Student Applications
 Route::prefix('student-applications')->group(function () {
-    Route::get('/', [StudentApplicationController::class, 'index']);
-    Route::get('/export', [StudentApplicationController::class, 'export']);
-    Route::post('/bulk-status', [StudentApplicationController::class, 'bulkStatus']);
-    Route::get('/{id}', [StudentApplicationController::class, 'show']);
-    Route::patch('/{id}/status', [StudentApplicationController::class, 'updateStatus']);
-    Route::patch('/{id}/note', [StudentApplicationController::class, 'updateNote']);
-    Route::get('/{id}/status-history', [StudentApplicationController::class, 'statusHistory']);
+    Route::get('/', [StudentApplicationController::class, 'index'])->middleware('can:applications.view');
+    Route::get('/export', [StudentApplicationController::class, 'export'])->middleware('can:applications.export');
+    Route::post('/bulk-status', [StudentApplicationController::class, 'bulkStatus'])->middleware('can:applications.verify');
+    Route::get('/{id}', [StudentApplicationController::class, 'show'])->middleware('can:applications.view');
+    Route::patch('/{id}/status', [StudentApplicationController::class, 'updateStatus'])->middleware('can:applications.verify');
+    Route::patch('/{id}/note', [StudentApplicationController::class, 'updateNote'])->middleware('can:applications.verify');
+    Route::get('/{id}/status-history', [StudentApplicationController::class, 'statusHistory'])->middleware('can:applications.view');
 });
 
 // 8.3 Teacher Applications
 Route::prefix('teacher-applications')->group(function () {
-    Route::get('/', [TeacherApplicationController::class, 'index']);
-    Route::get('/export', [TeacherApplicationController::class, 'export']);
-    Route::post('/bulk-status', [TeacherApplicationController::class, 'bulkStatus']);
-    Route::get('/{id}', [TeacherApplicationController::class, 'show']);
-    Route::patch('/{id}/status', [TeacherApplicationController::class, 'updateStatus']);
-    Route::patch('/{id}/note', [TeacherApplicationController::class, 'updateNote']);
-    Route::get('/{id}/status-history', [TeacherApplicationController::class, 'statusHistory']);
+    Route::get('/', [TeacherApplicationController::class, 'index'])->middleware('can:applications.view');
+    Route::get('/export', [TeacherApplicationController::class, 'export'])->middleware('can:applications.export');
+    Route::post('/bulk-status', [TeacherApplicationController::class, 'bulkStatus'])->middleware('can:applications.verify');
+    Route::get('/{id}', [TeacherApplicationController::class, 'show'])->middleware('can:applications.view');
+    Route::patch('/{id}/status', [TeacherApplicationController::class, 'updateStatus'])->middleware('can:applications.verify');
+    Route::patch('/{id}/note', [TeacherApplicationController::class, 'updateNote'])->middleware('can:applications.verify');
+    Route::get('/{id}/status-history', [TeacherApplicationController::class, 'statusHistory'])->middleware('can:applications.view');
 });
 
 // 8.4 Documents Verification
 Route::prefix('documents')->group(function () {
-    Route::get('/{id}/download', [DocumentVerificationController::class, 'download']);
-    Route::patch('/{id}/verification', [DocumentVerificationController::class, 'verify']);
+    Route::get('/{id}/download', [DocumentVerificationController::class, 'download'])->middleware('can:applications.view');
+    Route::patch('/{id}/verification', [DocumentVerificationController::class, 'verify'])->middleware('can:applications.verify');
 });
 
 // 9. Master Data
 // Registration Periods
-Route::prefix('registration-periods')->group(function () {
+Route::prefix('registration-periods')->middleware('can:periods.manage')->group(function () {
     Route::get('/', [RegistrationPeriodController::class, 'index']);
     Route::post('/', [RegistrationPeriodController::class, 'store']);
     Route::get('/{id}', [RegistrationPeriodController::class, 'show']);
@@ -67,7 +67,7 @@ Route::prefix('registration-periods')->group(function () {
 });
 
 // Education Units
-Route::prefix('education-units')->group(function () {
+Route::prefix('education-units')->middleware('can:units.manage')->group(function () {
     Route::get('/', [EducationUnitController::class, 'index']);
     Route::post('/', [EducationUnitController::class, 'store']);
     Route::get('/{id}', [EducationUnitController::class, 'show']);
@@ -77,10 +77,10 @@ Route::prefix('education-units')->group(function () {
 });
 
 // Document Requirements
-Route::apiResource('document-requirements', DocumentRequirementController::class);
+Route::apiResource('document-requirements', DocumentRequirementController::class)->middleware('can:requirements.manage');
 
 // Teacher Vacancies
-Route::prefix('vacancies')->group(function () {
+Route::prefix('vacancies')->middleware('can:vacancies.manage')->group(function () {
     Route::get('/', [VacancyController::class, 'index']);
     Route::post('/', [VacancyController::class, 'store']);
     Route::get('/{id}', [VacancyController::class, 'show']);
@@ -92,7 +92,7 @@ Route::prefix('vacancies')->group(function () {
 
 // 10. CMS
 // Posts
-Route::prefix('posts')->group(function () {
+Route::prefix('posts')->middleware('can:content.manage')->group(function () {
     Route::get('/', [PostController::class, 'index']);
     Route::post('/', [PostController::class, 'store']);
     Route::get('/{id}', [PostController::class, 'show']);
@@ -104,13 +104,13 @@ Route::prefix('posts')->group(function () {
 });
 
 // Post Categories
-Route::apiResource('post-categories', PostCategoryController::class);
+Route::apiResource('post-categories', PostCategoryController::class)->middleware('can:content.manage');
 
 // Static Pages
-Route::apiResource('pages', PageController::class);
+Route::apiResource('pages', PageController::class)->middleware('can:content.manage');
 
 // Galleries
-Route::prefix('galleries')->group(function () {
+Route::prefix('galleries')->middleware('can:content.manage')->group(function () {
     Route::get('/', [GalleryController::class, 'index']);
     Route::post('/', [GalleryController::class, 'store']);
     Route::get('/{id}', [GalleryController::class, 'show']);
@@ -123,7 +123,7 @@ Route::prefix('galleries')->group(function () {
 });
 
 // Banners
-Route::prefix('banners')->group(function () {
+Route::prefix('banners')->middleware('can:content.manage')->group(function () {
     Route::get('/', [BannerController::class, 'index']);
     Route::post('/', [BannerController::class, 'store']);
     Route::get('/{id}', [BannerController::class, 'show']);
@@ -133,7 +133,7 @@ Route::prefix('banners')->group(function () {
 });
 
 // Organization Members
-Route::prefix('organization-members')->group(function () {
+Route::prefix('organization-members')->middleware('can:content.manage')->group(function () {
     Route::get('/', [OrganizationMemberController::class, 'index']);
     Route::post('/', [OrganizationMemberController::class, 'store']);
     Route::get('/{id}', [OrganizationMemberController::class, 'show']);
@@ -143,33 +143,36 @@ Route::prefix('organization-members')->group(function () {
 });
 
 // Uploads (Editor Image)
-Route::post('/uploads/images', [SettingController::class, 'uploadImage']);
+Route::post('/uploads/images', [SettingController::class, 'uploadImage'])->middleware('can:content.manage');
 
 // 11. Messages, Users, Roles, Logs, Settings
 // Contact Messages
-Route::apiResource('contact-messages', ContactMessageController::class)->only(['index', 'show', 'update', 'destroy']);
+Route::apiResource('contact-messages', ContactMessageController::class)->only(['index', 'show', 'update', 'destroy'])->middleware('can:messages.manage');
 
 // Users
-Route::prefix('users')->group(function () {
+Route::prefix('users')->middleware('can:users.manage')->group(function () {
     Route::get('/', [UserController::class, 'index']);
     Route::post('/', [UserController::class, 'store']);
     Route::get('/{id}', [UserController::class, 'show']);
     Route::put('/{id}', [UserController::class, 'update']);
     Route::patch('/{id}/active', [UserController::class, 'toggleActive']);
     Route::post('/{id}/reset-password', [UserController::class, 'resetPassword']);
+    Route::post('/{id}/promote', [UserController::class, 'promote']);
     Route::delete('/{id}', [UserController::class, 'destroy']);
 });
 
 // Roles & Permissions
-Route::get('/roles', [RoleController::class, 'index']);
-Route::put('/roles/{id}/permissions', [RoleController::class, 'updatePermissions']);
-Route::get('/permissions', [RoleController::class, 'permissions']);
+Route::middleware('can:users.manage')->group(function () {
+    Route::get('/roles', [RoleController::class, 'index']);
+    Route::put('/roles/{id}/permissions', [RoleController::class, 'updatePermissions']);
+    Route::get('/permissions', [RoleController::class, 'permissions']);
+});
 
 // Activity Logs
-Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+Route::get('/activity-logs', [ActivityLogController::class, 'index'])->middleware('can:logs.view');
 
 // Settings
-Route::prefix('settings')->group(function () {
+Route::prefix('settings')->middleware('can:settings.manage')->group(function () {
     Route::get('/', [SettingController::class, 'index']);
     Route::put('/', [SettingController::class, 'update']);
     Route::post('/logo', [SettingController::class, 'uploadLogo']);

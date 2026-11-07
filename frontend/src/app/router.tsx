@@ -5,6 +5,7 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { RequireAuth } from '@/app/guards/RequireAuth';
 import { RequireAdmin } from '@/app/guards/RequireAdmin';
+import { RequirePermission } from '@/app/guards/RequirePermission';
 import { GuestOnly } from '@/app/guards/GuestOnly';
 
 // Lazy-loaded Public Pages
@@ -176,7 +177,10 @@ export const router = createBrowserRouter([
           { path: 'cms', element: <SuspenseWrapper><AdminCmsPage /></SuspenseWrapper> },
           { path: 'pesan-kontak', element: <SuspenseWrapper><AdminMessagesPage /></SuspenseWrapper> },
           { path: 'keuangan', element: <SuspenseWrapper><AdminFinancePage /></SuspenseWrapper> },
-          { path: 'pengguna', element: <SuspenseWrapper><AdminUsersPage /></SuspenseWrapper> },
+          {
+            element: <RequirePermission permission="users.manage" />,
+            children: [{ path: 'pengguna', element: <SuspenseWrapper><AdminUsersPage /></SuspenseWrapper> }],
+          },
           { path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> },
           { path: 'pengaturan', element: <SuspenseWrapper><AdminSettingsPage /></SuspenseWrapper> },
         ],

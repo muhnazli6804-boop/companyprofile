@@ -252,8 +252,8 @@ Prefiks `/api/v1/auth`.
 | POST | `/logout` | Ya | Logout |
 | POST | `/forgot-password` | Tidak | Kirim tautan reset |
 | POST | `/reset-password` | Tidak | Setel kata sandi baru dengan token |
-| POST | `/email/verification-notification` | Ya | Kirim ulang email verifikasi |
-| GET | `/email/verify/{id}/{hash}` | Tautan bertanda tangan | Verifikasi email lalu redirect ke frontend |
+| POST | `/email/verification-notification` | Ya (pendaftar) | Kirim ulang email verifikasi. Sudah terverifikasi: `200` tanpa kirim ulang. Akun admin: `403 FORBIDDEN` |
+| GET | `/email/verify/{id}/{hash}` | Tautan bertanda tangan | Verifikasi email lalu redirect ke frontend (tanpa login, tanpa sesi baru); lihat **Catatan verifikasi email** |
 | GET | `/me` | Ya | Profil pengguna saat ini (+ role dan permission jika admin) |
 | PUT | `/profile` | Ya | Ubah nama dan telepon |
 | PUT | `/password` | Ya | Ubah kata sandi (butuh kata sandi lama) |
@@ -271,6 +271,13 @@ Prefiks `/api/v1/auth`.
 | `password_confirmation` | wajib, sama dengan `password` |
 | `captcha_token` | wajib |
 | `consent_accepted` | wajib `true` (persetujuan kebijakan privasi) |
+
+**Catatan verifikasi email**
+
+- `POST /register` mengirim email verifikasi ke pendaftar baru. Gagal kirim tidak menggagalkan registrasi (galat dilaporkan, pendaftar dapat kirim ulang). Akun admin tidak pernah dikirimi email verifikasi.
+- `GET /email/verify/{id}/{hash}` selalu membalas redirect ke `{FRONTEND_URL}/akun/pendaftaran?verified=1` (berhasil atau sudah terverifikasi, idempoten) atau `?verified=0` (tanda tangan rusak, kedaluwarsa, hash tidak cocok dengan email akun pada `{id}`, akun tidak ada, atau akun admin). Tidak pernah JSON 403. Masa berlaku tautan: `auth.verification.expire` (default 60 menit).
+- Kode `EMAIL_NOT_VERIFIED` (§13) disiapkan untuk lapisan `verified` pada area pendaftar; belum dipasang di rute mana pun (ADR 0005).
+- Rute grup `/auth` sudah memakai limiter `auth` (5/menit per IP); batas `throttle:6,1` pada kirim ulang praktis menjadi 5/menit. Respons 429 berbentuk `TOO_MANY_REQUESTS`.
 
 **Catatan keamanan login**
 - `POST /login` menerima `user_type = applicant` dan `admin`. Kredensial salah atau email tak dikenal mendapat pesan yang sama (tidak membocorkan keberadaan akun). Admin tidak mendapat token Bearer; frontend mengarahkan berdasarkan `user_type`.
@@ -687,12 +694,22 @@ Permission: `content.manage`. Pola CRUD sama seperti bagian 9.
 | PUT | `/users/{id}` | Ubah data dan role |
 | PATCH | `/users/{id}/active` | Aktif/nonaktifkan akun |
 | POST | `/users/{id}/reset-password` | Kirim tautan reset ke akun |
+| POST | `/users/{id}/promote` | Ubah akun pendaftar menjadi admin (`roles[]` berisi nama role, minimal satu). Khusus `super_admin` |
 | DELETE | `/users/{id}` | Soft delete |
 | GET | `/roles` | Daftar role beserta permission |
 | PUT | `/roles/{id}/permissions` | Atur permission suatu role (role `super_admin` tidak dapat diubah) |
 | GET | `/permissions` | Daftar permission |
 
 Aturan: admin tidak dapat menonaktifkan atau menghapus dirinya sendiri; harus selalu tersisa minimal satu Super Admin aktif (`LAST_SUPER_ADMIN`).
+
+Catatan implementasi:
+- Hanya `super_admin` yang boleh memberi/mencabut role `super_admin` (POST/PUT `/users`) dan mengubah, menonaktifkan, mereset kata sandi, atau menghapus akun pemegang role itu. Admin lain yang memegang `users.manage` mendapat `403 FORBIDDEN`.
+- Akun pendaftar (`user_type=applicant`) hanya dapat dilihat dan diaktif/nonaktifkan; ubah, reset, dan hapus dijawab `422 APPLICANT_ACCOUNT_READONLY`. Admin tidak dapat menonaktifkan/menghapus dirinya sendiri (`409 CANNOT_MODIFY_SELF`).
+- `POST /users/{id}/promote` adalah **satu-satunya pengecualian** dari aturan akun pendaftar read-only di atas. Pemanggil harus `super_admin` (selain itu `403 FORBIDDEN`). Syarat akun target: `user_type=applicant`, `is_active=true`, email sudah diverifikasi, tidak terhapus, dan bukan akun pemanggil; yang tidak memenuhi dijawab `422 ACCOUNT_NOT_ELIGIBLE`. Dalam satu transaksi: `user_type` menjadi `admin` pada akun yang sama, role disinkronkan, dan semua sesi serta token akun dicabut (pemilik harus masuk ulang). Data pendaftaran tidak diubah. Respons `200` berisi akun. Dicatat sebagai `user.updated` dengan `properties.event = "promoted_to_admin"`. Arah sebaliknya (admin menjadi pendaftar) tidak disediakan.
+- `PUT /roles/{id}/permissions` menerima `permissions` berupa daftar **nama** permission (mis. `"units.manage"`), bukan ID; nama yang tidak ada dijawab `422 VALIDATION_ERROR`. Role `super_admin` dijawab `409 ROLE_LOCKED`.
+- Pada endpoint itu, `finance.view` hanya boleh ditambahkan ke role yang semua anggotanya `user_type=admin` (selain itu `422`), dan `users.manage` hanya boleh ditambahkan oleh `super_admin` (selain itu `403 FORBIDDEN`). Perubahan dicatat sebagai `role.permissions_changed` dengan `properties` `before`, `after`, `added`, `removed`.
+- `GET /permissions` mengelompokkan permission per `group_name`: `data: [{group_name, permissions[]}]`.
+- Hapus akun dicatat sebagai `user.updated` dengan `properties.event = "deleted"`; permintaan reset kata sandi sebagai `user.updated` dengan `properties.event = "password_reset_requested"`.
 
 ### 11.3 Log Aktivitas (`logs.view`)
 
@@ -869,6 +886,10 @@ Middleware: `auth:sanctum`, `EnsureUserIsAdmin`, `can:finance.view`, `throttle` 
 | `DUPLICATE_APPLICATION` | 409 | Lamaran/pendaftaran ganda |
 | `RESOURCE_IN_USE` | 409 | Data masih dipakai, tidak dapat dihapus |
 | `LAST_SUPER_ADMIN` | 409 | Tidak boleh menghapus/menonaktifkan Super Admin terakhir |
+| `CANNOT_MODIFY_SELF` | 409 | Admin tidak boleh menonaktifkan atau menghapus akunnya sendiri |
+| `APPLICANT_ACCOUNT_READONLY` | 422 | Akun pendaftar hanya dapat dilihat dan diaktifkan/dinonaktifkan |
+| `ACCOUNT_NOT_ELIGIBLE` | 422 | Akun tidak memenuhi syarat dijadikan admin (bukan pendaftar, nonaktif, atau email belum diverifikasi) |
+| `ROLE_LOCKED` | 409 | Role `super_admin` terkunci dan tidak dapat diubah |
 | `FINANCE_DASHBOARD_NOT_CONFIGURED` | 409 | Dashboard keuangan belum diaktifkan atau belum dikonfigurasi dengan benar |
 | `FILE_TOO_LARGE` | 413 | Berkas melebihi batas |
 | `UNSUPPORTED_FILE_TYPE` | 415 | Tipe berkas tidak didukung |

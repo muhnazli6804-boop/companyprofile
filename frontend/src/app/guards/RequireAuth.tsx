@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { EmailVerificationNotice } from '@/features/auth/components/EmailVerificationNotice';
 import type { ApiResponse, User } from '@/types';
 
 export const RequireAuth: React.FC = () => {
@@ -42,7 +43,12 @@ export const RequireAuth: React.FC = () => {
     return <Navigate to={`/masuk?returnTo=${returnTo}`} replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <EmailVerificationNotice user={data} />
+      <Outlet />
+    </>
+  );
 };
 
 export default RequireAuth;
