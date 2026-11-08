@@ -3,7 +3,6 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Stepper } from '@/components/form/Stepper';
 import { Button } from '@/components/ui/Button';
-import { LoadingModal } from '@/components/ui/LoadingModal';
 import { DocumentUploader } from '@/components/form/DocumentUploader';
 import {
   getStudentApplication,
@@ -21,7 +20,6 @@ export const StudentRequirementsPage: React.FC = () => {
   const [application, setApplication] = useState<StudentApplication | null>(null);
   const [requirements, setRequirements] = useState<RequirementItem[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [uploadingState, setUploadingState] = useState<{ isUploading: boolean; label?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const steps = [
@@ -55,11 +53,6 @@ export const StudentRequirementsPage: React.FC = () => {
 
   const handleUpload = async (file: File, documentType: string) => {
     if (!id) return;
-    const reqItem = requirements.find((r) => r.document_type === documentType);
-    setUploadingState({
-      isUploading: true,
-      label: reqItem?.label || 'dokumen',
-    });
     try {
       await uploadStudentDocument(id, file, documentType);
       await loadData(false);
@@ -67,17 +60,11 @@ export const StudentRequirementsPage: React.FC = () => {
       const errObj = err as { response?: { data?: { message?: string } } };
       setError(errObj.response?.data?.message || 'Gagal mengunggah dokumen.');
       throw err;
-    } finally {
-      setUploadingState(null);
     }
   };
 
   const handleDelete = async (documentId: number) => {
     if (!id) return;
-    setUploadingState({
-      isUploading: true,
-      label: 'Menghapus dokumen...',
-    });
     try {
       await deleteStudentDocument(id, documentId);
       await loadData(false);
@@ -85,8 +72,6 @@ export const StudentRequirementsPage: React.FC = () => {
       const errObj = err as { response?: { data?: { message?: string } } };
       setError(errObj.response?.data?.message || 'Gagal menghapus dokumen.');
       throw err;
-    } finally {
-      setUploadingState(null);
     }
   };
 
@@ -227,18 +212,6 @@ export const StudentRequirementsPage: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Modal Popup Loading Saat Upload / Proses Berkas */}
-      <LoadingModal
-        isOpen={Boolean(uploadingState?.isUploading)}
-        title="Sedang Mengunggah Dokumen"
-        message={
-          uploadingState?.label
-            ? `Mengunggah berkas ${uploadingState.label}...`
-            : 'Sedang mengunggah dan memproses berkas...'
-        }
-        submessage="Mohon tunggu sebentar, jangan menutup atau menyegarkan halaman ini."
-      />
     </div>
   );
 };

@@ -37,6 +37,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,10 +79,23 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
     }
   };
 
+  const handleDelete = async (docId: number) => {
+    if (!onDelete) return;
+    try {
+      setIsDeleting(true);
+      await onDelete(docId);
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setErrorMessage(errObj.response?.data?.message || 'Gagal menghapus berkas.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (disabled || isUploading) return;
+    if (disabled || isUploading || isDeleting) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
@@ -115,7 +129,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
       {description && <p className="font-sans text-sm text-muted">{description}</p>}
 
       {/* Existing Uploaded Document State */}
-      {existingDocument ? (
+      {existingDocument && !isUploading ? (
         <div className="flex items-center justify-between p-3 bg-tint-100 border border-primary/20 rounded-control">
           <div className="flex items-center gap-3 overflow-hidden">
             <FileText className="w-8 h-8 text-primary flex-shrink-0" />
@@ -135,7 +149,8 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 text-muted hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-control"
+                  disabled={isDeleting}
+                  className="p-2 text-muted hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-control disabled:opacity-50"
                   title="Ganti berkas"
                   aria-label={`Ganti berkas ${label}`}
                 >
@@ -144,12 +159,13 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                 {onDelete && (
                   <button
                     type="button"
-                    onClick={() => onDelete(existingDocument.id)}
-                    className="p-2 text-muted hover:text-danger transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger rounded-control"
+                    onClick={() => handleDelete(existingDocument.id)}
+                    disabled={isDeleting}
+                    className="p-2 text-muted hover:text-danger transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger rounded-control disabled:opacity-50"
                     title="Hapus berkas"
                     aria-label={`Hapus berkas ${label}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {isDeleting ? <Loader2 className="w-4 h-4 text-danger animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   </button>
                 )}
               </>
