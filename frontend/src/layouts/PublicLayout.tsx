@@ -37,18 +37,25 @@ export const PublicLayout: React.FC = () => {
   const queryClient = useQueryClient();
   const isHomePage = location.pathname === '/';
 
+  const token = localStorage.getItem('auth_token');
+
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
       try {
         const res = await apiClient.get<ApiResponse<User>>('/auth/me');
         return res.data.data;
-      } catch {
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 401) {
+          localStorage.removeItem('auth_token');
+        }
         return null;
       }
     },
+    enabled: Boolean(token),
     retry: false,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleLogout = async () => {
@@ -93,21 +100,39 @@ export const PublicLayout: React.FC = () => {
     setMenuOpen(false);
   }, []);
 
-  // Gulir halus ke target (hormati prefers-reduced-motion)
+  // Gulir halus ke target (hormati prefers-reduced-motion) dengan navigasi SPA tanpa hard reload
   const handleAnchorClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, anchor: string) => {
+      e.preventDefault();
+      handleNavLinkClick();
+
       if (isHomePage) {
-        e.preventDefault();
         const el = document.getElementById(anchor);
         if (el) {
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
         }
+      } else {
+        navigate(`/#${anchor}`);
       }
-      handleNavLinkClick();
     },
-    [isHomePage, handleNavLinkClick]
+    [isHomePage, handleNavLinkClick, navigate]
   );
+
+  // Gulir otomatis saat mendarat di halaman utama dengan hash
+  useEffect(() => {
+    if (isHomePage && location.hash) {
+      const anchor = location.hash.replace('#', '');
+      const timer = setTimeout(() => {
+        const el = document.getElementById(anchor);
+        if (el) {
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isHomePage, location.hash]);
 
   // Tutup menu saat Escape
   useEffect(() => {
