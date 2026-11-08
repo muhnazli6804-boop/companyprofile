@@ -19,6 +19,7 @@ interface DocumentUploaderProps {
   onUpload: (file: File, documentType: string) => Promise<void>;
   onDelete?: (documentId: number) => Promise<void>;
   disabled?: boolean;
+  borderless?: boolean;
 }
 
 export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
@@ -32,6 +33,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   onUpload,
   onDelete,
   disabled = false,
+  borderless = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,7 +96,11 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   return (
     <div
       data-document-type={documentType}
-      className="flex flex-col gap-2 p-4 bg-white border border-line rounded-panel"
+      className={
+        borderless
+          ? 'flex flex-col gap-2 p-0 bg-transparent'
+          : 'flex flex-col gap-2 p-4 bg-white border border-line rounded-panel'
+      }
     >
       {/* Label & Requirement Rule */}
       <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
