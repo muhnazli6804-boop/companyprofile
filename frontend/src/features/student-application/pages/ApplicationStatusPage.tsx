@@ -25,6 +25,33 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 
+const getDocumentTypeLabel = (docType?: string, isTeacher = false): string => {
+  if (!docType) return 'Dokumen Persyaratan';
+  const normalized = docType.toLowerCase().trim();
+  switch (normalized) {
+    case 'family_card':
+      return 'Kartu Keluarga (KK)';
+    case 'diploma':
+      return isTeacher ? 'Ijazah Pendidikan Terakhir' : 'Ijazah / Surat Keterangan Lulus';
+    case 'photo':
+      return isTeacher ? 'Pas Foto Formal Terbaru' : 'Pas Foto Calon Murid';
+    case 'cv':
+    case 'cv_portfolio':
+      return 'Curriculum Vitae (CV) & Portofolio';
+    case 'birth_certificate':
+      return 'Akta Kelahiran';
+    case 'identity_card':
+    case 'ktp':
+      return 'Kartu Tanda Penduduk (KTP)';
+    case 'certificate':
+      return 'Sertifikat Pendidik / Pelatihan';
+    default:
+      return normalized
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+};
+
 export const ApplicationStatusPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -242,17 +269,30 @@ export const ApplicationStatusPage: React.FC = () => {
             {(isTeacher ? teacherApp?.documents : studentApp?.documents)?.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-3 rounded-control border border-line bg-paper/50 text-sm font-sans"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-control border border-line bg-paper/50 text-sm font-sans"
               >
-                <div>
-                  <p className="font-semibold text-ink">{doc.original_name}</p>
-                  <p className="text-xs text-muted">
-                    {(doc.size_bytes / 1024).toFixed(0)} KB • Diunggah {new Date(doc.created_at).toLocaleDateString('id-ID')}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-control bg-tint-100 text-primary shrink-0 mt-0.5">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-sans font-bold text-ink text-sm sm:text-base">
+                      {getDocumentTypeLabel(doc.document_type, isTeacher)}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-ink/80 font-medium truncate max-w-xs sm:max-w-md mt-0.5">
+                      {doc.original_name}
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {(doc.size_bytes / 1024).toFixed(0)} KB • Diunggah {new Date(doc.created_at).toLocaleDateString('id-ID')}
+                    </p>
+                  </div>
                 </div>
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Terverifikasi Sistem
-                </span>
+
+                <div className="sm:self-center shrink-0">
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-medium border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Terverifikasi Sistem
+                  </span>
+                </div>
               </div>
             ))}
           </div>
