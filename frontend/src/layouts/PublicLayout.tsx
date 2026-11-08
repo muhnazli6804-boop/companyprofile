@@ -74,6 +74,15 @@ export const PublicLayout: React.FC = () => {
   useEffect(() => {
     if (!isHomePage) return;
 
+    const handleScroll = () => {
+      // Jika scroll sudah mendekati bagian paling bawah halaman, aktifkan kontak
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
+        setActiveSection('kontak');
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     const observers: IntersectionObserver[] = [];
 
     SECTION_IDS.forEach((id) => {
@@ -86,13 +95,16 @@ export const PublicLayout: React.FC = () => {
             setActiveSection(id);
           }
         },
-        { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
+        { rootMargin: '-10% 0px -40% 0px', threshold: 0 }
       );
       obs.observe(el);
       observers.push(obs);
     });
 
-    return () => observers.forEach((o) => o.disconnect());
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      observers.forEach((o) => o.disconnect());
+    };
   }, [isHomePage, location.pathname]);
 
   // Tutup menu saat tautan diklik
@@ -105,6 +117,7 @@ export const PublicLayout: React.FC = () => {
     (e: React.MouseEvent<HTMLAnchorElement>, anchor: string) => {
       e.preventDefault();
       handleNavLinkClick();
+      setActiveSection(anchor);
 
       if (isHomePage) {
         const el = document.getElementById(anchor);
@@ -123,6 +136,7 @@ export const PublicLayout: React.FC = () => {
   useEffect(() => {
     if (isHomePage && location.hash) {
       const anchor = location.hash.replace('#', '');
+      setActiveSection(anchor);
       const timer = setTimeout(() => {
         const el = document.getElementById(anchor);
         if (el) {
@@ -228,7 +242,9 @@ export const PublicLayout: React.FC = () => {
               }
 
               const href = isHomePage ? `#${item.anchor}` : `/#${item.anchor}`;
-              const isActive = isHomePage && activeSection === item.anchor;
+              const isActive = isHomePage
+                ? activeSection === item.anchor
+                : location.pathname === `/${item.anchor}` || location.pathname.startsWith(`/${item.anchor}/`);
               return (
                 <a
                   key={item.anchor}
@@ -319,7 +335,9 @@ export const PublicLayout: React.FC = () => {
                 }
 
                 const href = isHomePage ? `#${item.anchor}` : `/#${item.anchor}`;
-                const isActive = isHomePage && activeSection === item.anchor;
+                const isActive = isHomePage
+                  ? activeSection === item.anchor
+                  : location.pathname === `/${item.anchor}` || location.pathname.startsWith(`/${item.anchor}/`);
                 return (
                   <a
                     key={item.anchor}
