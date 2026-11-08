@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse, User } from '@/types';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 export const RequireAuth: React.FC = () => {
   const location = useLocation();
@@ -30,9 +31,11 @@ export const RequireAuth: React.FC = () => {
 
   if (isLoading || (isFetching && !data)) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center font-sans text-muted">
-        Memeriksa autentikasi...
-      </div>
+      <LoadingScreen
+        message="Memeriksa autentikasi..."
+        submessage="Memverifikasi akses akun Anda..."
+        minHeight="min-h-screen"
+      />
     );
   }
 

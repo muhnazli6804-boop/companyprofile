@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { StatusBadge } from '@/components/brand/StatusBadge';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import {
   getStudentApplication,
   getStudentStatusHistory,
@@ -76,9 +77,11 @@ export const ApplicationStatusPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="bg-paper min-h-screen py-16 flex items-center justify-center">
-        <p className="text-muted font-sans text-center">Memuat status pendaftaran...</p>
-      </div>
+      <LoadingScreen
+        message="Memuat status pendaftaran..."
+        submessage="Menghubungkan ke sistem untuk mengambil pembaruan terbaru..."
+        minHeight="min-h-screen"
+      />
     );
   }
 

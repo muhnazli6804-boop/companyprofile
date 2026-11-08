@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { StatusBadge } from '@/components/brand/StatusBadge';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import {
   getStudentApplications,
   deleteStudentDraft,
@@ -150,8 +151,12 @@ export const ApplicationListPage: React.FC = () => {
 
         {/* Loading state */}
         {loading ? (
-          <div className="p-12 text-center text-muted font-sans bg-white rounded-panel border border-line">
-            Memuat daftar pendaftaran...
+          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
+            <LoadingScreen
+              message="Memuat daftar pendaftaran saya..."
+              submessage="Mengambil riwayat pendaftaran murid dan lamaran guru..."
+              minHeight="min-h-[40vh]"
+            />
           </div>
         ) : (
           <div>
