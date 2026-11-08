@@ -146,7 +146,7 @@ export const PublicLayout: React.FC = () => {
   `;
 
   return (
-    <div className="min-h-screen flex flex-col bg-paper text-ink overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-paper text-ink overflow-x-clip">
       {/* Tautan "Lompat ke konten utama" */}
       <a
         href="#main-content"
@@ -160,8 +160,8 @@ export const PublicLayout: React.FC = () => {
         Lompat ke konten utama
       </a>
 
-      {/* Navbar */}
-      <header className="bg-white border-b border-line sticky top-0 z-50">
+      {/* Navbar (Sticky Header) */}
+      <header className="bg-white border-b border-line sticky top-0 z-50 shadow-xs">
         <nav
           aria-label="Navigasi utama"
           className="max-w-content mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between"
