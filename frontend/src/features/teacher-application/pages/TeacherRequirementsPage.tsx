@@ -11,7 +11,7 @@ import {
   deleteTeacherDocument,
 } from '@/features/teacher-application/api';
 import type { TeacherRequirementItem, TeacherApplication } from '@/features/teacher-application/types';
-import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, FileCheck2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, FileCheck2, Loader2 } from 'lucide-react';
 
 export const TeacherRequirementsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +19,7 @@ export const TeacherRequirementsPage: React.FC = () => {
 
   const [application, setApplication] = useState<TeacherApplication | null>(null);
   const [requirements, setRequirements] = useState<TeacherRequirementItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const steps = [
@@ -28,10 +28,10 @@ export const TeacherRequirementsPage: React.FC = () => {
     { number: 3, label: 'Konfirmasi Pendaftaran' },
   ];
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isInitial = false) => {
     if (!id) return;
     try {
-      setLoading(true);
+      if (isInitial) setInitialLoading(true);
       setError(null);
       const [appData, reqData] = await Promise.all([
         getTeacherApplication(id),
@@ -43,37 +43,41 @@ export const TeacherRequirementsPage: React.FC = () => {
       const errObj = err as { response?: { data?: { message?: string } } };
       setError(errObj.response?.data?.message || 'Gagal memuat dokumen persyaratan guru.');
     } finally {
-      setLoading(false);
+      if (isInitial) setInitialLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   const handleUpload = async (file: File, documentType: string) => {
     if (!id) return;
-    await uploadTeacherDocument(id, file, documentType);
-    await loadData();
+    try {
+      await uploadTeacherDocument(id, file, documentType);
+      await loadData(false);
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setError(errObj.response?.data?.message || 'Gagal mengunggah berkas.');
+      throw err;
+    }
   };
 
   const handleDelete = async (documentId: number) => {
     if (!id) return;
-    await deleteTeacherDocument(id, documentId);
-    await loadData();
+    try {
+      await deleteTeacherDocument(id, documentId);
+      await loadData(false);
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setError(errObj.response?.data?.message || 'Gagal menghapus berkas.');
+      throw err;
+    }
   };
 
   const allRequiredUploaded = requirements
     .filter((r) => r.is_required)
     .every((r) => r.is_uploaded);
-
-  if (loading) {
-    return (
-      <div className="bg-paper min-h-screen py-12 flex items-center justify-center">
-        <p className="text-muted font-sans text-center">Memuat dokumen persyaratan guru...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-paper min-h-screen py-8 md:py-12">
@@ -134,60 +138,80 @@ export const TeacherRequirementsPage: React.FC = () => {
           </ul>
         </div>
 
-        {/* Daftar Dokumen Uploader */}
-        <div className="space-y-6 mb-8">
-          {requirements.map((req) => (
-            <DocumentUploader
-              key={req.document_type}
-              label={req.label}
-              documentType={req.document_type}
-              description={req.description}
-              isRequired={req.is_required}
-              maxSizeKb={req.max_size_kb}
-              allowedMimes={req.allowed_mimes}
-              existingDocument={req.document}
-              onUpload={handleUpload}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+        {/* Kontainer Utama Persyaratan & Aksi (Satu Box) */}
+        <div className="bg-white border border-line rounded-panel p-6 shadow-sm mb-8">
+          {initialLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+              <div className="relative flex items-center justify-center mb-1">
+                <div className="w-12 h-12 rounded-full bg-tint-100 animate-pulse absolute" />
+                <Loader2 className="w-7 h-7 text-primary animate-spin relative z-10" />
+              </div>
+              <p className="font-sans font-semibold text-sm text-ink">Memuat dokumen persyaratan guru...</p>
+              <p className="font-sans text-xs text-muted">Menyiapkan berkas dan daftar persyaratan lamaran...</p>
+            </div>
+          ) : (
+            <>
+              {/* Daftar Dokumen Uploader */}
+              <div className="divide-y divide-line">
+                {requirements.map((req) => (
+                  <div key={req.document_type} className="py-6 first:pt-0 last:pb-6">
+                    <DocumentUploader
+                      label={req.label}
+                      documentType={req.document_type}
+                      description={req.description}
+                      isRequired={req.is_required}
+                      maxSizeKb={req.max_size_kb}
+                      allowedMimes={req.allowed_mimes}
+                      existingDocument={req.document}
+                      onUpload={handleUpload}
+                      onDelete={handleDelete}
+                      borderless
+                    />
+                  </div>
+                ))}
+              </div>
 
-        {/* Navigation Action */}
-        <div className="bg-white border border-line rounded-panel p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <p className="font-sans text-sm text-ink font-semibold">
-              {allRequiredUploaded ? (
-                <span className="text-emerald-700 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" /> Seluruh dokumen lamaran wajib telah lengkap.
-                </span>
-              ) : (
-                <span className="text-muted">
-                  Harap unggah seluruh berkas wajib bertanda bintang (<span className="text-danger">*</span>).
-                </span>
-              )}
-            </p>
-          </div>
+              {/* Prompt & Navigasi Aksi di Bagian Bawah Box */}
+              <div className="pt-6 border-t border-line space-y-4">
+                <div>
+                  <p className="font-sans text-sm font-semibold">
+                    {allRequiredUploaded ? (
+                      <span className="text-emerald-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>Seluruh dokumen lamaran wajib telah lengkap. Silakan lanjut ke tahap konfirmasi.</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted flex items-center gap-1.5">
+                        <span className="text-danger font-bold">*</span>
+                        <span>Harap unggah seluruh berkas wajib bertanda bintang (*) untuk melanjutkan ke konfirmasi.</span>
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => navigate(`/pendaftaran/guru/${id}`)}
-              className="flex-1 sm:flex-none"
-            >
-              Ubah Data
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={!allRequiredUploaded}
-              onClick={() => navigate(`/pendaftaran/guru/${id}/konfirmasi`)}
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2"
-            >
-              <span>Lanjut ke Konfirmasi</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => navigate(`/pendaftaran/guru/${id}`)}
+                    className="w-full sm:w-auto"
+                  >
+                    Ubah Data
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={!allRequiredUploaded}
+                    onClick={() => navigate(`/pendaftaran/guru/${id}/konfirmasi`)}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2"
+                  >
+                    <span>Lanjut ke Konfirmasi</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

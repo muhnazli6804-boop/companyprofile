@@ -86,9 +86,11 @@ export const HomePage: React.FC = () => {
       )}
       {settingsLoading && (
         <section
+          id="tentang"
           className="bg-paper py-16 md:py-24"
           aria-busy="true"
           aria-label="Memuat konten tentang yayasan"
+          style={{ scrollMarginTop: '4rem' }}
         >
           <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8">
             <div className="h-8 bg-tint-100 rounded w-1/3 mb-6" />
@@ -129,9 +131,11 @@ export const HomePage: React.FC = () => {
       )}
       {settingsLoading && (
         <section
+          id="kontak"
           className="bg-navy py-16 md:py-24"
           aria-busy="true"
           aria-label="Memuat kontak"
+          style={{ scrollMarginTop: '4rem' }}
         >
           <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8">
             <div className="h-8 bg-white/10 rounded w-1/4 mb-6" />

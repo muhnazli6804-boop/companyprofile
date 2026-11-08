@@ -7,7 +7,7 @@ export const ApplicantLayout: React.FC = () => {
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:p-4 focus:bg-primary focus:text-white focus:z-50">
         Lompat ke konten utama
       </a>
-      <header className="bg-white border-b border-line">
+      <header className="bg-white border-b border-line sticky top-0 z-50 shadow-xs">
         <nav aria-label="Navigasi Pendaftar" className="max-w-content mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/akun/pendaftaran-siswa" className="font-display font-bold text-xl text-primary">Portal Pendaftar</Link>
           <div className="flex items-center gap-4">

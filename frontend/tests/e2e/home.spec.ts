@@ -95,4 +95,40 @@ test.describe('Landing Page Yayasan Padindi (E2E & Visual Verification)', () => 
       fullPage: true,
     });
   });
+
+  test('Navbar: navigasi antar menu (Kontak -> Kegiatan) mengubah warna aktif menjadi biru', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/');
+
+    // Tunggu konten dimuat
+    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Hubungi kami', exact: true })).toBeVisible();
+
+    const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+    const kontakLink = nav.getByRole('link', { name: 'Kontak' });
+    const kegiatanLink = nav.getByRole('link', { name: 'Kegiatan' });
+
+    // 1. Klik menu Kontak
+    await kontakLink.click();
+    await expect(kontakLink).toHaveAttribute('aria-current', 'true');
+    await expect(kontakLink).toHaveClass(/font-bold/);
+    await expect(kegiatanLink).not.toHaveAttribute('aria-current', 'true');
+    await expect(kegiatanLink).not.toHaveClass(/font-bold/);
+    await expect(kegiatanLink).toHaveClass(/text-ink/);
+
+    // 2. Klik menu Kegiatan
+    await kegiatanLink.click();
+    await expect(kegiatanLink).toHaveAttribute('aria-current', 'true');
+    await expect(kegiatanLink).toHaveClass(/font-bold/);
+    await expect(kontakLink).not.toHaveAttribute('aria-current', 'true');
+    await expect(kontakLink).not.toHaveClass(/font-bold/);
+    await expect(kontakLink).toHaveClass(/text-ink/);
+
+    // Tunggu animasi scroll selesai dan pastikan Kegiatan tetap aktif
+    await page.waitForTimeout(1000);
+    await expect(kegiatanLink).toHaveAttribute('aria-current', 'true');
+    await expect(kegiatanLink).toHaveClass(/font-bold/);
+    await expect(kontakLink).not.toHaveAttribute('aria-current', 'true');
+    await expect(kontakLink).not.toHaveClass(/font-bold/);
+  });
 });
