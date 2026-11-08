@@ -21,8 +21,8 @@ const NAV_LINKS = [
   { label: 'Tentang', anchor: 'tentang' },
   { label: 'Visi dan misi', anchor: 'visi-misi' },
   { label: 'Kegiatan', anchor: 'kegiatan' },
-  { label: 'Pendaftaran', path: '/pendaftaran' },
   { label: 'Kontak', anchor: 'kontak' },
+  { label: 'Pendaftaran', path: '/pendaftaran' },
 ] as const;
 
 const SECTION_IDS = ['tentang', 'visi-misi', 'kegiatan', 'kontak'] as const;
