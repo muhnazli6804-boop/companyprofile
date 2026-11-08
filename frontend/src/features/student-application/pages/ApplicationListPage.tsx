@@ -315,12 +315,12 @@ export const ApplicationListPage: React.FC = () => {
 
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-sm font-sans">
                             <div>
-                              <span className="text-muted block text-xs mb-0.5">Posisi Dilamar</span>
-                              <strong className="text-ink">{app.applied_position}</strong>
+                              <span className="text-muted block text-xs mb-0.5">Nama Pelamar</span>
+                              <strong className="text-ink">{app.full_name || '—'}</strong>
                             </div>
                             <div>
-                              <span className="text-muted block text-xs mb-0.5">Nama Pelamar</span>
-                              <span className="text-ink font-semibold">{app.full_name || '—'}</span>
+                              <span className="text-muted block text-xs mb-0.5">Posisi Dilamar</span>
+                              <span className="text-ink font-semibold">{app.applied_position}</span>
                             </div>
                             <div>
                               <span className="text-muted block text-xs mb-0.5">Unit Tujuan</span>
