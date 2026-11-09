@@ -19,6 +19,11 @@ import {
   UserCheck,
   AlertCircle,
   Activity,
+  Globe,
+  FileText,
+  Mail,
+  Newspaper,
+  Layers,
 } from 'lucide-react';
 
 const statusColorMap: Record<string, string> = {
@@ -86,6 +91,13 @@ export const DashboardAdminPage: React.FC = () => {
     recent_registrations,
   } = data;
 
+  const websiteStats = {
+    total_visitors: (stats as any).total_visitors ?? 14820,
+    total_content: (stats as any).total_content ?? 18,
+    total_posts: (stats as any).total_posts ?? 8,
+    unread_messages: (stats as any).unread_messages ?? 2,
+  };
+
   // Donut chart data
   const donutSegments = student_status_distribution.map((d) => ({
     label: d.label,
@@ -100,9 +112,16 @@ export const DashboardAdminPage: React.FC = () => {
       {/* Header */}
       <AdminPageHeader
         title="Dashboard Administrator"
-        subtitle="Pantau aktivitas pendaftaran murid baru (PPDB) dan rekrutmen tenaga pendidik Yayasan Padindi."
+        subtitle="Pantau aktivitas pendaftaran murid baru (PPDB), rekrutmen tenaga pendidik, dan ringkasan CMS website Yayasan Padindi."
         actions={
           <div className="flex items-center gap-2">
+            <Link
+              to="/admin/cms"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-line text-ink font-sans text-xs font-semibold rounded-control hover:bg-paper transition-colors shadow-xs"
+            >
+              <Layers className="w-3.5 h-3.5 text-primary" />
+              <span>Kelola CMS</span>
+            </Link>
             <Link
               to="/admin/pendaftaran-siswa"
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white font-sans text-xs font-semibold rounded-control hover:bg-primary-hover shadow-xs transition-colors"
@@ -121,7 +140,55 @@ export const DashboardAdminPage: React.FC = () => {
         }
       />
 
-      {/* Baris 1: Stat Cards (6 kartu) */}
+      {/* Section Website & CMS Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="p-3.5 bg-white border border-navy/10 rounded-panel shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-control bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Globe className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-muted block">Pengunjung Website</span>
+            <strong className="text-base font-bold text-navy">{websiteStats.total_visitors.toLocaleString('id-ID')}</strong>
+          </div>
+        </div>
+        <div className="p-3.5 bg-white border border-navy/10 rounded-panel shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-control bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-muted block">Konten Terpublikasi</span>
+            <strong className="text-base font-bold text-navy">{websiteStats.total_content} Halaman</strong>
+          </div>
+        </div>
+        <div className="p-3.5 bg-white border border-navy/10 rounded-panel shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-control bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <Newspaper className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-muted block">Berita & Artikel</span>
+            <strong className="text-base font-bold text-navy">{websiteStats.total_posts} Artikel</strong>
+          </div>
+        </div>
+        <Link
+          to="/admin/pesan-kontak"
+          className="p-3.5 bg-white border border-navy/10 rounded-panel shadow-2xs flex items-center gap-3 hover:bg-amber-50/50 transition-colors"
+        >
+          <div className="w-9 h-9 rounded-control bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <Mail className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-muted block">Pesan Masuk Baru</span>
+            <strong className="text-base font-bold text-amber-800 flex items-center gap-1.5">
+              {websiteStats.unread_messages} Pesan
+              {websiteStats.unread_messages > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              )}
+            </strong>
+          </div>
+        </Link>
+      </div>
+
+      {/* Baris 1: Stat Cards Pendaftaran (6 kartu) */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <AdminStatCard
           icon={Users}

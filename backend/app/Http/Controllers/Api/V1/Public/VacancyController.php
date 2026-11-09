@@ -3,25 +3,35 @@
 namespace App\Http\Controllers\Api\V1\Public;
 
 use App\Http\Controllers\Controller;
+use App\Models\TeacherVacancy;
+use Illuminate\Http\JsonResponse;
 
-// TODO: see Rancangan-API-Padindi.md section 3
 class VacancyController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $vacancies = TeacherVacancy::with('educationUnit')
+            ->where('is_published', true)
+            ->where(function ($q) {
+                $q->whereNull('closes_at')->orWhere('closes_at', '>=', now());
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $vacancies,
+        ]);
     }
 
-    public function show()
+    public function show(string $slug): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $vacancy = TeacherVacancy::with('educationUnit')
+            ->where('slug', $slug)
+            ->where('is_published', true)
+            ->firstOrFail();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $vacancy,
+        ]);
     }
 }

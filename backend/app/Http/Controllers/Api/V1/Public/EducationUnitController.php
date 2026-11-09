@@ -3,25 +3,30 @@
 namespace App\Http\Controllers\Api\V1\Public;
 
 use App\Http\Controllers\Controller;
+use App\Models\EducationUnit;
+use Illuminate\Http\JsonResponse;
 
-// TODO: see Rancangan-API-Padindi.md section 3
 class EducationUnitController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $units = EducationUnit::where('is_active', true)
+            ->orderBy('id', 'asc')
+            ->get();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $units,
+        ]);
     }
 
-    public function show()
+    public function show(string $slug): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $unit = EducationUnit::where('slug', $slug)
+            ->where('is_active', true)
+            ->firstOrFail();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $unit,
+        ]);
     }
 }

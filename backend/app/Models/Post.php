@@ -5,9 +5,9 @@ namespace App\Models;
 use App\Enums\PostStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-// TODO: see Skema-Database-Padindi.md section 3.6
 class Post extends Model
 {
     use HasFactory, SoftDeletes;
@@ -22,5 +22,13 @@ class Post extends Model
         ];
     }
 
-    // TODO: relasi category(), author()
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(PostCategory::class, 'post_category_id');
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'author_id');
+    }
 }

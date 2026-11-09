@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             DocumentRequirementSeeder::class,
             SettingSeeder::class,
             PageSeeder::class,
+            CmsSeeder::class,
         ]);
     }
 }

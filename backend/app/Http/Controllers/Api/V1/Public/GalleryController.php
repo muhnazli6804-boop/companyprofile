@@ -3,25 +3,33 @@
 namespace App\Http\Controllers\Api\V1\Public;
 
 use App\Http\Controllers\Controller;
+use App\Models\Gallery;
+use Illuminate\Http\JsonResponse;
 
-// TODO: see Rancangan-API-Padindi.md section 3
 class GalleryController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $galleries = Gallery::with(['items'])
+            ->where('is_published', true)
+            ->orderBy('event_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $galleries,
+        ]);
     }
 
-    public function show()
+    public function show(string $slug): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $gallery = Gallery::with(['items'])
+            ->where('slug', $slug)
+            ->where('is_published', true)
+            ->firstOrFail();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $gallery,
+        ]);
     }
 }
