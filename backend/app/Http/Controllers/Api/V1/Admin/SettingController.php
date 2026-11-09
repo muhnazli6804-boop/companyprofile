@@ -3,43 +3,108 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
-// TODO: see Rancangan-API-Padindi.md section 8, 9, 10, 11
 class SettingController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $settings = Setting::all();
+        $grouped = [];
+        $flat = [];
+
+        foreach ($settings as $setting) {
+            $grouped[$setting->group_name][$setting->key] = $setting->value;
+            $flat[$setting->key] = $setting->value;
+        }
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => [
+                'flat' => $flat,
+                'grouped' => $grouped,
+            ],
+        ]);
     }
 
-    public function update()
+    public function update(Request $request): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $request->validate([
+            'settings' => ['required', 'array'],
+        ]);
+
+        $settings = $request->input('settings');
+
+        foreach ($settings as $key => $value) {
+            // Determine group based on key prefix
+            $group = 'general';
+            if (str_starts_with($key, 'contact_')) {
+                $group = 'contact';
+            } elseif (str_starts_with($key, 'about_') || in_array($key, ['vision', 'mission'])) {
+                $group = 'about';
+            } elseif (str_starts_with($key, 'registration_') || str_starts_with($key, 'academic_')) {
+                $group = 'registration';
+            } elseif (str_starts_with($key, 'security_')) {
+                $group = 'security';
+            }
+
+            Setting::updateOrCreate(
+                ['key' => $key],
+                [
+                    'value' => is_array($value) ? json_encode($value) : (string) $value,
+                    'group_name' => $group,
+                    'is_public' => true,
+                ]
+            );
+        }
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Pengaturan sistem berhasil disimpan.',
+        ]);
     }
 
-    public function uploadLogo()
+    public function uploadLogo(Request $request): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $request->validate([
+            'logo' => ['required', 'file', 'image', 'max:2048'],
+        ]);
+
+        $path = $request->file('logo')->store('settings', 'public');
+
+        Setting::updateOrCreate(
+            ['key' => 'site_logo'],
+            [
+                'value' => $path,
+                'group_name' => 'general',
+                'is_public' => true,
+            ]
+        );
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Logo yayasan berhasil diperbarui.',
+            'data' => [
+                'logo_url' => Storage::disk('public')->url($path),
+                'path' => $path,
+            ],
+        ]);
     }
 
-    public function uploadImage()
+    public function uploadImage(Request $request): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $request->validate([
+            'image' => ['required', 'file', 'image', 'max:5120'],
+        ]);
+
+        $path = $request->file('image')->store('uploads', 'public');
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Gambar berhasil diunggah.',
+            'data' => [
+                'url' => Storage::disk('public')->url($path),
+                'path' => $path,
+            ],
+        ]);
     }
 }

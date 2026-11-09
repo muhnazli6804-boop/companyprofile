@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\Admin\PageController;
 use App\Http\Controllers\Api\V1\Admin\PostCategoryController;
 use App\Http\Controllers\Api\V1\Admin\PostController;
 use App\Http\Controllers\Api\V1\Admin\RegistrationPeriodController;
+use App\Http\Controllers\Api\V1\Admin\ReportController;
 use App\Http\Controllers\Api\V1\Admin\RoleController;
 use App\Http\Controllers\Api\V1\Admin\SettingController;
 use App\Http\Controllers\Api\V1\Admin\StudentApplicationController;
@@ -23,8 +24,10 @@ use Illuminate\Support\Facades\Route;
 
 // TODO: see Rancangan-API-Padindi.md section 8, 9, 10, 11
 
-// 8.1 Dashboard
+// 8.1 Dashboard & Reports
 Route::get('/dashboard', [DashboardController::class, 'index']);
+Route::get('/reports/summary', [ReportController::class, 'summary']);
+Route::get('/reports/export', [ReportController::class, 'export']);
 
 // 8.2 Student Applications
 Route::prefix('student-applications')->group(function () {
@@ -61,6 +64,7 @@ Route::prefix('registration-periods')->group(function () {
     Route::post('/', [RegistrationPeriodController::class, 'store']);
     Route::get('/{id}', [RegistrationPeriodController::class, 'show']);
     Route::put('/{id}', [RegistrationPeriodController::class, 'update']);
+    Route::patch('/{id}/active', [RegistrationPeriodController::class, 'toggleActive']);
     Route::delete('/{id}', [RegistrationPeriodController::class, 'destroy']);
     Route::get('/{id}/quotas', [RegistrationPeriodController::class, 'quotas']);
     Route::put('/{id}/quotas', [RegistrationPeriodController::class, 'updateQuotas']);
@@ -72,11 +76,13 @@ Route::prefix('education-units')->group(function () {
     Route::post('/', [EducationUnitController::class, 'store']);
     Route::get('/{id}', [EducationUnitController::class, 'show']);
     Route::put('/{id}', [EducationUnitController::class, 'update']);
+    Route::patch('/{id}/active', [EducationUnitController::class, 'toggleActive']);
     Route::delete('/{id}', [EducationUnitController::class, 'destroy']);
     Route::post('/{id}/media', [EducationUnitController::class, 'uploadMedia']);
 });
 
 // Document Requirements
+Route::patch('document-requirements/{id}/active', [DocumentRequirementController::class, 'toggleActive']);
 Route::apiResource('document-requirements', DocumentRequirementController::class);
 
 // Teacher Vacancies
