@@ -77,6 +77,7 @@ export const HomePage: React.FC = () => {
         siteName={s.site_name}
         tagline={s.site_tagline}
         logoUrl={s.site_logo_url}
+        heroBgImage={s.hero_background_image}
       />
 
       {/* ---- Tentang ---- */}

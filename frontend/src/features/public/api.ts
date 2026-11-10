@@ -54,6 +54,7 @@ function mapRawSettings(raw: RawSetting[] | Record<string, unknown>): SiteSettin
     site_name: getStr('site_name') ?? 'Yayasan Padindi',
     site_tagline: getStr('site_tagline'),
     site_logo_url: getStr('site_logo_url'),
+    hero_background_image: getStr('hero_background_image'),
     about_description: getStr('about_description'),
     vision: getStr('vision'),
     mission,

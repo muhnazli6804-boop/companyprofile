@@ -15,6 +15,7 @@ export interface SiteSettings {
   site_name: string;
   site_tagline?: string;
   site_logo_url?: string;
+  hero_background_image?: string;
 
   // Tentang — paragraf dipisah baris kosong (\n\n)
   about_description?: string;

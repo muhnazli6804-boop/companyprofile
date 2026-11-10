@@ -27,12 +27,14 @@ interface HeroSectionProps {
   siteName: string;
   tagline?: string;
   logoUrl?: string;
+  heroBgImage?: string;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   siteName,
   tagline,
   logoUrl,
+  heroBgImage,
 }) => {
   const { data: banners } = useQuery<BannerData[]>({
     queryKey: ['public', 'banners'],
@@ -61,14 +63,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       : undefined);
   const displayCtaLabel = currentBanner?.cta_label || 'Daftar sekarang';
   const displayCtaLink = currentBanner?.link_url || '/pendaftaran';
-  const displayImage = currentBanner?.image_path || logoUrl;
+  const bgImage = currentBanner?.image_path || heroBgImage || '/images/banner-hero-1.jpg';
 
   return (
     <section
       aria-labelledby="hero-heading"
-      className="bg-primary on-blue"
+      className="relative bg-primary on-blue bg-cover bg-center overflow-hidden transition-all duration-700"
+      style={bgImage ? { backgroundImage: `url("${bgImage}")` } : undefined}
     >
-      <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8 py-16 md:py-20">
+      {/* Overlay gradien biru navy agar teks dan tombol selalu jelas terbaca dan kontras sesuai standar WCAG AA/AAA */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-all duration-500"
+        style={{
+          background: bgImage
+            ? 'linear-gradient(90deg, rgba(6, 31, 92, 0.92) 0%, rgba(6, 31, 92, 0.80) 55%, rgba(6, 31, 92, 0.55) 100%)'
+            : 'var(--color-primary, #0B3C95)',
+        }}
+      />
+
+      <div className="relative z-10 max-w-content mx-auto px-4 md:px-6 lg:px-8 py-16 md:py-20">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-10 md:gap-8">
 
           {/* Teks kiri */}
@@ -137,7 +150,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Foto bundar (kanan di desktop, di bawah di ponsel) */}
           <div className="flex justify-center md:justify-end">
             <Roundel
-              src={displayImage}
+              src={logoUrl || '/images/logo.png'}
               alt={`Logo ${siteName}`}
               withSpokes={true}
               animated={true}

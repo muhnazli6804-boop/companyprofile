@@ -127,7 +127,7 @@ export const Roundel: React.FC<RoundelProps> = ({
 
       {/* Foto bundar responsif */}
       <div
-        className="overflow-hidden rounded-full bg-tint-200 border-2 border-white z-10"
+        className="overflow-hidden rounded-full bg-white border-2 border-white z-10 flex items-center justify-center p-2 shadow-md"
         style={{
           width: `${photoPercent}%`,
           height: `${photoPercent}%`,
@@ -140,9 +140,12 @@ export const Roundel: React.FC<RoundelProps> = ({
             alt={alt}
             width={size}
             height={size}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/images/logo.png';
+              const target = e.target as HTMLImageElement;
+              if (!target.src.endsWith('/images/logo.png')) {
+                target.src = '/images/logo.png';
+              }
             }}
           />
         ) : (

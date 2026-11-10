@@ -97,7 +97,7 @@ const FALLBACK_BANNERS: BannerItem[] = [
     id: 1,
     title: '[Contoh] Selamat Datang di Yayasan Perguruan Padindi',
     subtitle: 'Mewujudkan Generasi Cerdas, Berkarakter, dan Berakhlak Mulia Menuju Masa Depan Gemilang',
-    image_path: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1200&q=80',
+    image_path: '/images/banner-hero-1.jpg',
     cta_label: 'Daftar PPDB Online',
     link_url: '/pendaftaran',
     sort_order: 1,
@@ -107,7 +107,7 @@ const FALLBACK_BANNERS: BannerItem[] = [
     id: 2,
     title: '[Contoh] Pendaftaran Murid Baru (PPDB) 2026/2027 Resmi Dibuka',
     subtitle: 'Dapatkan Beasiswa Prestasi dan Fasilitas Pembelajaran Berbasis Teknologi Modern',
-    image_path: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
+    image_path: '/images/banner-hero-2.jpg',
     cta_label: 'Pelajari Persyaratan',
     link_url: '/informasi-pendaftaran',
     sort_order: 2,
@@ -852,6 +852,71 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'hero' && (
         <div className="space-y-6">
+          {/* Quick Hero Background Upload Card */}
+          <div className="bg-gradient-to-r from-navy via-[#0C3259] to-primary text-white p-5 rounded-card shadow-sm border border-navy/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="space-y-1 max-w-xl">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-star/20 text-star text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5" /> Ganti Latar Belakang Hero
+              </span>
+              <h4 className="font-display font-bold text-base text-white">Latar Belakang Gambar Hero Landing Page</h4>
+              <p className="text-xs text-white/80 leading-relaxed">
+                Ganti latar belakang biru polos pada halaman utama dengan foto gedung sekolah, kelas, atau kegiatan siswa.
+                Gambar yang diunggah akan otomatis memiliki lapisan gradien biru agar teks tetap kontras dan mudah dibaca.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-star text-navy font-bold text-xs rounded-control cursor-pointer hover:bg-star/90 transition-all shadow-md">
+                <Upload className="w-4 h-4 text-navy" />
+                <span>{uploadingBannerImage ? 'Mengunggah...' : 'Unggah Background Hero'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingBannerImage}
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      const formData = new FormData();
+                      formData.append('image', file);
+                      try {
+                        setUploadingBannerImage(true);
+                        const res = await apiClient.post<{ data: { url: string; path: string } }>(
+                          '/admin/uploads/images',
+                          formData,
+                          { headers: { 'Content-Type': 'multipart/form-data' } }
+                        );
+                        if (res.data?.data?.url) {
+                          const uploadedUrl = res.data.data.url;
+                          if (banners && banners.length > 0) {
+                            const first = banners[0];
+                            try {
+                              await apiClient.put(`/admin/banners/${first.id}`, {
+                                ...first,
+                                image_path: uploadedUrl,
+                              });
+                            } catch {
+                              // fallback
+                            }
+                          }
+                          await updateSettings({ hero_background_image: uploadedUrl });
+                          queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+                          queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+                          queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+                          showToast('Background hero berhasil diperbarui dan langsung tampil di landing page publik.');
+                        }
+                      } catch {
+                        alert('Gagal mengunggah background hero.');
+                      } finally {
+                        setUploadingBannerImage(false);
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-card border border-navy/10 shadow-sm">
             <div>
               <h3 className="font-display font-bold text-base text-navy">Manajemen Hero Section & Banner Utama</h3>
@@ -875,7 +940,7 @@ export const CmsPage: React.FC = () => {
                   setBannerForm({
                     title: '',
                     subtitle: '',
-                    image_path: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
+                    image_path: '/images/banner-hero-1.jpg',
                     cta_label: 'Daftar PPDB Online',
                     link_url: '/pendaftaran',
                     is_active: true,
@@ -904,6 +969,12 @@ export const CmsPage: React.FC = () => {
                     src={b.image_path}
                     alt={b.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (!target.src.endsWith('/images/banner-hero-1.jpg')) {
+                        target.src = '/images/banner-hero-1.jpg';
+                      }
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-transparent p-4 flex flex-col justify-end">
                     <span className="text-[11px] font-bold text-star uppercase tracking-wider mb-1">
@@ -1912,7 +1983,10 @@ export const CmsPage: React.FC = () => {
                       alt="Pratinjau Banner"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/images/logo.png';
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.endsWith('/images/banner-hero-1.jpg')) {
+                          target.src = '/images/banner-hero-1.jpg';
+                        }
                       }}
                     />
                   </div>
