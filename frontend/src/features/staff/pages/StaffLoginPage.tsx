@@ -51,7 +51,7 @@ export const StaffLoginPage: React.FC = () => {
           // fallback
         }
         await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-        navigate('/staff/dashboard', { replace: true });
+        navigate('/admin/dashboard', { replace: true });
         return;
       }
 

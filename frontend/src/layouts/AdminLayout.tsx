@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
-  Newspaper,
   PanelLeft,
   PanelLeftClose,
   ShieldCheck,
@@ -272,23 +271,13 @@ export const AdminLayout: React.FC = () => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Link
-              to="/"
-              className="flex-1 flex items-center gap-2 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
-              <Globe className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
-              <span>Lihat situs</span>
-            </Link>
-            <Link
-              to="/staff/dashboard"
-              className="flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs text-emerald-300 hover:text-white hover:bg-emerald-600/30 transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              title="Buka Portal Staff & Guru"
-            >
-              <Newspaper className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Portal Staff</span>
-            </Link>
-          </div>
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 min-h-[38px] px-3 py-1.5 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+          >
+            <Globe className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
+            <span>Lihat situs</span>
+          </Link>
         </div>
       </aside>
 
