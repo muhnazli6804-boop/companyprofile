@@ -9,6 +9,7 @@ import { SeoHead } from '@/components/seo/SeoHead';
 import { HeroSection } from '../components/HeroSection';
 import { AboutSection } from '../components/AboutSection';
 import { VisionMissionSection } from '../components/VisionMissionSection';
+import { OrganizationSection } from '../components/OrganizationSection';
 import { ActivitiesSection } from '../components/ActivitiesSection';
 import { ContactSection } from '../components/ContactSection';
 import { usePublicSettings, useActivities } from '../hooks';
@@ -111,6 +112,9 @@ export const HomePage: React.FC = () => {
           mission={s.mission}
         />
       )}
+
+      {/* ---- Struktur Dewan Pengurus & Tim Staf Yayasan ---- */}
+      <OrganizationSection />
 
       {/* ---- Kegiatan ---- */}
       <section

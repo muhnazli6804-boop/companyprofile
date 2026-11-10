@@ -21,12 +21,13 @@ import { usePublicSettings } from '@/features/public/hooks';
 const NAV_LINKS = [
   { label: 'Tentang', anchor: 'tentang' },
   { label: 'Visi dan misi', anchor: 'visi-misi' },
+  { label: 'Pengurus & Staf', anchor: 'pengurus' },
   { label: 'Kegiatan', anchor: 'kegiatan' },
   { label: 'Kontak', anchor: 'kontak' },
   { label: 'Pendaftaran', path: '/pendaftaran' },
 ] as const;
 
-const SECTION_IDS = ['tentang', 'visi-misi', 'kegiatan', 'kontak'] as const;
+const SECTION_IDS = ['tentang', 'visi-misi', 'pengurus', 'kegiatan', 'kontak'] as const;
 
 export const PublicLayout: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
