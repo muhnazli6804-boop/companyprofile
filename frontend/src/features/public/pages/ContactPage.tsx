@@ -3,6 +3,7 @@ import { SeoHead } from '@/components/seo/SeoHead';
 import { usePublicSettings } from '@/features/public/hooks';
 import { apiClient } from '@/lib/api-client';
 import { Phone, Mail, MapPin, Clock, MessageSquare, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { MapEmbed } from '../components/MapEmbed';
 
 export const ContactPage: React.FC = () => {
   const { data: settings } = usePublicSettings();
@@ -47,10 +48,11 @@ export const ContactPage: React.FC = () => {
     }
   };
 
-  const phone = settings?.contact_phone || '021-5550100';
+  const phone = settings?.contact_phone || '02122435791';
   const email = settings?.contact_email || 'info@padindi.sch.id';
-  const address = settings?.contact_address || 'Jl. Padindi Raya No. 10–12, Jakarta Barat, DKI Jakarta 11840';
+  const address = settings?.contact_address || 'Jl. Papanggo IID No.70, RT.13/RW.3, Papanggo, Kec. Tj. Priok, Jkt Utara, Daerah Khusus Ibukota Jakarta 14340';
   const hours = settings?.contact_hours || 'Senin – Jumat: 07.30 – 15.30 WIB';
+  const mapEmbedUrl = settings?.contact_map_embed_url || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3967.0428612140885!2d106.8741369758778!3d-6.124967393861961!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6a1e35a72df89b%3A0x6b876fc1eb7040f9!2sJl.%20Papanggo%20IID%20No.70%2C%20RT.13%2FRW.3%2C%20Papanggo%2C%20Kec.%20Tj.%20Priok%2C%20Jkt%20Utara%2C%20Daerah%20Khusus%20Ibukota%20Jakarta%2014340!5e0!3m2!1sid!2sid!4v1700000000000!5m2!1sid!2sid';
 
   return (
     <div className="bg-paper min-h-screen py-12 md:py-16">
@@ -238,6 +240,20 @@ export const ContactPage: React.FC = () => {
               </form>
             )}
           </div>
+        </div>
+
+        {/* Lokasi Peta Kampus Yayasan */}
+        <div className="bg-white p-6 md:p-8 rounded-card border border-navy/10 shadow-sm space-y-4">
+          <div className="flex items-center gap-3 border-b border-navy/10 pb-4">
+            <div className="w-10 h-10 rounded-lg bg-navy/5 flex items-center justify-center text-navy shrink-0">
+              <MapPin className="w-5 h-5 text-navy" />
+            </div>
+            <div>
+              <h2 className="font-display font-bold text-lg md:text-xl text-navy">Lokasi Kampus Yayasan</h2>
+              <p className="text-xs text-muted">Petunjuk arah dan titik lokasi Google Maps Yayasan Padindi</p>
+            </div>
+          </div>
+          <MapEmbed embedUrl={mapEmbedUrl} address={address} />
         </div>
       </div>
     </div>
