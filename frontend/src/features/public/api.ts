@@ -82,6 +82,7 @@ interface RawPost {
   title: string;
   slug: string;
   excerpt?: string | null;
+  cover_path?: string | null;
   cover_url?: string | null;
   cover_alt?: string | null;
   published_at: string;
@@ -103,21 +104,21 @@ function mapRawPost(raw: RawPost): Activity {
     title: raw.title,
     slug: raw.slug,
     excerpt: raw.excerpt ?? undefined,
-    cover_url: raw.cover_url ?? undefined,
-    cover_alt: raw.cover_alt ?? undefined,
+    cover_url: raw.cover_path || raw.cover_url || undefined,
+    cover_alt: raw.cover_alt ?? raw.title ?? '',
     published_at: raw.published_at,
-    // TODO: href ke halaman detail belum ada; kosongkan agar tidak ada tautan
-    href: undefined,
+    href: `/berita/${raw.slug}`,
   };
 }
 
 export async function fetchActivities(): Promise<PaginatedResponse<Activity>> {
-  const res = await apiClient.get<RawPostsResponse>(
-    '/public/posts?filter[category]=kegiatan&per_page=9',
+  const res = await apiClient.get<RawPostsResponse | { data: RawPost[] }>(
+    '/public/posts?per_page=9',
   );
+  const items = Array.isArray(res.data?.data) ? res.data.data : [];
   return {
-    data: res.data.data.map(mapRawPost),
-    meta: res.data.meta,
+    data: items.map(mapRawPost),
+    meta: (res.data as RawPostsResponse)?.meta,
   };
 }
 

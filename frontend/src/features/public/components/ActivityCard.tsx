@@ -67,6 +67,12 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
             loading={isLazyLoad ? 'lazy' : 'eager'}
             className="w-full h-full object-cover"
             style={{ borderRadius: 0 }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.endsWith('/images/news/ppdb-cover.jpg')) {
+                target.src = '/images/news/ppdb-cover.jpg';
+              }
+            }}
           />
         ) : (
           <ImagePlaceholder

@@ -288,7 +288,26 @@ export const CmsPage: React.FC = () => {
   const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
 
   // 2. Articles state
-  const [articles, setArticles] = useState<PostItem[]>(FALLBACK_POSTS);
+  const [localArticles, setLocalArticles] = useState<PostItem[]>(FALLBACK_POSTS);
+  const { data: remotePosts } = useQuery({
+    queryKey: ['adminCmsPosts'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<any>('/admin/posts?per_page=50');
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as PostItem[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const articles = remotePosts && remotePosts.length > 0 ? remotePosts : localArticles;
   const [articleSearch, setArticleSearch] = useState('');
   const [articleModalOpen, setArticleModalOpen] = useState(false);
   const [articleForm, setArticleForm] = useState<Partial<PostItem>>({
@@ -297,13 +316,33 @@ export const CmsPage: React.FC = () => {
     excerpt: '',
     content: '',
     cover_path: '',
-    status: 'draft',
+    status: 'published',
   });
   const [articlePreviewTarget, setArticlePreviewTarget] = useState<PostItem | null>(null);
   const [deleteArticleTarget, setDeleteArticleTarget] = useState<PostItem | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   // 3. Galleries state
-  const [galleries, setGalleries] = useState<GalleryItemType[]>(FALLBACK_GALLERIES);
+  const [localGalleries, setLocalGalleries] = useState<GalleryItemType[]>(FALLBACK_GALLERIES);
+  const { data: remoteGalleries } = useQuery({
+    queryKey: ['adminCmsGalleries'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<any>('/admin/galleries');
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as GalleryItemType[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const galleries = remoteGalleries && remoteGalleries.length > 0 ? remoteGalleries : localGalleries;
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [galleryForm, setGalleryForm] = useState<Partial<GalleryItemType>>({
     title: '',
@@ -315,7 +354,26 @@ export const CmsPage: React.FC = () => {
   const [deleteGalleryTarget, setDeleteGalleryTarget] = useState<GalleryItemType | null>(null);
 
   // 4. Organization Profile state
-  const [orgMembers, setOrgMembers] = useState<OrgMemberItem[]>(FALLBACK_ORG);
+  const [localOrgMembers, setLocalOrgMembers] = useState<OrgMemberItem[]>(FALLBACK_ORG);
+  const { data: remoteOrgMembers } = useQuery({
+    queryKey: ['adminCmsOrgMembers'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<any>('/admin/organization-members');
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as OrgMemberItem[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const orgMembers = remoteOrgMembers && remoteOrgMembers.length > 0 ? remoteOrgMembers : localOrgMembers;
   const [orgModalOpen, setOrgModalOpen] = useState(false);
   const [orgForm, setOrgForm] = useState<Partial<OrgMemberItem>>({
     name: '',
@@ -574,38 +632,56 @@ export const CmsPage: React.FC = () => {
       return;
     }
 
-    if (articleForm.id) {
-      try {
-        await apiClient.put(`/admin/posts/${articleForm.id}`, articleForm);
-      } catch {
-        // mock
+    const payload = {
+      title: articleForm.title.trim(),
+      slug: articleForm.slug?.trim() || undefined,
+      excerpt: articleForm.excerpt?.trim() || null,
+      content: articleForm.content.trim(),
+      cover_path: articleForm.cover_path?.trim() || '/images/news/ppdb-cover.jpg',
+      status: articleForm.status || 'published',
+      published_at: articleForm.published_at || new Date().toISOString(),
+      post_category_id: articleForm.post_category_id || articleForm.category?.id || 11,
+    };
+
+    try {
+      if (articleForm.id && typeof articleForm.id === 'number' && articleForm.id < 1000000000) {
+        await apiClient.put(`/admin/posts/${articleForm.id}`, payload);
+        showToast('Artikel berhasil diperbarui.');
+      } else {
+        await apiClient.post('/admin/posts', payload);
+        showToast('Artikel berhasil dipublikasikan ke Landing Page.');
       }
-      setArticles((prev) =>
-        prev.map((a) => (a.id === articleForm.id ? { ...(articleForm as PostItem) } : a))
-      );
-      showToast('Artikel berhasil diperbarui.');
-    } else {
-      const newPost: PostItem = {
-        id: Date.now(),
-        title: articleForm.title || '',
-        slug: articleForm.slug || articleForm.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'post',
-        excerpt: articleForm.excerpt || '',
-        content: articleForm.content || '',
-        cover_path: articleForm.cover_path || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80',
-        status: articleForm.status || 'published',
-        published_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        category: { id: 1, name: 'Informasi Umum' },
-      };
-      try {
-        await apiClient.post('/admin/posts', newPost);
-      } catch {
-        // mock
-      }
-      setArticles((prev) => [newPost, ...prev]);
-      showToast('Artikel berhasil dipublikasikan ke Landing Page.');
+      queryClient.invalidateQueries({ queryKey: ['adminCmsPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'activities'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'posts'] });
+      setArticleModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan artikel.';
+      alert(`Gagal: ${msg}`);
     }
-    setArticleModalOpen(false);
+  };
+
+  const handleTogglePublishArticle = async (art: PostItem) => {
+    try {
+      if (art.status === 'published') {
+        await apiClient.patch(`/admin/posts/${art.id}/unpublish`);
+        showToast('Artikel berhasil diubah menjadi draft.');
+      } else {
+        await apiClient.patch(`/admin/posts/${art.id}/publish`);
+        showToast('Artikel berhasil dipublikasikan ke Landing Page.');
+      }
+      queryClient.invalidateQueries({ queryKey: ['adminCmsPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'activities'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'posts'] });
+    } catch {
+      // offline fallback
+      setLocalArticles((prev) =>
+        prev.map((a) => (a.id === art.id ? { ...a, status: a.status === 'published' ? 'draft' : 'published' } : a))
+      );
+      showToast('Status publikasi artikel diperbarui.');
+    }
   };
 
   // --- Handlers: Gallery ---
@@ -614,26 +690,30 @@ export const CmsPage: React.FC = () => {
       alert('Judul album galeri wajib diisi.');
       return;
     }
-    const newGal: GalleryItemType = {
-      id: Date.now(),
-      title: galleryForm.title || '',
-      slug: galleryForm.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'galeri',
-      description: galleryForm.description || '',
-      cover_path: galleryForm.cover_path || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    const payload = {
+      title: galleryForm.title.trim(),
+      description: galleryForm.description?.trim() || null,
+      cover_path: galleryForm.cover_path?.trim() || '/images/gallery/pensi-cover.jpg',
       event_date: galleryForm.event_date || new Date().toISOString().split('T')[0],
-      is_published: true,
-      items: [
-        { id: 1, path: galleryForm.cover_path || '', caption: 'Dokumentasi Utama' },
-      ],
+      is_published: galleryForm.is_published ?? true,
     };
     try {
-      await apiClient.post('/admin/galleries', newGal);
-    } catch {
-      // mock
+      if (galleryForm.id && typeof galleryForm.id === 'number' && galleryForm.id < 1000000000) {
+        await apiClient.put(`/admin/galleries/${galleryForm.id}`, payload);
+        showToast('Album galeri berhasil diperbarui.');
+      } else {
+        await apiClient.post('/admin/galleries', payload);
+        showToast('Album galeri berhasil ditambahkan.');
+      }
+      queryClient.invalidateQueries({ queryKey: ['adminCmsGalleries'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'galleries'] });
+      setGalleryModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan galeri.';
+      alert(`Gagal: ${msg}`);
     }
-    setGalleries((prev) => [newGal, ...prev]);
-    setGalleryModalOpen(false);
-    showToast('Album galeri berhasil ditambahkan.');
   };
 
   // --- Handlers: Profile & Org ---
@@ -643,70 +723,91 @@ export const CmsPage: React.FC = () => {
       return;
     }
 
-    if (orgForm.id) {
-      try {
-        await apiClient.put(`/admin/organization-members/${orgForm.id}`, orgForm);
-      } catch {
-        // mock
+    const payload = {
+      name: orgForm.name.trim(),
+      position: orgForm.position.trim(),
+      bio: orgForm.bio?.trim() || null,
+      photo_path: orgForm.photo_path?.trim() || '/images/org/ketua-pembina.jpg',
+      sort_order: orgForm.sort_order ?? 1,
+      is_active: orgForm.is_active ?? true,
+    };
+
+    try {
+      if (orgForm.id && typeof orgForm.id === 'number' && orgForm.id < 1000000000) {
+        await apiClient.put(`/admin/organization-members/${orgForm.id}`, payload);
+        showToast('Data pengurus berhasil diperbarui.');
+      } else {
+        await apiClient.post('/admin/organization-members', payload);
+        showToast('Pengurus baru berhasil ditambahkan.');
       }
-      setOrgMembers((prev) =>
-        prev.map((m) => (m.id === orgForm.id ? { ...(orgForm as OrgMemberItem) } : m))
-      );
-      showToast('Data pengurus berhasil diperbarui.');
-    } else {
-      const newMember: OrgMemberItem = {
-        id: Date.now(),
-        name: orgForm.name || '',
-        position: orgForm.position || '',
-        bio: orgForm.bio || '',
-        photo_path: orgForm.photo_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-        sort_order: orgMembers.length + 1,
-        is_active: true,
-      };
-      try {
-        await apiClient.post('/admin/organization-members', newMember);
-      } catch {
-        // mock
-      }
-      setOrgMembers((prev) => [...prev, newMember]);
-      showToast('Pengurus baru berhasil ditambahkan.');
+      queryClient.invalidateQueries({ queryKey: ['adminCmsOrgMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'organization'] });
+      setOrgModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan anggota pengurus.';
+      alert(`Gagal: ${msg}`);
     }
-    setOrgModalOpen(false);
   };
 
   // --- Handlers: Achievement ---
-  const handleSaveAchievement = () => {
+  const handleSaveAchievement = async () => {
     if (!achievementForm.title) {
       alert('Nama prestasi wajib diisi.');
       return;
     }
-    const newAch: AchievementItem = {
-      id: Date.now(),
-      title: achievementForm.title || '',
-      category: achievementForm.category || 'Akademik',
-      year: achievementForm.year || '2026',
-      description: achievementForm.description || '',
-    };
-    setAchievements((prev) => [newAch, ...prev]);
+    const updated = achievementForm.id
+      ? achievements.map((a) => (a.id === achievementForm.id ? { ...(achievementForm as AchievementItem) } : a))
+      : [
+          {
+            id: Date.now(),
+            title: achievementForm.title || '',
+            category: achievementForm.category || 'Akademik',
+            year: achievementForm.year || '2026',
+            description: achievementForm.description || '',
+          },
+          ...achievements,
+        ];
+    setAchievements(updated);
+    try {
+      await updateSettings({ site_achievements: JSON.stringify(updated) });
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+    } catch {
+      // offline fallback
+    }
     setAchievementModalOpen(false);
-    showToast('Prestasi siswa berhasil ditambahkan.');
+    showToast('Prestasi siswa berhasil disimpan.');
   };
 
   // --- Handlers: FAQ ---
-  const handleSaveFaq = () => {
+  const handleSaveFaq = async () => {
     if (!faqForm.question || !faqForm.answer) {
       alert('Pertanyaan dan jawaban FAQ wajib diisi.');
       return;
     }
-    const newFaq: FaqItem = {
-      id: Date.now(),
-      question: faqForm.question || '',
-      answer: faqForm.answer || '',
-      sort_order: faqs.length + 1,
-    };
-    setFaqs((prev) => [...prev, newFaq]);
+    const updated = faqForm.id
+      ? faqs.map((f) => (f.id === faqForm.id ? { ...(faqForm as FaqItem) } : f))
+      : [
+          ...faqs,
+          {
+            id: Date.now(),
+            question: faqForm.question || '',
+            answer: faqForm.answer || '',
+            sort_order: faqs.length + 1,
+          },
+        ];
+    setFaqs(updated);
+    try {
+      await updateSettings({ site_faqs: JSON.stringify(updated) });
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+    } catch {
+      // offline fallback
+    }
     setFaqModalOpen(false);
-    showToast('FAQ baru berhasil ditambahkan.');
+    showToast('FAQ berhasil disimpan.');
   };
 
   return (
@@ -1159,6 +1260,15 @@ export const CmsPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleTogglePublishArticle(art)}
+                            className="text-xs p-1 text-emerald-600 hover:bg-emerald-50"
+                            title={art.status === 'published' ? 'Ubah ke Draft' : 'Terbitkan ke Website'}
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -2136,14 +2246,76 @@ export const CmsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-navy block mb-1">URL Gambar Sampul (Thumbnail)</label>
+                <label className="font-bold text-navy block mb-1">Kategori Berita / Konten *</label>
+                <select
+                  value={articleForm.post_category_id || articleForm.category?.id || 11}
+                  onChange={(e) => setArticleForm({ ...articleForm, post_category_id: Number(e.target.value) })}
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink text-xs font-semibold"
+                >
+                  <option value={11}>Kegiatan Sekolah</option>
+                  <option value={12}>Prestasi & Penghargaan</option>
+                  <option value={13}>Pengumuman Resmi</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-navy">Gambar Sampul (Thumbnail)</label>
+                  <label className="text-xs text-primary font-bold cursor-pointer hover:underline flex items-center gap-1">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingCover ? 'Mengunggah...' : 'Unggah Foto Sampul'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingCover}
+                      onChange={async (e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          try {
+                            setUploadingCover(true);
+                            const formData = new FormData();
+                            formData.append('image', e.target.files[0]);
+                            const res = await apiClient.post<{ data: { url: string; path: string } }>(
+                              '/admin/uploads/images',
+                              formData,
+                              { headers: { 'Content-Type': 'multipart/form-data' } }
+                            );
+                            if (res.data?.data?.url) {
+                              setArticleForm((prev) => ({ ...prev, cover_path: res.data.data.url }));
+                              showToast('Foto sampul berhasil diunggah.');
+                            }
+                          } catch {
+                            alert('Gagal mengunggah foto sampul.');
+                          } finally {
+                            setUploadingCover(false);
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={articleForm.cover_path || ''}
                   onChange={(e) => setArticleForm({ ...articleForm, cover_path: e.target.value })}
-                  placeholder="https://... atau /images/news/cover.jpg"
+                  placeholder="https://... atau unggah berkas dari perangkat Anda"
                   className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
                 />
+                {articleForm.cover_path && (
+                  <div className="mt-2 relative w-full h-28 bg-navy/5 rounded-lg border border-navy/10 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={articleForm.cover_path}
+                      alt="Pratinjau Sampul"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.endsWith('/images/news/ppdb-cover.jpg')) {
+                          target.src = '/images/news/ppdb-cover.jpg';
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -2464,11 +2636,19 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteArticleTarget)}
         onClose={() => setDeleteArticleTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteArticleTarget) {
-            setArticles((prev) => prev.filter((a) => a.id !== deleteArticleTarget.id));
+            try {
+              await apiClient.delete(`/admin/posts/${deleteArticleTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsPosts'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'activities'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'posts'] });
+            setLocalArticles((prev) => prev.filter((a) => a.id !== deleteArticleTarget.id));
             setDeleteArticleTarget(null);
-            showToast('Artikel berita berhasil dihapus.');
+            showToast('Artikel berita berhasil dihapus dan langsung diperbarui di website publik.');
           }
         }}
         title="Hapus Artikel"
@@ -2480,9 +2660,16 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteGalleryTarget)}
         onClose={() => setDeleteGalleryTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteGalleryTarget) {
-            setGalleries((prev) => prev.filter((g) => g.id !== deleteGalleryTarget.id));
+            try {
+              await apiClient.delete(`/admin/galleries/${deleteGalleryTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsGalleries'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'galleries'] });
+            setLocalGalleries((prev) => prev.filter((g) => g.id !== deleteGalleryTarget.id));
             setDeleteGalleryTarget(null);
             showToast('Album galeri berhasil dihapus.');
           }
@@ -2496,9 +2683,16 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteOrgTarget)}
         onClose={() => setDeleteOrgTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteOrgTarget) {
-            setOrgMembers((prev) => prev.filter((o) => o.id !== deleteOrgTarget.id));
+            try {
+              await apiClient.delete(`/admin/organization-members/${deleteOrgTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsOrgMembers'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'organization'] });
+            setLocalOrgMembers((prev) => prev.filter((o) => o.id !== deleteOrgTarget.id));
             setDeleteOrgTarget(null);
             showToast('Data pengurus yayasan berhasil dihapus.');
           }
