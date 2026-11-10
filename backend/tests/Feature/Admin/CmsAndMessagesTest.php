@@ -15,7 +15,13 @@ class CmsAndMessagesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->seed(\Database\Seeders\RoleSeeder::class);
+        $this->seed(\Database\Seeders\PermissionSeeder::class);
         $this->admin = User::where('user_type', 'admin')->first() ?? User::factory()->create(['user_type' => 'admin', 'is_active' => true]);
+        $superAdmin = \App\Models\Role::where('name', 'super_admin')->first();
+        if ($superAdmin && ! $this->admin->roles()->where('roles.id', $superAdmin->id)->exists()) {
+            $this->admin->roles()->attach($superAdmin->id);
+        }
     }
 
     public function test_admin_can_manage_banners(): void

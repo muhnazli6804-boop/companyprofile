@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,6 +34,12 @@ class AppServiceProvider extends ServiceProvider
             'teacher_application' => TeacherApplication::class,
             'user' => User::class,
         ]);
+
+        // Permission admin ("modul.aksi", mis. users.manage) dicek lewat role pengguna; `can:<permission>` di rute admin.
+        // Ability tanpa titik (policy) dibiarkan ke Gate/Policy biasa.
+        Gate::before(function (User $user, string $ability) {
+            return str_contains($ability, '.') ? $user->hasPermission($ability) : null;
+        });
 
         // Named rate limiters per Rancangan-API-Padindi.md section 1.6
         RateLimiter::for('api', function (Request $request) {

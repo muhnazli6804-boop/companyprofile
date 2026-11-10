@@ -4,187 +4,312 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Enums\UserType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\PromoteUserRequest;
+use App\Http\Requests\Admin\StoreUserRequest;
+use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Http\Resources\Admin\UserResource;
+use App\Models\ActivityLog;
+use App\Models\Role;
 use App\Models\User;
+use App\Notifications\AdminPasswordLinkNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
+// Rancangan-API-Padindi.md §11.2. Akun pendaftar hanya bisa dilihat, diaktif/nonaktifkan, dan (super_admin) dipromosikan; sisanya khusus admin.
 class UserController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $query = User::query()->with('roles:id,name,label');
+    private const SUPER_ADMIN = 'super_admin';
 
-        if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('email', 'ILIKE', "%{$search}%")
-                  ->orWhere('phone', 'ILIKE', "%{$search}%");
-            });
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        $filter = (array) $request->query('filter', []);
+        $csv = fn (string $key) => array_filter(explode(',', (string) ($filter[$key] ?? '')));
+
+        $users = User::with('roles')
+            ->when($request->query('q'), function ($query, $q) {
+                $like = '%'.addcslashes((string) $q, '%_\\').'%';
+                $query->where(fn ($w) => $w->where('name', 'ilike', $like)->orWhere('email', 'ilike', $like));
+            })
+            ->when($csv('user_type'), fn ($query, $types) => $query->whereIn('user_type', $types))
+            ->when($csv('role'), fn ($query, $roles) => $query->whereHas('roles', fn ($r) => $r->whereIn('name', $roles)))
+            ->when(isset($filter['is_active']) && $filter['is_active'] !== '',
+                fn ($query) => $query->where('is_active', filter_var($filter['is_active'], FILTER_VALIDATE_BOOLEAN)))
+            ->orderByDesc('id')
+            ->paginate(min(max((int) $request->query('per_page', 15), 1), 100));
+
+        return UserResource::collection($users);
+    }
+
+    public function store(StoreUserRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        if ($blocked = $this->rejectNonSuperAdmin($request, null, $data['roles'])) {
+            return $blocked;
         }
 
-        if ($type = $request->input('user_type')) {
-            $query->where('user_type', $type);
-        } else {
-            // Default show admin/staff users unless requested
-            if ($request->boolean('admins_only', false)) {
-                $query->where('user_type', UserType::ADMIN->value);
+        // Kata sandi acak yang tidak pernah dibagikan; admin menentukan sendiri lewat tautan email.
+        $user = DB::transaction(function () use ($data, $request) {
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'password' => Str::random(40),
+                'user_type' => UserType::ADMIN,
+                'is_active' => true,
+            ]);
+            $user->roles()->sync($data['roles']);
+            $this->log($request, 'user.created', $user, ['roles' => $this->roleNames($user)]);
+
+            return $user;
+        });
+
+        $this->sendPasswordLink($user);
+
+        return (new UserResource($user->load('roles')))->response()->setStatusCode(201);
+    }
+
+    public function show(string $id): UserResource
+    {
+        return new UserResource(User::with('roles')->findOrFail($id));
+    }
+
+    public function update(UpdateUserRequest $request, string $id): JsonResponse|UserResource
+    {
+        $data = $request->validated();
+
+        return DB::transaction(function () use ($request, $id, $data) {
+            $user = User::with('roles')->findOrFail($id);
+
+            if ($blocked = $this->rejectApplicant($user) ?? $this->rejectNonSuperAdmin($request, $user, $data['roles'])) {
+                return $blocked;
             }
-        }
 
-        if ($roleId = $request->input('role_id')) {
-            $query->whereHas('roles', function ($q) use ($roleId) {
-                $q->where('roles.id', $roleId);
-            });
-        }
+            $newRoleNames = Role::whereIn('id', $data['roles'])->pluck('name')->all();
+            if (! in_array(self::SUPER_ADMIN, $newRoleNames, true) && $this->isLastActiveSuperAdmin($user)) {
+                return $this->conflict('LAST_SUPER_ADMIN', 'Tidak dapat mencabut role Super Admin dari Super Admin aktif terakhir.');
+            }
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
+            $changes = [];
+            foreach (['name', 'email', 'phone'] as $field) {
+                $new = $data[$field] ?? null;
+                if ($user->{$field} !== $new) {
+                    $changes[$field] = [$user->{$field}, $new];
+                }
+            }
+            $oldRoleNames = $this->roleNames($user);
+            sort($newRoleNames);
+            if ($oldRoleNames !== $newRoleNames) {
+                $changes['roles'] = [$oldRoleNames, $newRoleNames];
+            }
 
-        $users = $query->orderByDesc('created_at')->paginate($request->integer('per_page', 15));
+            $user->update(collect($data)->only(['name', 'email', 'phone'])->all());
+            $user->roles()->sync($data['roles']);
 
-        return response()->json([
-            'data' => $users->items(),
-            'meta' => [
-                'current_page' => $users->currentPage(),
-                'last_page' => $users->lastPage(),
-                'per_page' => $users->perPage(),
-                'total' => $users->total(),
-            ],
-        ]);
+            if ($changes) {
+                $this->log($request, 'user.updated', $user, ['changes' => $changes]);
+            }
+
+            return new UserResource($user->load('roles'));
+        });
     }
 
-    public function store(Request $request): JsonResponse
+    public function toggleActive(Request $request, string $id): JsonResponse|UserResource
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'password' => ['required', Password::min(8)],
-            'user_type' => ['nullable', Rule::enum(UserType::class)],
-            'role_ids' => ['nullable', 'array'],
-            'role_ids.*' => ['exists:roles,id'],
-            'is_active' => ['boolean'],
-        ]);
+        $active = (bool) $request->validate(['is_active' => ['required', 'boolean']])['is_active'];
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'] ?? null,
-            'password' => Hash::make($validated['password']),
-            'user_type' => $validated['user_type'] ?? UserType::ADMIN->value,
-            'is_active' => $validated['is_active'] ?? true,
-            'email_verified_at' => now(),
-        ]);
+        return DB::transaction(function () use ($request, $id, $active) {
+            $user = User::with('roles')->findOrFail($id);
 
-        if (!empty($validated['role_ids'])) {
-            $user->roles()->sync($validated['role_ids']);
-        }
+            if ($blocked = $this->rejectNonSuperAdmin($request, $user)) {
+                return $blocked;
+            }
 
-        $user->load('roles:id,name,label');
+            if (! $active) {
+                if ($blocked = $this->rejectSelf($request, $user)) {
+                    return $blocked;
+                }
+                if ($this->isLastActiveSuperAdmin($user)) {
+                    return $this->conflict('LAST_SUPER_ADMIN', 'Tidak dapat menonaktifkan Super Admin aktif terakhir.');
+                }
+            }
 
-        return response()->json([
-            'message' => 'Pengguna berhasil ditambahkan.',
-            'data' => $user,
-        ], 201);
+            $was = $user->is_active;
+            $user->update(['is_active' => $active]);
+
+            if (! $active) {
+                $this->revokeAccess($user);
+            }
+            if ($was !== $active) {
+                $this->log($request, 'user.updated', $user, ['changes' => ['is_active' => [$was, $active]]]);
+            }
+
+            return new UserResource($user);
+        });
     }
 
-    public function show($id): JsonResponse
-    {
-        $user = User::with('roles:id,name,label')->findOrFail($id);
-
-        return response()->json([
-            'data' => $user,
-        ]);
-    }
-
-    public function update(Request $request, $id): JsonResponse
+    public function resetPassword(Request $request, string $id): JsonResponse
     {
         $user = User::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:150'],
-            'email' => ['sometimes', 'required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'password' => ['nullable', Password::min(8)],
-            'user_type' => ['nullable', Rule::enum(UserType::class)],
-            'role_ids' => ['nullable', 'array'],
-            'role_ids.*' => ['exists:roles,id'],
-            'is_active' => ['boolean'],
-        ]);
-
-        $updateData = [
-            'name' => $validated['name'] ?? $user->name,
-            'email' => $validated['email'] ?? $user->email,
-            'phone' => array_key_exists('phone', $validated) ? $validated['phone'] : $user->phone,
-            'user_type' => $validated['user_type'] ?? $user->user_type,
-            'is_active' => array_key_exists('is_active', $validated) ? $validated['is_active'] : $user->is_active,
-        ];
-
-        if (!empty($validated['password'])) {
-            $updateData['password'] = Hash::make($validated['password']);
+        if ($blocked = $this->rejectApplicant($user) ?? $this->rejectNonSuperAdmin($request, $user)) {
+            return $blocked;
         }
 
-        $user->update($updateData);
+        $this->sendPasswordLink($user);
+        $this->log($request, 'user.updated', $user, ['event' => 'password_reset_requested']);
 
-        if (array_key_exists('role_ids', $validated)) {
-            $user->roles()->sync($validated['role_ids']);
-        }
+        return response()->json(['message' => 'Tautan atur kata sandi telah dikirim ke email akun.']);
+    }
 
-        $user->load('roles:id,name,label');
+    public function destroy(Request $request, string $id): JsonResponse|Response
+    {
+        return DB::transaction(function () use ($request, $id) {
+            $user = User::findOrFail($id);
 
-        return response()->json([
-            'message' => 'Data pengguna berhasil diperbarui.',
-            'data' => $user,
+            if ($blocked = $this->rejectApplicant($user) ?? $this->rejectNonSuperAdmin($request, $user) ?? $this->rejectSelf($request, $user)) {
+                return $blocked;
+            }
+            if ($this->isLastActiveSuperAdmin($user)) {
+                return $this->conflict('LAST_SUPER_ADMIN', 'Tidak dapat menghapus Super Admin aktif terakhir.');
+            }
+
+            $this->revokeAccess($user);
+            $this->log($request, 'user.updated', $user, ['event' => 'deleted']);
+            $user->delete();
+
+            return response()->noContent();
+        });
+    }
+
+    /**
+     * Pengecualian dari APPLICANT_ACCOUNT_READONLY: super_admin mengubah pendaftar menjadi admin pada akun yang sama.
+     * Data pendaftaran tidak disentuh. Pemanggil selalu admin, jadi mempromosikan diri sendiri ditolak oleh cek user_type.
+     */
+    public function promote(PromoteUserRequest $request, string $id): JsonResponse|UserResource
+    {
+        $roleNames = $request->validated('roles');
+
+        return DB::transaction(function () use ($request, $id, $roleNames) {
+            $user = User::with('roles')->lockForUpdate()->findOrFail($id);
+
+            $reason = match (true) {
+                $user->user_type !== UserType::APPLICANT => 'Hanya akun pendaftar yang dapat dijadikan admin.',
+                ! $user->is_active => 'Akun nonaktif tidak dapat dijadikan admin. Aktifkan akun terlebih dahulu.',
+                $user->email_verified_at === null => 'Email akun belum diverifikasi.',
+                default => null,
+            };
+            if ($reason) {
+                return response()->json(['message' => $reason, 'code' => 'ACCOUNT_NOT_ELIGIBLE'], 422);
+            }
+
+            $before = $this->roleNames($user);
+            sort($roleNames);
+
+            $user->update(['user_type' => UserType::ADMIN]);
+            $user->roles()->sync(Role::whereIn('name', $roleNames)->pluck('id'));
+            $this->revokeAccess($user);
+            $this->log($request, 'user.updated', $user, [
+                'event' => 'promoted_to_admin',
+                'changes' => ['user_type' => [UserType::APPLICANT->value, UserType::ADMIN->value], 'roles' => [$before, $roleNames]],
+            ]);
+
+            return new UserResource($user->load('roles'));
+        });
+    }
+
+    /** @return list<string> */
+    private function roleNames(User $user): array
+    {
+        return $user->roles()->pluck('name')->sort()->values()->all();
+    }
+
+    private function sendPasswordLink(User $user): void
+    {
+        $user->notify(new AdminPasswordLinkNotification(Password::broker()->createToken($user)));
+    }
+
+    /** Hapus semua sesi (driver database) dan token Bearer agar akun langsung keluar. */
+    private function revokeAccess(User $user): void
+    {
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+        $user->tokens()->delete();
+    }
+
+    private function log(Request $request, string $action, User $subject, array $properties): void
+    {
+        ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'action' => $action,
+            'subject_type' => 'user',
+            'subject_id' => $subject->id,
+            'properties' => $properties,
+            'ip_address' => $request->ip(),
+            'user_agent' => Str::limit((string) $request->userAgent(), 255, ''),
         ]);
     }
 
-    public function toggleActive($id): JsonResponse
+    /** Super Admin aktif terakhir: dikunci agar dua permintaan bersamaan tidak sama-sama lolos. */
+    private function isLastActiveSuperAdmin(User $user): bool
     {
-        $user = User::findOrFail($id);
-        $user->update(['is_active' => !$user->is_active]);
-
-        return response()->json([
-            'message' => $user->is_active ? 'Akun pengguna berhasil diaktifkan.' : 'Akun pengguna berhasil dinonaktifkan.',
-            'data' => $user,
-        ]);
-    }
-
-    public function resetPassword(Request $request, $id): JsonResponse
-    {
-        $user = User::findOrFail($id);
-
-        $validated = $request->validate([
-            'password' => ['required', Password::min(8)],
-        ]);
-
-        $user->update([
-            'password' => Hash::make($validated['password']),
-        ]);
-
-        return response()->json([
-            'message' => 'Kata sandi pengguna berhasil diatur ulang.',
-        ]);
-    }
-
-    public function destroy(Request $request, $id): JsonResponse
-    {
-        $user = User::findOrFail($id);
-
-        if ($request->user()?->id === $user->id) {
-            return response()->json([
-                'message' => 'Anda tidak dapat menghapus akun Anda sendiri.',
-                'code' => 'SELF_DELETION_FORBIDDEN',
-            ], 422);
+        if (! $user->is_active || ! $user->roles->contains('name', self::SUPER_ADMIN)) {
+            return false;
         }
 
-        $user->delete();
+        return User::where('id', '!=', $user->id)
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($r) => $r->where('name', self::SUPER_ADMIN))
+            ->lockForUpdate()
+            ->doesntExist();
+    }
+
+    /**
+     * Hanya super_admin yang boleh memberi/mencabut role super_admin atau menyentuh akun pemegangnya.
+     * Tanpa ini, pemegang users.manage non-super bisa menaikkan haknya sendiri.
+     *
+     * @param  list<int|string>  $roleIds  role yang akan dipasang (store/update)
+     */
+    private function rejectNonSuperAdmin(Request $request, ?User $target, array $roleIds = []): ?JsonResponse
+    {
+        $touches = ($target?->hasRole(self::SUPER_ADMIN) ?? false)
+            || ($roleIds !== [] && Role::whereIn('id', $roleIds)->where('name', self::SUPER_ADMIN)->exists());
+
+        if (! $touches || $request->user()->hasRole(self::SUPER_ADMIN)) {
+            return null;
+        }
 
         return response()->json([
-            'message' => 'Pengguna berhasil dihapus.',
-        ]);
+            'message' => 'Hanya Super Admin yang dapat mengelola role atau akun Super Admin.',
+            'code' => 'FORBIDDEN',
+        ], 403);
+    }
+
+    private function rejectApplicant(User $user): ?JsonResponse
+    {
+        if ($user->user_type !== UserType::APPLICANT) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => 'Akun pendaftar hanya dapat dilihat dan diaktifkan/dinonaktifkan.',
+            'code' => 'APPLICANT_ACCOUNT_READONLY',
+        ], 422);
+    }
+
+    private function rejectSelf(Request $request, User $user): ?JsonResponse
+    {
+        return $request->user()->is($user)
+            ? $this->conflict('CANNOT_MODIFY_SELF', 'Anda tidak dapat menonaktifkan atau menghapus akun Anda sendiri.')
+            : null;
+    }
+
+    private function conflict(string $code, string $message): JsonResponse
+    {
+        return response()->json(['message' => $message, 'code' => $code], 409);
     }
 }

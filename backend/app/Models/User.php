@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\UserType;
+use App\Notifications\VerifyEmailNotification;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,7 +25,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property Carbon|null $email_verified_at
  * @property Carbon|null $last_login_at
  */
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
@@ -66,6 +68,14 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
+    /** Verifikasi email hanya untuk pendaftar; akun admin tidak pernah dikirimi. */
+    public function sendEmailVerificationNotification(): void
+    {
+        if ($this->isApplicant()) {
+            $this->notify(new VerifyEmailNotification);
+        }
+    }
+
     public function isAdmin(): bool
     {
         return $this->user_type === UserType::ADMIN;
@@ -74,6 +84,11 @@ class User extends Authenticatable
     public function isApplicant(): bool
     {
         return $this->user_type === UserType::APPLICANT;
+    }
+
+    public function hasPermission(string $permissionName): bool
+    {
+        return $this->roles()->whereHas('permissions', fn ($q) => $q->where('name', $permissionName))->exists();
     }
 
     public function hasRole(string $roleName): bool

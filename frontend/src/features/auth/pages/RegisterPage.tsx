@@ -8,7 +8,8 @@ import { apiClient } from '@/lib/api-client';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, MailCheck } from 'lucide-react';
+import { useResendVerification } from '../hooks';
 
 const registerSchema = z
   .object({
@@ -31,6 +32,8 @@ export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const verification = useResendVerification();
 
   const {
     register,
@@ -54,8 +57,7 @@ export const RegisterPage: React.FC = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
 
-      const destination = returnTo ? decodeURIComponent(returnTo) : '/pendaftaran';
-      navigate(destination, { replace: true });
+      setRegisteredEmail(data.email);
     } catch (err: unknown) {
       const errObj = err as {
         response?: {
@@ -83,6 +85,31 @@ export const RegisterPage: React.FC = () => {
       }
     }
   };
+
+  const goNext = () => navigate(returnTo ? decodeURIComponent(returnTo) : '/pendaftaran', { replace: true });
+
+  if (registeredEmail) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-6 md:p-8 bg-white border border-line rounded-panel shadow-sm">
+        <SeoHead title="Akun Dibuat — Yayasan Padindi" />
+        <h1 className="font-display font-semibold text-2xl text-primary mb-4">Akun berhasil dibuat</h1>
+        <p role="status" className="flex items-start gap-2 p-3 mb-4 bg-tint-100 border border-leaf rounded-control text-ink text-sm font-sans">
+          <MailCheck className="w-5 h-5 flex-shrink-0 text-leaf" aria-hidden="true" />
+          <span>
+            Tautan verifikasi telah dikirim ke <strong>{registeredEmail}</strong>. Buka email Anda dan klik tautan tersebut untuk memverifikasi alamat email.
+          </span>
+        </p>
+        {verification.message && <p role="status" className="mb-4 text-sm font-sans text-ink">{verification.message}</p>}
+        {verification.error && <p role="alert" className="mb-4 text-sm font-sans text-danger">{verification.error}</p>}
+        <div className="flex flex-wrap gap-3">
+          <Button variant="secondary" isLoading={verification.pending} onClick={verification.resend}>
+            Kirim ulang
+          </Button>
+          <Button onClick={goNext}>Lanjutkan</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto my-12 p-6 md:p-8 bg-white border border-line rounded-panel shadow-sm">

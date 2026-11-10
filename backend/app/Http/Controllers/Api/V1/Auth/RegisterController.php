@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use Throwable;
 
 class RegisterController extends Controller
 {
@@ -45,6 +46,13 @@ class RegisterController extends Controller
             'is_active' => true,
             'last_login_at' => now(),
         ]);
+
+        // Kegagalan email tidak boleh menggagalkan pendaftaran; pendaftar bisa kirim ulang.
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         Auth::login($user);
         $token = $user->createToken('auth-token')->plainTextToken;

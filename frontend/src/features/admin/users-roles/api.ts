@@ -1,57 +1,61 @@
-import { apiClient } from "@/lib/api-client";
-import { AdminUser, AdminRole, UserPayload } from "./types";
+import { apiClient } from '@/lib/api-client';
+import type { ApiResponse, PaginatedResponse } from '@/types';
+import type { AdminUser, PermissionGroup, Role, UserFilters, UserPayload } from './types';
 
-export const getUsers = async (params?: { search?: string; role_id?: number | string; is_active?: boolean; page?: number }) => {
-  const response = await apiClient.get<{
-    data: AdminUser[];
-    meta: { current_page: number; last_page: number; total: number };
-  }>("/admin/users", { params });
-  return response.data;
+export const USERS_PER_PAGE = 15;
+
+export const listUsers = async (f: UserFilters) => {
+  // Kunci rata: filter[...] sesuai Rancangan-API §11.2; filter kosong tidak dikirim.
+  const params: Record<string, string | number> = { page: f.page, per_page: USERS_PER_PAGE };
+  if (f.q) params.q = f.q;
+  if (f.user_type) params['filter[user_type]'] = f.user_type;
+  if (f.role) params['filter[role]'] = f.role;
+  if (f.is_active) params['filter[is_active]'] = f.is_active;
+  return (await apiClient.get<PaginatedResponse<AdminUser>>('/admin/users', { params })).data;
 };
 
-export const getUserById = async (id: number) => {
-  const response = await apiClient.get<{ data: AdminUser }>(`/admin/users/${id}`);
-  return response.data.data;
-};
+export const createUser = async (p: UserPayload) => (await apiClient.post<ApiResponse<AdminUser>>('/admin/users', p)).data.data;
 
-export const createUser = async (payload: UserPayload) => {
-  const response = await apiClient.post<{ message: string; data: AdminUser }>("/admin/users", payload);
-  return response.data;
-};
+export const updateUser = async (id: number, p: UserPayload) =>
+  (await apiClient.put<ApiResponse<AdminUser>>(`/admin/users/${id}`, p)).data.data;
 
-export const updateUser = async (id: number, payload: Partial<UserPayload>) => {
-  const response = await apiClient.put<{ message: string; data: AdminUser }>(`/admin/users/${id}`, payload);
-  return response.data;
-};
+export const setUserActive = async (id: number, is_active: boolean) =>
+  (await apiClient.patch<ApiResponse<AdminUser>>(`/admin/users/${id}/active`, { is_active })).data.data;
 
-export const toggleUserActive = async (id: number) => {
-  const response = await apiClient.patch<{ message: string; data: AdminUser }>(`/admin/users/${id}/active`);
-  return response.data;
-};
+export const resetUserPassword = async (id: number) =>
+  (await apiClient.post<{ message: string }>(`/admin/users/${id}/reset-password`)).data;
 
-export const resetUserPassword = async (id: number, password: string) => {
-  const response = await apiClient.post<{ message: string }>(`/admin/users/${id}/reset-password`, { password });
-  return response.data;
-};
+/** Backend menerima NAMA role (bukan id), berbeda dari create/update. */
+export const promoteUser = async (id: number, roles: string[]) =>
+  (await apiClient.post<ApiResponse<AdminUser>>(`/admin/users/${id}/promote`, { roles })).data.data;
 
 export const deleteUser = async (id: number) => {
-  const response = await apiClient.delete<{ message: string }>(`/admin/users/${id}`);
-  return response.data;
+  await apiClient.delete(`/admin/users/${id}`);
 };
 
-export const getRoles = async () => {
-  const response = await apiClient.get<{ data: AdminRole[] }>("/admin/roles");
-  return response.data.data;
-};
+export const listRoles = async () => (await apiClient.get<ApiResponse<Role[]>>('/admin/roles')).data.data;
 
-export const updateRolePermissions = async (roleId: number, permissionIds: number[]) => {
-  const response = await apiClient.put<{ message: string; data: AdminRole }>(`/admin/roles/${roleId}/permissions`, {
-    permission_ids: permissionIds,
-  });
-  return response.data;
-};
+export const listPermissionGroups = async () =>
+  (await apiClient.get<ApiResponse<PermissionGroup[]>>('/admin/permissions')).data.data;
 
-export const getPermissions = async () => {
-  const response = await apiClient.get<{ data: Array<{ id: number; name: string; label: string; module: string }> }>("/admin/permissions");
-  return response.data.data;
-};
+export const updateRolePermissions = async (id: number, permissions: string[]) =>
+  (await apiClient.put<ApiResponse<Role>>(`/admin/roles/${id}/permissions`, { permissions })).data.data;
+
+export interface ApiErrorInfo {
+  status?: number;
+  code?: string;
+  message: string;
+  errors?: Record<string, string[]>;
+}
+
+export function apiErrorInfo(err: unknown): ApiErrorInfo {
+  const res = (err as { response?: { status?: number; data?: { message?: string; code?: string; errors?: Record<string, string[]> } } })
+    .response;
+  if (!res) return { message: 'Tidak dapat terhubung ke server. Periksa koneksi Anda.' };
+  return {
+    status: res.status,
+    code: res.data?.code,
+    message: res.data?.message ?? 'Terjadi kesalahan. Coba lagi.',
+    errors: res.data?.errors,
+  };
+}
