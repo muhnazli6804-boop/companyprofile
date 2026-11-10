@@ -26,7 +26,7 @@ Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 've
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [LogoutController::class, 'logout']);
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'send'])
-        ->middleware(['applicant', 'throttle:6,1']);
+        ->middleware(['applicant', 'throttle:5,1']);
     Route::get('/me', [MeController::class, 'show']);
     Route::put('/profile', [MeController::class, 'updateProfile']);
     Route::put('/password', [MeController::class, 'updatePassword']);

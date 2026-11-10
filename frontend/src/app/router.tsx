@@ -50,7 +50,9 @@ const ApplicationStatusPage = lazy(() => import('@/features/student-application/
 // Lazy-loaded Admin Pages
 const AdminDashboardPage = lazy(() => import('@/features/admin/dashboard/pages/DashboardAdminPage'));
 const AdminStudentAppsPage = lazy(() => import('@/features/admin/student-applications/pages/StudentApplicationsPage'));
+const AdminStudentAppDetailPage = lazy(() => import('@/features/admin/student-applications/pages/StudentApplicationDetailPage'));
 const AdminTeacherAppsPage = lazy(() => import('@/features/admin/teacher-applications/pages/TeacherApplicationsPage'));
+const AdminTeacherAppDetailPage = lazy(() => import('@/features/admin/teacher-applications/pages/TeacherApplicationDetailPage'));
 const AdminPeriodsPage = lazy(() => import('@/features/admin/periods/pages/PeriodsPage'));
 const AdminUnitsPage = lazy(() => import('@/features/admin/education-units/pages/EducationUnitsPage'));
 const AdminRequirementsPage = lazy(() => import('@/features/admin/document-requirements/pages/DocumentRequirementsPage'));
@@ -170,7 +172,9 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="dashboard" replace /> },
           { path: 'dashboard', element: <SuspenseWrapper><AdminDashboardPage /></SuspenseWrapper> },
           { path: 'pendaftaran-siswa', element: <SuspenseWrapper><AdminStudentAppsPage /></SuspenseWrapper> },
+          { path: 'pendaftaran-siswa/:id', element: <SuspenseWrapper><AdminStudentAppDetailPage /></SuspenseWrapper> },
           { path: 'lamaran-guru', element: <SuspenseWrapper><AdminTeacherAppsPage /></SuspenseWrapper> },
+          { path: 'lamaran-guru/:id', element: <SuspenseWrapper><AdminTeacherAppDetailPage /></SuspenseWrapper> },
           { path: 'periode', element: <SuspenseWrapper><AdminPeriodsPage /></SuspenseWrapper> },
           { path: 'unit-pendidikan', element: <SuspenseWrapper><AdminUnitsPage /></SuspenseWrapper> },
           { path: 'syarat-dokumen', element: <SuspenseWrapper><AdminRequirementsPage /></SuspenseWrapper> },

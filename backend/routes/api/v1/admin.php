@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\Admin\PageController;
 use App\Http\Controllers\Api\V1\Admin\PostCategoryController;
 use App\Http\Controllers\Api\V1\Admin\PostController;
 use App\Http\Controllers\Api\V1\Admin\RegistrationPeriodController;
+use App\Http\Controllers\Api\V1\Admin\ReportController;
 use App\Http\Controllers\Api\V1\Admin\RoleController;
 use App\Http\Controllers\Api\V1\Admin\SettingController;
 use App\Http\Controllers\Api\V1\Admin\StudentApplicationController;
@@ -23,8 +24,10 @@ use Illuminate\Support\Facades\Route;
 
 // TODO: see Rancangan-API-Padindi.md section 8, 9, 10, 11
 
-// 8.1 Dashboard
+// 8.1 Dashboard & Reports
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('can:dashboard.view');
+Route::get('/reports/summary', [ReportController::class, 'summary'])->middleware('can:finance.view');
+Route::get('/reports/export', [ReportController::class, 'export'])->middleware('can:finance.view');
 
 // 8.2 Student Applications
 Route::prefix('student-applications')->group(function () {
@@ -61,6 +64,7 @@ Route::prefix('registration-periods')->middleware('can:periods.manage')->group(f
     Route::post('/', [RegistrationPeriodController::class, 'store']);
     Route::get('/{id}', [RegistrationPeriodController::class, 'show']);
     Route::put('/{id}', [RegistrationPeriodController::class, 'update']);
+    Route::patch('/{id}/active', [RegistrationPeriodController::class, 'toggleActive']);
     Route::delete('/{id}', [RegistrationPeriodController::class, 'destroy']);
     Route::get('/{id}/quotas', [RegistrationPeriodController::class, 'quotas']);
     Route::put('/{id}/quotas', [RegistrationPeriodController::class, 'updateQuotas']);
@@ -72,11 +76,13 @@ Route::prefix('education-units')->middleware('can:units.manage')->group(function
     Route::post('/', [EducationUnitController::class, 'store']);
     Route::get('/{id}', [EducationUnitController::class, 'show']);
     Route::put('/{id}', [EducationUnitController::class, 'update']);
+    Route::patch('/{id}/active', [EducationUnitController::class, 'toggleActive']);
     Route::delete('/{id}', [EducationUnitController::class, 'destroy']);
     Route::post('/{id}/media', [EducationUnitController::class, 'uploadMedia']);
 });
 
 // Document Requirements
+Route::patch('document-requirements/{id}/active', [DocumentRequirementController::class, 'toggleActive'])->middleware('can:requirements.manage');
 Route::apiResource('document-requirements', DocumentRequirementController::class)->middleware('can:requirements.manage');
 
 // Teacher Vacancies
@@ -126,20 +132,20 @@ Route::prefix('galleries')->middleware('can:content.manage')->group(function () 
 Route::prefix('banners')->middleware('can:content.manage')->group(function () {
     Route::get('/', [BannerController::class, 'index']);
     Route::post('/', [BannerController::class, 'store']);
+    Route::put('/order', [BannerController::class, 'reorder']);
     Route::get('/{id}', [BannerController::class, 'show']);
     Route::put('/{id}', [BannerController::class, 'update']);
     Route::delete('/{id}', [BannerController::class, 'destroy']);
-    Route::put('/order', [BannerController::class, 'reorder']);
 });
 
 // Organization Members
 Route::prefix('organization-members')->middleware('can:content.manage')->group(function () {
     Route::get('/', [OrganizationMemberController::class, 'index']);
     Route::post('/', [OrganizationMemberController::class, 'store']);
+    Route::put('/order', [OrganizationMemberController::class, 'reorder']);
     Route::get('/{id}', [OrganizationMemberController::class, 'show']);
     Route::put('/{id}', [OrganizationMemberController::class, 'update']);
     Route::delete('/{id}', [OrganizationMemberController::class, 'destroy']);
-    Route::put('/order', [OrganizationMemberController::class, 'reorder']);
 });
 
 // Uploads (Editor Image)

@@ -37,16 +37,17 @@ function expectedRoutePermissions(): array
             'POST teacher-applications/bulk-status', 'PATCH teacher-applications/{}/status', 'PATCH teacher-applications/{}/note',
             'PATCH documents/{}/verification',
         ],
+        'finance.view' => ['GET reports/summary', 'GET reports/export'],
         'periods.manage' => [
             'GET registration-periods', 'POST registration-periods', 'GET registration-periods/{}',
-            'PUT registration-periods/{}', 'DELETE registration-periods/{}',
+            'PUT registration-periods/{}', 'PATCH registration-periods/{}/active', 'DELETE registration-periods/{}',
             'GET registration-periods/{}/quotas', 'PUT registration-periods/{}/quotas',
         ],
         'units.manage' => [
             'GET education-units', 'POST education-units', 'GET education-units/{}', 'PUT education-units/{}',
-            'DELETE education-units/{}', 'POST education-units/{}/media',
+            'PATCH education-units/{}/active', 'DELETE education-units/{}', 'POST education-units/{}/media',
         ],
-        'requirements.manage' => resourceRoutes('document-requirements'),
+        'requirements.manage' => [...resourceRoutes('document-requirements'), 'PATCH document-requirements/{}/active'],
         'vacancies.manage' => [
             'GET vacancies', 'POST vacancies', 'GET vacancies/{}', 'PUT vacancies/{}', 'DELETE vacancies/{}',
             'PATCH vacancies/{}/publish', 'PATCH vacancies/{}/unpublish',

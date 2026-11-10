@@ -16,7 +16,7 @@ const TEACHER_ORDER = ['submitted', 'administrative_review', 'interview_test', '
 const PANEL = 'bg-white border border-line rounded-control';
 const LINK = 'inline-block mt-2 py-1 text-primary underline underline-offset-2';
 
-const Panel: React.FC<{ id?: string; className?: string; children: React.ReactNode }> = ({ id, className = "", children }) => (
+const Panel: React.FC<{ id?: string; className?: string; children: React.ReactNode }> = ({ id, className = '', children }) => (
   <section id={id} className={`${PANEL} p-5 scroll-mt-6 ${className}`}>{children}</section>
 );
 
@@ -183,7 +183,7 @@ export const DashboardAdminPage: React.FC = () => {
             Angka siswa mengikuti periode yang dipilih. Angka guru mencakup semua periode karena lamaran guru tidak terikat periode. Draft tidak dihitung.
           </p>
         </div>
-        {data && data.periods.length > 0 && (
+        {data?.periods && data.periods.length > 0 && (
           <div className="flex flex-col gap-1">
             <label htmlFor="dashboard-period" className="font-bold text-ink">Periode</label>
             <select
@@ -220,4 +220,5 @@ export const DashboardAdminPage: React.FC = () => {
     </div>
   );
 };
+
 export default DashboardAdminPage;

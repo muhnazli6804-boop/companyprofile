@@ -4,14 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-// TODO: see Skema-Database-Padindi.md section 3.6
 class PostCategory extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $guarded = ['id'];
 
-    // TODO: relasi posts()
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class, 'post_category_id');
+    }
 }

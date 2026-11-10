@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\Api\V1\Public;
 
 use App\Http\Controllers\Controller;
+use App\Models\Page;
+use Illuminate\Http\JsonResponse;
 
-// TODO: see Rancangan-API-Padindi.md section 3
 class PageController extends Controller
 {
-    public function show()
+    public function show(string $slug): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 3
+        $page = Page::where('slug', $slug)
+            ->where('is_published', true)
+            ->firstOrFail();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $page,
+        ]);
     }
 }

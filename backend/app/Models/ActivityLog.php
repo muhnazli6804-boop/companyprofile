@@ -4,8 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-// TODO: see Skema-Database-Padindi.md section 3.7
 class ActivityLog extends Model
 {
     use HasFactory;
@@ -22,5 +22,8 @@ class ActivityLog extends Model
         ];
     }
 
-    // TODO: relasi user(), morphTo subject
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 }

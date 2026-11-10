@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-// TODO: see Skema-Database-Padindi.md section 3.6
 class Gallery extends Model
 {
     use HasFactory, SoftDeletes;
@@ -17,8 +17,12 @@ class Gallery extends Model
     {
         return [
             'is_published' => 'boolean',
+            'event_date' => 'date',
         ];
     }
 
-    // TODO: relasi items()
+    public function items(): HasMany
+    {
+        return $this->hasMany(GalleryItem::class)->orderBy('sort_order', 'asc');
+    }
 }

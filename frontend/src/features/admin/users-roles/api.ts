@@ -29,7 +29,7 @@ export const resetUserPassword = async (id: number) =>
 export const promoteUser = async (id: number, roles: string[]) =>
   (await apiClient.post<ApiResponse<AdminUser>>(`/admin/users/${id}/promote`, { roles })).data.data;
 
-export const deleteUser =async (id: number) => {
+export const deleteUser = async (id: number) => {
   await apiClient.delete(`/admin/users/${id}`);
 };
 

@@ -3,61 +3,106 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Banner;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
-// TODO: see Rancangan-API-Padindi.md section 8, 9, 10, 11
 class BannerController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $banners = Banner::orderBy('sort_order', 'asc')->get();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $banners,
+        ]);
     }
 
-    public function store()
+    public function store(Request $request): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:200'],
+            'subtitle' => ['nullable', 'string', 'max:300'],
+            'image_path' => ['required', 'string', 'max:255'],
+            'cta_label' => ['nullable', 'string', 'max:60'],
+            'link_url' => ['nullable', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer'],
+            'is_active' => ['nullable', 'boolean'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date'],
+        ]);
+
+        if (!isset($validated['sort_order'])) {
+            $validated['sort_order'] = (Banner::max('sort_order') ?? 0) + 1;
+        }
+
+        $validated['is_active'] = $validated['is_active'] ?? true;
+
+        $banner = Banner::create($validated);
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Banner hero berhasil dibuat.',
+            'data' => $banner,
+        ], 201);
     }
 
-    public function show()
+    public function show(string|int $id): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $banner = Banner::findOrFail($id);
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'data' => $banner,
+        ]);
     }
 
-    public function update()
+    public function update(Request $request, string|int $id): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $banner = Banner::findOrFail($id);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:200'],
+            'subtitle' => ['nullable', 'string', 'max:300'],
+            'image_path' => ['required', 'string', 'max:255'],
+            'cta_label' => ['nullable', 'string', 'max:60'],
+            'link_url' => ['nullable', 'string', 'max:255'],
+            'sort_order' => ['nullable', 'integer'],
+            'is_active' => ['nullable', 'boolean'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date'],
+        ]);
+
+        $banner->update($validated);
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Banner hero berhasil diperbarui.',
+            'data' => $banner,
+        ]);
     }
 
-    public function destroy()
+    public function destroy(string|int $id): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $banner = Banner::findOrFail($id);
+        $banner->delete();
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Banner hero berhasil dihapus.',
+        ]);
     }
 
-    public function reorder()
+    public function reorder(Request $request): JsonResponse
     {
-        // see Rancangan-API-Padindi.md section 8, 9, 10, 11
+        $request->validate([
+            'items' => ['required', 'array'],
+            'items.*.id' => ['required', 'integer'],
+            'items.*.sort_order' => ['required', 'integer'],
+        ]);
+
+        foreach ($request->input('items') as $item) {
+            Banner::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
+        }
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Urutan banner berhasil diperbarui.',
+        ]);
     }
 }
