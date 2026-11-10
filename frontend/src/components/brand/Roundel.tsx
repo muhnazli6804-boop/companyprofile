@@ -141,6 +141,9 @@ export const Roundel: React.FC<RoundelProps> = ({
             width={size}
             height={size}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/images/logo.png';
+            }}
           />
         ) : (
           <ImagePlaceholder

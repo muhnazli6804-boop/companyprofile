@@ -44,20 +44,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         return [];
       }
     },
-    staleTime: 60 * 1000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     retry: false,
   });
 
-  const activeBanner = banners && banners.length > 0 ? banners[0] : null;
-  const displayTitle = activeBanner?.title || tagline || siteName;
+  const [currentIdx, setCurrentIdx] = React.useState(0);
+  const activeBanners = banners && banners.length > 0 ? banners : [];
+  const currentBanner = activeBanners[currentIdx] || activeBanners[0] || null;
+
+  const displayTitle = currentBanner?.title || tagline || siteName;
   const displaySubtitle =
-    activeBanner?.subtitle ||
+    currentBanner?.subtitle ||
     (tagline
       ? 'Lembaga pendidikan swasta yang berkomitmen menuntun setiap anak ke arah yang tepat.'
       : undefined);
-  const displayCtaLabel = activeBanner?.cta_label || 'Daftar sekarang';
-  const displayCtaLink = activeBanner?.link_url || '/pendaftaran';
-  const displayImage = activeBanner?.image_path || logoUrl;
+  const displayCtaLabel = currentBanner?.cta_label || 'Daftar sekarang';
+  const displayCtaLink = currentBanner?.link_url || '/pendaftaran';
+  const displayImage = currentBanner?.image_path || logoUrl;
 
   return (
     <section
@@ -112,6 +116,22 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 Hubungi kami
               </a>
             </div>
+
+            {activeBanners.length > 1 && (
+              <div className="flex items-center gap-2 pt-1" aria-label="Navigasi Banner Hero">
+                {activeBanners.map((b, idx) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setCurrentIdx(idx)}
+                    aria-label={`Lihat banner ${idx + 1}`}
+                    className={`h-2.5 rounded-full transition-all cursor-pointer ${
+                      idx === currentIdx ? 'w-8 bg-star' : 'w-2.5 bg-white/40 hover:bg-white/70'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Foto bundar (kanan di desktop, di bawah di ponsel) */}

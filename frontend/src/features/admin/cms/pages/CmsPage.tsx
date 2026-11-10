@@ -258,7 +258,22 @@ export const CmsPage: React.FC = () => {
   };
 
   // 1. Banners state
-  const [banners, setBanners] = useState<BannerItem[]>(FALLBACK_BANNERS);
+  const [localBanners, setLocalBanners] = useState<BannerItem[]>(FALLBACK_BANNERS);
+  const { data: remoteBanners } = useQuery({
+    queryKey: ['adminCmsBanners'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: BannerItem[] }>('/admin/banners');
+        return res.data.data;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const banners = remoteBanners && remoteBanners.length > 0 ? remoteBanners : localBanners;
   const [bannerModalOpen, setBannerModalOpen] = useState(false);
   const [bannerForm, setBannerForm] = useState<Partial<BannerItem>>({
     title: '',
@@ -270,6 +285,7 @@ export const CmsPage: React.FC = () => {
   });
   const [heroPreviewOpen, setHeroPreviewOpen] = useState(false);
   const [deleteBannerTarget, setDeleteBannerTarget] = useState<BannerItem | null>(null);
+  const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
 
   // 2. Articles state
   const [articles, setArticles] = useState<PostItem[]>(FALLBACK_POSTS);
@@ -461,110 +477,94 @@ export const CmsPage: React.FC = () => {
     },
   });
 
-  // Load backend data if available
-  useQuery({
-    queryKey: ['adminCmsBanners'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: BannerItem[] }>('/admin/banners');
-        if (res.data?.data?.length) setBanners(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
-    },
-  });
-
-  useQuery({
-    queryKey: ['adminCmsPosts'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: PostItem[] }>('/admin/posts');
-        if (res.data?.data?.length) setArticles(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
-    },
-  });
-
-  useQuery({
-    queryKey: ['adminCmsGalleries'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: GalleryItemType[] }>('/admin/galleries');
-        if (res.data?.data?.length) setGalleries(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
-    },
-  });
-
-  useQuery({
-    queryKey: ['adminCmsOrgMembers'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: OrgMemberItem[] }>('/admin/organization-members');
-        if (res.data?.data?.length) setOrgMembers(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
-    },
-  });
-
   // --- Handlers: Banner ---
+  const handleBannerImageUpload = async (file: File) => {
+    setUploadingBannerImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await apiClient.post<{ data: { url: string; path: string } }>(
+        '/admin/uploads/images',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      if (res.data?.data?.url) {
+        setBannerForm((prev) => ({ ...prev, image_path: res.data.data.url }));
+        showToast('Foto banner berhasil diunggah.');
+      }
+    } catch {
+      alert('Gagal mengunggah gambar banner. Pastikan ukuran file di bawah 5MB.');
+    } finally {
+      setUploadingBannerImage(false);
+    }
+  };
+
   const handleSaveBanner = async () => {
     if (!bannerForm.title || !bannerForm.image_path) {
       alert('Judul dan URL gambar banner wajib diisi.');
       return;
     }
 
-    if (bannerForm.id) {
-      // Edit
-      try {
-        await apiClient.put(`/admin/banners/${bannerForm.id}`, bannerForm);
-      } catch {
-        // offline mock
+    const payload = {
+      title: bannerForm.title.trim(),
+      subtitle: bannerForm.subtitle?.trim() || null,
+      image_path: bannerForm.image_path.trim(),
+      cta_label: bannerForm.cta_label?.trim() || 'Daftar Sekarang',
+      link_url: bannerForm.link_url?.trim() || '/pendaftaran',
+      sort_order: bannerForm.sort_order ?? 1,
+      is_active: bannerForm.is_active ?? true,
+    };
+
+    try {
+      if (bannerForm.id && bannerForm.id > 0) {
+        try {
+          await apiClient.put(`/admin/banners/${bannerForm.id}`, payload);
+        } catch (err: unknown) {
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          if (status === 404) {
+            // Jika ID fallback belum ada di DB, buat baru
+            await apiClient.post('/admin/banners', payload);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        await apiClient.post('/admin/banners', payload);
       }
-      setBanners((prev) =>
-        prev.map((b) => (b.id === bannerForm.id ? { ...(bannerForm as BannerItem) } : b))
-      );
-      showToast('Banner hero berhasil diperbarui.');
-    } else {
-      // Add
-      const newId = Date.now();
-      const newBanner: BannerItem = {
-        id: newId,
-        title: bannerForm.title || '',
-        subtitle: bannerForm.subtitle || '',
-        image_path: bannerForm.image_path || '',
-        cta_label: bannerForm.cta_label || 'Daftar Sekarang',
-        link_url: bannerForm.link_url || '/pendaftaran',
-        sort_order: banners.length + 1,
-        is_active: bannerForm.is_active ?? true,
-      };
-      try {
-        await apiClient.post('/admin/banners', newBanner);
-      } catch {
-        // offline mock
-      }
-      setBanners((prev) => [...prev, newBanner]);
-      showToast('Banner hero baru berhasil ditambahkan.');
+
+      queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast('Banner hero berhasil disimpan dan langsung diperbarui di website publik.');
+      setBannerModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan banner hero.';
+      alert(`Gagal: ${msg}`);
     }
-    setBannerModalOpen(false);
   };
 
   const handleToggleBannerActive = async (b: BannerItem) => {
-    const updated = { ...b, is_active: !b.is_active };
-    setBanners((prev) => prev.map((item) => (item.id === b.id ? updated : item)));
+    const updated = {
+      title: b.title,
+      subtitle: b.subtitle,
+      image_path: b.image_path,
+      cta_label: b.cta_label,
+      link_url: b.link_url,
+      sort_order: b.sort_order,
+      is_active: !b.is_active,
+    };
     try {
       await apiClient.put(`/admin/banners/${b.id}`, updated);
+      queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+      showToast(`Banner "${b.title}" ${updated.is_active ? 'diaktifkan' : 'dinonaktifkan'}.`);
     } catch {
-      // mock
+      // Offline fallback
+      setLocalBanners((prev) => prev.map((item) => (item.id === b.id ? { ...b, is_active: !b.is_active } : item)));
+      showToast(`Status banner diperbarui.`);
     }
-    showToast(`Banner "${b.title}" ${updated.is_active ? 'diaktifkan' : 'dinonaktifkan'}.`);
   };
 
   // --- Handlers: Article ---
@@ -1880,14 +1880,43 @@ export const CmsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-navy block mb-1">URL Gambar Banner *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-navy">Gambar Banner *</label>
+                  <label className="text-xs text-primary font-bold cursor-pointer hover:underline flex items-center gap-1">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingBannerImage ? 'Mengunggah...' : 'Unggah File Foto'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingBannerImage}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleBannerImageUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={bannerForm.image_path || ''}
                   onChange={(e) => setBannerForm({ ...bannerForm, image_path: e.target.value })}
-                  placeholder="https://... atau /images/banner-1.jpg"
+                  placeholder="https://... atau unggah berkas dari perangkat Anda"
                   className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink focus:outline-none focus:ring-2 focus:ring-navy/30"
                 />
+                {bannerForm.image_path && (
+                  <div className="mt-2 relative w-full h-28 bg-navy/5 rounded-lg border border-navy/10 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={bannerForm.image_path}
+                      alt="Pratinjau Banner"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/images/logo.png';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2337,9 +2366,17 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteBannerTarget)}
         onClose={() => setDeleteBannerTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteBannerTarget) {
-            setBanners((prev) => prev.filter((b) => b.id !== deleteBannerTarget.id));
+            try {
+              await apiClient.delete(`/admin/banners/${deleteBannerTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+            setLocalBanners((prev) => prev.filter((b) => b.id !== deleteBannerTarget.id));
             setDeleteBannerTarget(null);
             showToast('Banner hero berhasil dihapus.');
           }
