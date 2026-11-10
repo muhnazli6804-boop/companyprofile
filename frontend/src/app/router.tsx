@@ -114,6 +114,11 @@ export const router = createBrowserRouter([
       { path: 'daftar-akun', element: <SuspenseWrapper><RegisterPage /></SuspenseWrapper> },
       { path: 'lupa-kata-sandi', element: <SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper> },
 
+      // Rute Masuk / Autentikasi Staff & Guru (dibungkus PublicLayout agar seragam)
+      { path: 'staff/login', element: <SuspenseWrapper><StaffLoginPage /></SuspenseWrapper> },
+      { path: 'staff/lupa-password', element: <SuspenseWrapper><StaffForgotPasswordPage /></SuspenseWrapper> },
+      { path: 'staff/reset-password', element: <SuspenseWrapper><StaffResetPasswordPage /></SuspenseWrapper> },
+
       // Rute Pendaftaran Murid (Dilindungi Autentikasi)
       {
         path: 'pendaftaran/murid',
@@ -211,37 +216,27 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // 4. Staff & Guru Portal Routes
+  // 4. Staff & Guru Portal Routes (Protected)
   {
     path: 'staff',
+    element: <RequireStaff />,
     children: [
-      // Auth routes (unprotected)
-      { path: 'login', element: <SuspenseWrapper><StaffLoginPage /></SuspenseWrapper> },
-      { path: 'lupa-password', element: <SuspenseWrapper><StaffForgotPasswordPage /></SuspenseWrapper> },
-      { path: 'reset-password', element: <SuspenseWrapper><StaffResetPasswordPage /></SuspenseWrapper> },
-
-      // Protected routes
       {
-        element: <RequireStaff />,
+        element: <StaffLayout />,
         children: [
-          {
-            element: <StaffLayout />,
-            children: [
-              { index: true, element: <Navigate to="dashboard" replace /> },
-              { path: 'dashboard', element: <SuspenseWrapper><StaffDashboardPage /></SuspenseWrapper> },
-              { path: 'berita', element: <SuspenseWrapper><StaffNewsPage /></SuspenseWrapper> },
-              { path: 'berita/tambah', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
-              { path: 'berita/edit/:id', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
-              { path: 'konten', element: <SuspenseWrapper><StaffWebsiteContentPage /></SuspenseWrapper> },
-              { path: 'galeri', element: <SuspenseWrapper><StaffGalleryPage /></SuspenseWrapper> },
-              { path: 'prestasi', element: <SuspenseWrapper><StaffAchievementsPage /></SuspenseWrapper> },
-              { path: 'faq', element: <SuspenseWrapper><StaffFaqPage /></SuspenseWrapper> },
-              { path: 'media', element: <SuspenseWrapper><StaffMediaLibraryPage /></SuspenseWrapper> },
-              { path: 'publikasi', element: <SuspenseWrapper><StaffPublicationsPage /></SuspenseWrapper> },
-              { path: 'profil', element: <SuspenseWrapper><StaffProfilePage /></SuspenseWrapper> },
-              { path: 'ubah-password', element: <SuspenseWrapper><StaffChangePasswordPage /></SuspenseWrapper> },
-            ],
-          },
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: 'dashboard', element: <SuspenseWrapper><StaffDashboardPage /></SuspenseWrapper> },
+          { path: 'berita', element: <SuspenseWrapper><StaffNewsPage /></SuspenseWrapper> },
+          { path: 'berita/tambah', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
+          { path: 'berita/edit/:id', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
+          { path: 'konten', element: <SuspenseWrapper><StaffWebsiteContentPage /></SuspenseWrapper> },
+          { path: 'galeri', element: <SuspenseWrapper><StaffGalleryPage /></SuspenseWrapper> },
+          { path: 'prestasi', element: <SuspenseWrapper><StaffAchievementsPage /></SuspenseWrapper> },
+          { path: 'faq', element: <SuspenseWrapper><StaffFaqPage /></SuspenseWrapper> },
+          { path: 'media', element: <SuspenseWrapper><StaffMediaLibraryPage /></SuspenseWrapper> },
+          { path: 'publikasi', element: <SuspenseWrapper><StaffPublicationsPage /></SuspenseWrapper> },
+          { path: 'profil', element: <SuspenseWrapper><StaffProfilePage /></SuspenseWrapper> },
+          { path: 'ubah-password', element: <SuspenseWrapper><StaffChangePasswordPage /></SuspenseWrapper> },
         ],
       },
     ],

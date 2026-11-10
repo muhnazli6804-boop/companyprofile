@@ -216,3 +216,4 @@ export const StaffProfilePage: React.FC = () => {
 };
 
 export default StaffProfilePage;
+

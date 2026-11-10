@@ -503,3 +503,4 @@ export const StaffNewsPage: React.FC = () => {
 };
 
 export default StaffNewsPage;
+
