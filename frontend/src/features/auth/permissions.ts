@@ -14,9 +14,14 @@ const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   admin_registration: 'Admin Pendaftaran',
   admin_content: 'Admin Konten',
+  guru: 'Guru / Tenaga Pengajar',
+  staff: 'Staf Tata Usaha',
 };
 
 export const roleLabel = (name: string): string => ROLE_LABELS[name] ?? name;
+
+export const isStaffOrGuru = (user: Access): boolean =>
+  user?.roles?.some((r) => ['guru', 'staff', 'admin_content', 'super_admin'].includes(r)) ?? false;
 
 // Kunci dan queryFn sama dengan RequireAdmin dan AdminLayout agar berbagi satu cache.
 export const useCurrentUser = () =>

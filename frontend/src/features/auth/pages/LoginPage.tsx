@@ -149,7 +149,7 @@ export const LoginPage: React.FC = () => {
         </Button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-line text-center">
+      <div className="mt-8 pt-6 border-t border-line text-center space-y-3">
         <p className="font-sans text-sm text-muted">
           Belum memiliki akun?{' '}
           <Link
@@ -159,6 +159,16 @@ export const LoginPage: React.FC = () => {
             Daftar akun baru
           </Link>
         </p>
+
+        <div className="pt-3 border-t border-dashed border-line">
+          <Link
+            to="/staff/login"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-full border border-slate-200 transition"
+          >
+            <span>Masuk sebagai Guru atau Staf Yayasan</span>
+            <span aria-hidden="true">&rarr;</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
