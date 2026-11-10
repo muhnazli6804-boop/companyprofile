@@ -66,9 +66,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative bg-primary on-blue bg-cover bg-center overflow-hidden transition-all duration-700 min-h-[480px] md:min-h-[540px] flex items-center"
-      style={bgImage ? { backgroundImage: `url("${bgImage}")` } : undefined}
+      className="relative bg-primary on-blue overflow-hidden transition-all duration-700 min-h-[480px] md:min-h-[540px] flex items-center w-full"
     >
+      {/* Background Image — Mengisi penuh rasio banner tanpa mengubah ukuran tinggi banner */}
+      {bgImage && (
+        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
+          <img
+            src={bgImage}
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover object-center"
+          />
+        </div>
+      )}
+
       {/* Overlay gradien biru navy agar teks dan tombol selalu jelas terbaca dan kontras sesuai standar WCAG AA/AAA */}
       <div
         className="absolute inset-0 pointer-events-none transition-all duration-500"

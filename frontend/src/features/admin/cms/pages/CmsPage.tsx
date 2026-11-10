@@ -1065,11 +1065,11 @@ export const CmsPage: React.FC = () => {
                 }`}
               >
                 {/* Banner Image Preview */}
-                <div className="relative h-48 bg-navy/90 overflow-hidden group w-full">
+                <div className="relative h-48 bg-navy/90 overflow-hidden group w-full shrink-0">
                   <img
                     src={b.image_path}
                     alt={b.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       if (!target.src.endsWith('/images/banner-hero-1.jpg')) {

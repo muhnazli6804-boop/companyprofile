@@ -56,16 +56,17 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
 
   const cardContent = (
     <>
-      {/* Foto */}
-      <div className="w-full overflow-hidden" style={{ aspectRatio: '4/3' }}>
+      {/* Foto / Thumbnail Banner Kegiatan — ukuran terkunci tetap rasio 4:3, tidak mengikuti ukuran asli foto */}
+      <div
+        className="w-full relative overflow-hidden bg-tint-100 shrink-0"
+        style={{ aspectRatio: '4/3' }}
+      >
         {coverUrl ? (
           <img
             src={coverUrl}
             alt={coverAlt ?? ''}
-            width={480}
-            height={360}
             loading={isLazyLoad ? 'lazy' : 'eager'}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover object-center block"
             style={{ borderRadius: 0 }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -77,23 +78,23 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
         ) : (
           <ImagePlaceholder
             aspectRatio="4/3"
-            className="w-full h-full"
+            className="absolute inset-0 w-full h-full"
             label={coverAlt || title}
           />
         )}
       </div>
 
-      {/* Konten teks */}
-      <div className="p-4 flex flex-col flex-1 justify-between gap-2 bg-white">
+      {/* Konten teks — ukuran terkunci tetap presisi */}
+      <div className="p-4 flex flex-col justify-between gap-2 bg-white flex-1 min-h-[168px] shrink-0">
         <div className="flex flex-col gap-2">
           <time
             dateTime={publishedAt}
-            className="text-xs text-muted font-sans block"
+            className="text-xs text-muted font-sans block h-4 leading-4 shrink-0"
           >
             {tanggal}
           </time>
           <h3
-            className="font-display font-semibold text-base text-ink leading-snug h-[2.75rem] overflow-hidden"
+            className="font-display font-semibold text-base text-ink leading-snug h-[2.75rem] overflow-hidden shrink-0"
             style={{
               display: '-webkit-box',
               WebkitBoxOrient: 'vertical',
@@ -104,7 +105,7 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
             {title}
           </h3>
           <p
-            className="font-sans text-xs text-muted leading-relaxed h-[3.75rem] overflow-hidden"
+            className="font-sans text-xs text-muted leading-relaxed h-[3.75rem] overflow-hidden shrink-0"
             style={{
               display: '-webkit-box',
               WebkitBoxOrient: 'vertical',
