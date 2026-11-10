@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\Public;
 use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use App\Models\OrganizationMember;
+use App\Models\Role;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 
 class SettingController extends Controller
@@ -58,6 +60,38 @@ class SettingController extends Controller
 
         return response()->json([
             'data' => $members,
+        ]);
+    }
+
+    /**
+     * Mengembalikan daftar staf/admin aktif yang memiliki role di sistem,
+     * hanya field publik yang aman (name, role label) tanpa data sensitif.
+     */
+    public function staff(): JsonResponse
+    {
+        $staff = User::query()
+            ->where('user_type', 'admin')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->with(['roles' => function ($q) {
+                $q->select('roles.id', 'roles.name', 'roles.label');
+            }])
+            ->whereHas('roles')
+            ->orderBy('name', 'asc')
+            ->get(['id', 'name'])
+            ->map(function (User $user) {
+                return [
+                    'id'    => $user->id,
+                    'name'  => $user->name,
+                    'roles' => $user->roles->map(fn ($r) => [
+                        'name'  => $r->name,
+                        'label' => $r->label,
+                    ])->values(),
+                ];
+            });
+
+        return response()->json([
+            'data' => $staff,
         ]);
     }
 }

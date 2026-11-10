@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/settings', [SettingController::class, 'index']);
 Route::get('/banners', [SettingController::class, 'banners']);
 Route::get('/organization', [SettingController::class, 'organization']);
+Route::get('/staff', [SettingController::class, 'staff']);
 
 Route::get('/units', [EducationUnitController::class, 'index']);
 Route::get('/units/{slug}', [EducationUnitController::class, 'show']);

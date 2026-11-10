@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { usePublicSettings } from '@/features/public/hooks';
 import { apiClient } from '@/lib/api-client';
-import { Users, Award, BookOpen } from 'lucide-react';
+import { Users, Award, BookOpen, ShieldCheck } from 'lucide-react';
 
 interface OrgMember {
   id: number;
@@ -12,6 +12,53 @@ interface OrgMember {
   bio?: string | null;
   photo_path?: string | null;
   sort_order: number;
+}
+
+interface StaffRole {
+  name: string;
+  label: string;
+}
+
+interface StaffMember {
+  id: number;
+  name: string;
+  roles: StaffRole[];
+}
+
+/** Peta warna badge per role name */
+const ROLE_COLOR: Record<string, string> = {
+  super_admin:        'bg-navy text-white',
+  admin_registration: 'bg-star/20 text-navy',
+  admin_content:      'bg-tint-200 text-navy',
+};
+
+function RoleBadge({ role }: { role: StaffRole }) {
+  const cls = ROLE_COLOR[role.name] ?? 'bg-tint-100 text-ink';
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold leading-tight ${cls}`}>
+      {role.label}
+    </span>
+  );
+}
+
+/** Avatar inisial — digunakan ketika staf belum punya foto */
+function InitialAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
+  const initials = name
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+  const sizeClass = size === 'sm'
+    ? 'w-10 h-10 text-sm'
+    : 'w-16 h-16 text-lg';
+  return (
+    <div
+      aria-hidden="true"
+      className={`${sizeClass} rounded-full bg-navy/10 border-2 border-navy/20 flex items-center justify-center font-display font-bold text-navy shrink-0`}
+    >
+      {initials}
+    </div>
+  );
 }
 
 export const AboutPage: React.FC = () => {
@@ -29,7 +76,24 @@ export const AboutPage: React.FC = () => {
     },
   });
 
-  const aboutDescription = settings?.about_description || 'Yayasan Padindi adalah lembaga pendidikan swasta yang berdedikasi membimbing dan mendidik generasi penerus bangsa berlandaskan budi pekerti, integritas, dan kompetensi masa depan.';
+  const { data: staffMembers } = useQuery<StaffMember[]>({
+    queryKey: ['public', 'staff'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: StaffMember[] }>('/public/staff');
+        return res.data.data;
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const aboutDescription =
+    settings?.about_description ||
+    'Yayasan Padindi adalah lembaga pendidikan swasta yang berdedikasi membimbing dan mendidik generasi penerus bangsa berlandaskan budi pekerti, integritas, dan kompetensi masa depan.';
+
+  const hasOrg   = orgMembers && orgMembers.length > 0;
+  const hasStaff = staffMembers && staffMembers.length > 0;
 
   return (
     <div className="bg-paper min-h-screen py-12 md:py-16">
@@ -42,7 +106,7 @@ export const AboutPage: React.FC = () => {
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <span className="inline-block px-3 py-1 bg-navy/10 text-navy font-bold text-xs rounded-full uppercase tracking-wider">
-            Profil & Sejarah
+            Profil &amp; Sejarah
           </span>
           <h1 className="text-3xl md:text-4xl font-display font-bold text-navy">
             Tentang Yayasan Padindi
@@ -59,7 +123,7 @@ export const AboutPage: React.FC = () => {
               <BookOpen className="w-5 h-5 text-navy" />
             </div>
             <div>
-              <h2 className="font-display font-bold text-xl text-navy">Sejarah & Komitmen Pendidikan</h2>
+              <h2 className="font-display font-bold text-xl text-navy">Sejarah &amp; Komitmen Pendidikan</h2>
               <p className="text-xs text-muted">Amanah dan dedikasi dalam mendidik tunas bangsa</p>
             </div>
           </div>
@@ -77,7 +141,7 @@ export const AboutPage: React.FC = () => {
             <div className="w-10 h-10 rounded-lg bg-navy/5 flex items-center justify-center text-navy">
               <Award className="w-5 h-5 text-star" />
             </div>
-            <h3 className="font-display font-bold text-base text-navy">Integritas & Budi Pekerti</h3>
+            <h3 className="font-display font-bold text-base text-navy">Integritas &amp; Budi Pekerti</h3>
             <p className="text-xs text-muted leading-relaxed">
               Menanamkan fondasi akhlak mulia dan kejujuran sebagai pilar utama dalam setiap tahapan pembentukan karakter siswa.
             </p>
@@ -104,8 +168,8 @@ export const AboutPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Struktur Organisasi / Dewan Pengurus */}
-        {orgMembers && orgMembers.length > 0 && (
+        {/* ── Struktur Organisasi / Dewan Pengurus ── */}
+        {hasOrg && (
           <div className="bg-white p-6 md:p-10 rounded-card border border-navy/10 shadow-sm space-y-8">
             <div className="text-center max-w-xl mx-auto space-y-2">
               <h2 className="font-display font-bold text-2xl text-navy">Dewan Pengurus Yayasan</h2>
@@ -120,26 +184,72 @@ export const AboutPage: React.FC = () => {
                   key={member.id}
                   className="bg-paper p-4 rounded-lg border border-navy/10 text-center flex flex-col items-center space-y-3"
                 >
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-navy/10 border-2 border-star">
-                    <img
-                      src={member.photo_path || '/images/org/ketua-pembina.jpg'}
-                      alt={member.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = '/images/news/ppdb-cover.jpg';
-                      }}
-                    />
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-navy/10 border-2 border-star shrink-0">
+                    {member.photo_path ? (
+                      <img
+                        src={member.photo_path}
+                        alt={member.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-navy/10">
+                        <span className="font-display font-bold text-navy text-xl">
+                          {member.name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h4 className="font-display font-bold text-sm text-navy">{member.name}</h4>
-                    <p className="text-xs text-muted font-medium">{member.position}</p>
+                    <p className="text-xs text-primary font-semibold mt-0.5">{member.position}</p>
                   </div>
                   {member.bio && (
                     <p className="text-[11px] text-muted line-clamp-3 leading-relaxed">
                       {member.bio}
                     </p>
                   )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Tim Staf & Admin Yayasan ── */}
+        {hasStaff && (
+          <div className="bg-white p-6 md:p-10 rounded-card border border-navy/10 shadow-sm space-y-8">
+            <div className="flex items-center gap-3 border-b border-navy/10 pb-4">
+              <div className="w-10 h-10 rounded-lg bg-navy/5 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5 text-navy" />
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-xl text-navy">Tim Pengelola Yayasan</h2>
+                <p className="text-xs text-muted">
+                  Staf dan tenaga administrasi yang menjalankan operasional yayasan sehari-hari.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {staffMembers.map((staff) => (
+                <div
+                  key={staff.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-navy/10 bg-paper hover:border-navy/30 transition-colors"
+                >
+                  <InitialAvatar name={staff.name} size="sm" />
+                  <div className="min-w-0 flex flex-col gap-1.5">
+                    <p className="font-display font-bold text-sm text-navy leading-tight truncate">
+                      {staff.name}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {staff.roles.map((role) => (
+                        <RoleBadge key={role.name} role={role} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
