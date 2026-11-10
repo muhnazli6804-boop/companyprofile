@@ -27,15 +27,16 @@ interface StaffMember {
 
 /** Peta warna badge per role name */
 const ROLE_COLOR: Record<string, string> = {
-  super_admin:        'bg-navy text-white',
-  admin_registration: 'bg-star/20 text-navy',
-  admin_content:      'bg-tint-200 text-navy',
+  guru: 'bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200',
+  staff: 'bg-sky-100 text-sky-800 font-semibold border border-sky-200',
+  admin_registration: 'bg-amber-100 text-amber-900 font-semibold border border-amber-200',
+  admin_content: 'bg-indigo-100 text-indigo-900 font-semibold border border-indigo-200',
 };
 
 function RoleBadge({ role }: { role: StaffRole }) {
   const cls = ROLE_COLOR[role.name] ?? 'bg-tint-100 text-ink';
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold leading-tight ${cls}`}>
+    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold leading-tight ${cls}`}>
       {role.label}
     </span>
   );
@@ -92,8 +93,20 @@ export const AboutPage: React.FC = () => {
     settings?.about_description ||
     'Yayasan Padindi adalah lembaga pendidikan swasta yang berdedikasi membimbing dan mendidik generasi penerus bangsa berlandaskan budi pekerti, integritas, dan kompetensi masa depan.';
 
-  const hasOrg   = orgMembers && orgMembers.length > 0;
-  const hasStaff = staffMembers && staffMembers.length > 0;
+  // Hanya staf dan guru (superadmin dikecualikan dari tampilan)
+  const filteredStaff = React.useMemo(() => {
+    if (!staffMembers) return [];
+    return staffMembers
+      .filter((s) => !s.roles.some((r) => r.name === 'super_admin'))
+      .map((s) => ({
+        ...s,
+        roles: s.roles.filter((r) => r.name !== 'super_admin'),
+      }))
+      .filter((s) => s.roles.length > 0);
+  }, [staffMembers]);
+
+  const hasOrg   = Boolean(orgMembers && orgMembers.length > 0);
+  const hasStaff = Boolean(filteredStaff.length > 0);
 
   return (
     <div className="bg-paper min-h-screen py-12 md:py-16">
@@ -218,7 +231,7 @@ export const AboutPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Tim Staf & Admin Yayasan ── */}
+        {/* ── Tim Staf & Guru Yayasan (hanya staf dan guru, superadmin dikecualikan) ── */}
         {hasStaff && (
           <div className="bg-white p-6 md:p-10 rounded-card border border-navy/10 shadow-sm space-y-8">
             <div className="flex items-center gap-3 border-b border-navy/10 pb-4">
@@ -226,15 +239,15 @@ export const AboutPage: React.FC = () => {
                 <ShieldCheck className="w-5 h-5 text-navy" />
               </div>
               <div>
-                <h2 className="font-display font-bold text-xl text-navy">Tim Pengelola Yayasan</h2>
+                <h2 className="font-display font-bold text-xl text-navy">Tim Staf &amp; Guru Yayasan</h2>
                 <p className="text-xs text-muted">
-                  Staf dan tenaga administrasi yang menjalankan operasional yayasan sehari-hari.
+                  Tenaga pendidik, guru pengajar, serta staf kependidikan dan operasional yayasan.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {staffMembers.map((staff) => (
+              {filteredStaff.map((staff) => (
                 <div
                   key={staff.id}
                   className="flex items-center gap-3 p-3 rounded-lg border border-navy/10 bg-paper hover:border-navy/30 transition-colors"

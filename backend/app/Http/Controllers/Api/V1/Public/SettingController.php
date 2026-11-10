@@ -64,8 +64,9 @@ class SettingController extends Controller
     }
 
     /**
-     * Mengembalikan daftar staf/admin aktif yang memiliki role di sistem,
-     * hanya field publik yang aman (name, role label) tanpa data sensitif.
+     * Mengembalikan daftar staf dan guru aktif yang memiliki role di sistem (selain super_admin).
+     * Superadmin dikecualikan dari tampilan publik; hanya staf dan guru yang ditampilkan.
+     * Hanya field publik yang aman (id, name, roles) tanpa data sensitif.
      */
     public function staff(): JsonResponse
     {
@@ -73,10 +74,16 @@ class SettingController extends Controller
             ->where('user_type', 'admin')
             ->where('is_active', true)
             ->whereNull('deleted_at')
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'super_admin');
+            })
+            ->whereHas('roles', function ($q) {
+                $q->where('name', '!=', 'super_admin');
+            })
             ->with(['roles' => function ($q) {
-                $q->select('roles.id', 'roles.name', 'roles.label');
+                $q->where('name', '!=', 'super_admin')
+                    ->select('roles.id', 'roles.name', 'roles.label');
             }])
-            ->whereHas('roles')
             ->orderBy('name', 'asc')
             ->get(['id', 'name'])
             ->map(function (User $user) {
