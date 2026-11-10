@@ -35,6 +35,7 @@ export interface User {
   user_type: 'applicant' | 'admin';
   is_active: boolean;
   email_verified_at?: string;
+  email_verified?: boolean;
   roles?: string[];
   permissions?: string[];
 }

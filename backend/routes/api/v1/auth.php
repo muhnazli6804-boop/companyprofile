@@ -18,15 +18,15 @@ Route::middleware(['throttle:auth'])->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 });
 
+// Tanda tangan dicek di controller (bukan middleware `signed`) agar tautan tak valid dialihkan, bukan 403 JSON.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-    ->middleware(['signed'])
     ->name('verification.verify');
 
 // Authenticated auth routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [LogoutController::class, 'logout']);
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'send'])
-        ->middleware('throttle:6,1');
+        ->middleware(['applicant', 'throttle:6,1']);
     Route::get('/me', [MeController::class, 'show']);
     Route::put('/profile', [MeController::class, 'updateProfile']);
     Route::put('/password', [MeController::class, 'updatePassword']);

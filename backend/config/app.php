@@ -56,6 +56,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Dipakai untuk tautan di email (mis. atur kata sandi admin); sama dengan origin frontend di cors.php.
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
