@@ -15,6 +15,7 @@ import { Menu, X, User as UserIcon, LogOut } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse, User } from '@/types';
+import { usePublicSettings } from '@/features/public/hooks';
 
 // Navigasi halaman beranda & publik
 const NAV_LINKS = [
@@ -40,6 +41,10 @@ export const PublicLayout: React.FC = () => {
   const isHomePage = location.pathname === '/';
 
   const token = localStorage.getItem('auth_token');
+
+  const { data: publicSettings } = usePublicSettings();
+  const siteName = publicSettings?.site_name || 'Yayasan Padindi';
+  const siteLogoUrl = publicSettings?.site_logo_url || '/images/logo.png';
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -265,19 +270,19 @@ export const PublicLayout: React.FC = () => {
           <Link
             to="/"
             className="font-display font-semibold text-xl text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
-            aria-label="Yayasan Padindi — Beranda"
+            aria-label={`${siteName} — Beranda`}
           >
             <img
-              src="/images/logo.png"
-              alt="Logo Yayasan Padindi"
+              src={siteLogoUrl}
+              alt={`Logo ${siteName}`}
               width={40}
               height={40}
-              className="inline-block mr-2 align-middle"
+              className="inline-block mr-2 align-middle object-contain max-h-10"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
-            Yayasan Padindi
+            {siteName}
           </Link>
 
           {/* Tautan desktop */}
@@ -456,7 +461,7 @@ export const PublicLayout: React.FC = () => {
       {/* Footer minimal */}
       <footer className="bg-navy text-white py-6">
         <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8 text-center">
-          <p className="font-sans text-sm text-white/80">&copy; {new Date().getFullYear()} Yayasan Padindi</p>
+          <p className="font-sans text-sm text-white/80">&copy; {new Date().getFullYear()} {siteName}</p>
         </div>
       </footer>
     </div>

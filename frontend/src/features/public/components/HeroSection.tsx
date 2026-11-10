@@ -10,7 +10,18 @@
  * - Ponsel: teks dahulu, foto di bawah (maks 70% lebar), batang diagonal disembunyikan
  */
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Roundel } from '@/components/brand/Roundel';
+import { apiClient } from '@/lib/api-client';
+
+interface BannerData {
+  id: number;
+  title: string;
+  subtitle?: string | null;
+  image_path?: string | null;
+  cta_label?: string | null;
+  link_url?: string | null;
+}
 
 interface HeroSectionProps {
   siteName: string;
@@ -23,6 +34,31 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   tagline,
   logoUrl,
 }) => {
+  const { data: banners } = useQuery<BannerData[]>({
+    queryKey: ['public', 'banners'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: BannerData[] }>('/public/banners');
+        return res.data.data;
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+
+  const activeBanner = banners && banners.length > 0 ? banners[0] : null;
+  const displayTitle = activeBanner?.title || tagline || siteName;
+  const displaySubtitle =
+    activeBanner?.subtitle ||
+    (tagline
+      ? 'Lembaga pendidikan swasta yang berkomitmen menuntun setiap anak ke arah yang tepat.'
+      : undefined);
+  const displayCtaLabel = activeBanner?.cta_label || 'Daftar sekarang';
+  const displayCtaLink = activeBanner?.link_url || '/pendaftaran';
+  const displayImage = activeBanner?.image_path || logoUrl;
+
   return (
     <section
       aria-labelledby="hero-heading"
@@ -37,22 +73,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               id="hero-heading"
               className="font-display font-semibold text-display text-white"
             >
-              {/* TODO: naskah final berasal dari yayasan */}
-              {tagline || siteName}
+              {displayTitle}
             </h1>
 
-            {tagline && (
+            {displaySubtitle && (
               <p className="font-sans text-lg text-white/85 leading-relaxed">
-                {/* TODO: deskripsi singkat dari yayasan */}
-                Lembaga pendidikan swasta yang berkomitmen menuntun setiap anak
-                ke arah yang tepat.
+                {displaySubtitle}
               </p>
             )}
 
             <div className="flex flex-wrap gap-3">
-              {/* Tombol "Daftar sekarang" — Aksen: Kuning Bintang */}
+              {/* Tombol CTA Utama — Aksen: Kuning Bintang */}
               <a
-                href="/pendaftaran"
+                href={displayCtaLink}
                 className="
                   inline-flex items-center justify-center px-5 py-3 rounded-control
                   bg-star text-ink font-sans font-bold text-base
@@ -61,7 +94,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 "
                 style={{ minHeight: 44 }}
               >
-                Daftar sekarang
+                {displayCtaLabel}
               </a>
 
               {/* Tombol "Hubungi kami" — Sekunder di atas biru */}
@@ -84,7 +117,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Foto bundar (kanan di desktop, di bawah di ponsel) */}
           <div className="flex justify-center md:justify-end">
             <Roundel
-              src={logoUrl}
+              src={displayImage}
               alt={`Logo ${siteName}`}
               withSpokes={true}
               animated={true}

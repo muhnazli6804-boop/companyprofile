@@ -22,6 +22,10 @@ class SettingController extends Controller
             }
         }
 
+        if (isset($settings['site_logo']) && empty($settings['site_logo_url'])) {
+            $settings['site_logo_url'] = \Illuminate\Support\Facades\Storage::disk('public')->url($settings['site_logo']);
+        }
+
         return response()->json([
             'data' => $settings,
         ]);

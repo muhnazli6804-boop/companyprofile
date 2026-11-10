@@ -73,6 +73,8 @@ class SettingController extends Controller
 
         $path = $request->file('logo')->store('settings', 'public');
 
+        $url = Storage::disk('public')->url($path);
+
         Setting::updateOrCreate(
             ['key' => 'site_logo'],
             [
@@ -82,10 +84,19 @@ class SettingController extends Controller
             ]
         );
 
+        Setting::updateOrCreate(
+            ['key' => 'site_logo_url'],
+            [
+                'value' => $url,
+                'group_name' => 'general',
+                'is_public' => true,
+            ]
+        );
+
         return response()->json([
             'message' => 'Logo yayasan berhasil diperbarui.',
             'data' => [
-                'logo_url' => Storage::disk('public')->url($path),
+                'logo_url' => $url,
                 'path' => $path,
             ],
         ]);

@@ -24,7 +24,6 @@ const ADMIN_ROUTES = [
   '/admin/pesan-kontak',
   '/admin/pengguna',
   '/admin/log-aktivitas',
-  '/admin/pengaturan',
 ];
 
 function renderAt(path: string, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
@@ -161,11 +160,11 @@ describe('AdminLayout — menu dan header', () => {
     }
   });
 
-  it('super_admin: memuat 13 menu, 12 rute lama ditambah Keuangan', async () => {
+  it('super_admin: memuat 12 menu, 11 rute CMS & Pengaturan disatukan ditambah Keuangan', async () => {
     renderAt('/admin/dashboard');
 
     const hrefs = await menuHrefs();
-    expect(hrefs).toHaveLength(13);
+    expect(hrefs).toHaveLength(12);
     expect(hrefs).toEqual(expect.arrayContaining([...ADMIN_ROUTES, '/admin/keuangan']));
   });
 

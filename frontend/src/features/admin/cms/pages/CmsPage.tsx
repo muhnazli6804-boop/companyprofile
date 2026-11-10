@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Image,
   Newspaper,
@@ -15,12 +16,17 @@ import {
   Layers,
   Save,
   Globe,
+  Building2,
+  ShieldCheck,
+  Upload,
+  Sparkles,
 } from 'lucide-react';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { apiClient } from '@/lib/api-client';
+import { getSettings, updateSettings, uploadLogo } from '@/features/admin/settings/api';
 
 // Types
 export interface BannerItem {
@@ -211,8 +217,39 @@ const FALLBACK_ACHIEVEMENTS: AchievementItem[] = [
   },
 ];
 
+type TabKey =
+  | 'hero'
+  | 'articles'
+  | 'gallery'
+  | 'profile'
+  | 'achievements'
+  | 'faq_contact'
+  | 'identity'
+  | 'system';
+
 export const CmsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'hero' | 'articles' | 'gallery' | 'profile' | 'achievements' | 'faq_contact'>('hero');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  const getInitialTab = (): TabKey => {
+    const t = searchParams.get('tab');
+    if (t === 'identity' || t === 'logo') return 'identity';
+    if (t === 'system' || t === 'academic' || t === 'security') return 'system';
+    if (t === 'contact' || t === 'faq' || t === 'faq_contact') return 'faq_contact';
+    if (t === 'profile') return 'profile';
+    if (t === 'articles') return 'articles';
+    if (t === 'gallery') return 'gallery';
+    if (t === 'achievements') return 'achievements';
+    return 'hero';
+  };
+
+  const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -273,8 +310,13 @@ export const CmsPage: React.FC = () => {
   });
   const [deleteOrgTarget, setDeleteOrgTarget] = useState<OrgMemberItem | null>(null);
 
-  // Profile Static text
-  const [visionText, setVisionText] = useState('Terwujudnya lembaga pendidikan Islam terpadu yang unggul, berakhlak mulia, berprestasi tinggi, serta mampu beradaptasi dengan kemajuan teknologi global.');
+  // Profile Static text & History Description
+  const [aboutDescription, setAboutDescription] = useState(
+    'Yayasan Padindi adalah yayasan pendidikan swasta di Jakarta yang menaungi jenjang SD dan SMP, berkomitmen memberikan pengasuhan dan pembelajaran berkarakter unggul.'
+  );
+  const [visionText, setVisionText] = useState(
+    'Terwujudnya lembaga pendidikan Islam terpadu yang unggul, berakhlak mulia, berprestasi tinggi, serta mampu beradaptasi dengan kemajuan teknologi global.'
+  );
   const [missionList, setMissionList] = useState([
     'Menyelenggarakan pendidikan holistik yang memadukan ilmu pengetahuan umum dan nilai-nilai akhlakul karimah.',
     'Menciptakan lingkungan belajar yang inovatif, ramah anak, disiplin, dan berwawasan lingkungan.',
@@ -300,13 +342,123 @@ export const CmsPage: React.FC = () => {
     answer: '',
   });
 
-  // Contact info state
+  // 7. Identity & Logo state
+  const [identityInfo, setIdentityInfo] = useState({
+    site_name: 'Yayasan Padindi',
+    site_tagline: 'Menuntun setiap anak ke arah yang tepat',
+    site_logo: '',
+    site_logo_url: '',
+  });
+
+  // Contact info state (includes phone, whatsapp, email, hours, maps embed, social links)
   const [contactInfo, setContactInfo] = useState({
     address: 'Jl. Padindi Raya No. 10–12, Jakarta Barat, DKI Jakarta 11840',
     phone: '021-5550100',
-    whatsapp: '081234567890',
+    whatsapp: '6281234567890',
     email: 'info@padindi.sch.id',
+    hours: 'Senin – Jumat: 07.30 – 15.30 WIB',
     maps_url: 'https://maps.google.com/?q=-6.15555,106.70555',
+    social_instagram: 'https://instagram.com/padindi',
+    social_facebook: 'https://facebook.com/padindi',
+    social_youtube: 'https://youtube.com/@padindi',
+  });
+
+  // 8. Academic & System info state
+  const [systemInfo, setSystemInfo] = useState({
+    academic_year_active: '2026/2027',
+    registration_student_test_info:
+      '[Contoh] Calon murid perlu mengikuti tes penempatan / observasi secara offline di kampus sekolah Yayasan Padindi sesuai jadwal yang akan diinformasikan.',
+    registration_teacher_interview_info:
+      '[Contoh] Pelamar guru akan dihubungi oleh tim rekrutmen Yayasan Padindi melalui nomor telepon/WhatsApp untuk jadwal wawancara daring.',
+    security_session_timeout: '120',
+    security_require_email_verification: '1',
+    notification_admin_email_alert: '1',
+  });
+
+  // Query Settings from Backend API
+  const { data: settingsData } = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: () => getSettings(),
+  });
+
+  useEffect(() => {
+    if (settingsData?.flat) {
+      const f = settingsData.flat;
+      if (f.vision) setVisionText(f.vision);
+      if (f.mission) {
+        try {
+          const parsed = JSON.parse(f.mission);
+          if (Array.isArray(parsed)) setMissionList(parsed);
+          else setMissionList([f.mission]);
+        } catch {
+          setMissionList([f.mission]);
+        }
+      }
+      if (f.about_description) setAboutDescription(f.about_description);
+      setIdentityInfo((prev) => ({
+        ...prev,
+        site_name: f.site_name || prev.site_name,
+        site_tagline: f.site_tagline || prev.site_tagline,
+        site_logo: f.site_logo || prev.site_logo,
+        site_logo_url: f.site_logo_url || prev.site_logo_url,
+      }));
+      setContactInfo((prev) => ({
+        ...prev,
+        address: f.contact_address || prev.address,
+        phone: f.contact_phone || prev.phone,
+        whatsapp: f.contact_whatsapp || prev.whatsapp,
+        email: f.contact_email || prev.email,
+        hours: f.contact_hours || prev.hours,
+        maps_url: f.contact_map_embed_url || prev.maps_url,
+        social_instagram: f.social_instagram || prev.social_instagram,
+        social_facebook: f.social_facebook || prev.social_facebook,
+        social_youtube: f.social_youtube || prev.social_youtube,
+      }));
+      setSystemInfo((prev) => ({
+        ...prev,
+        academic_year_active: f.academic_year_active || prev.academic_year_active,
+        registration_student_test_info:
+          f.registration_student_test_info || prev.registration_student_test_info,
+        registration_teacher_interview_info:
+          f.registration_teacher_interview_info || prev.registration_teacher_interview_info,
+        security_session_timeout: f.security_session_timeout || prev.security_session_timeout,
+        security_require_email_verification:
+          f.security_require_email_verification ?? prev.security_require_email_verification,
+        notification_admin_email_alert:
+          f.notification_admin_email_alert ?? prev.notification_admin_email_alert,
+      }));
+    }
+  }, [settingsData]);
+
+  // Mutations for Settings and Logo
+  const updateSettingsMutation = useMutation({
+    mutationFn: (settings: Record<string, string>) => updateSettings(settings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+      showToast('Pengaturan berhasil disimpan dan langsung diterapkan ke website publik.');
+    },
+    onError: () => {
+      alert('Gagal menyimpan pengaturan. Silakan coba lagi.');
+    },
+  });
+
+  const uploadLogoMutation = useMutation({
+    mutationFn: (file: File) => uploadLogo(file),
+    onSuccess: (res) => {
+      setIdentityInfo((prev) => ({
+        ...prev,
+        site_logo: res.data.path,
+        site_logo_url: res.data.logo_url,
+      }));
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast('Logo resmi yayasan berhasil diunggah dan langsung tampil di website publik.');
+    },
+    onError: () => {
+      alert('Gagal mengunggah file logo yayasan.');
+    },
   });
 
   // Load backend data if available
@@ -598,7 +750,7 @@ export const CmsPage: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveTab('hero')}
+            onClick={() => handleTabChange('hero')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'hero'
                 ? 'bg-navy text-white shadow-sm'
@@ -610,7 +762,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('articles')}
+            onClick={() => handleTabChange('articles')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'articles'
                 ? 'bg-navy text-white shadow-sm'
@@ -622,7 +774,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('gallery')}
+            onClick={() => handleTabChange('gallery')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'gallery'
                 ? 'bg-navy text-white shadow-sm'
@@ -634,7 +786,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('profile')}
+            onClick={() => handleTabChange('profile')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'profile'
                 ? 'bg-navy text-white shadow-sm'
@@ -646,7 +798,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('achievements')}
+            onClick={() => handleTabChange('achievements')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'achievements'
                 ? 'bg-navy text-white shadow-sm'
@@ -658,7 +810,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('faq_contact')}
+            onClick={() => handleTabChange('faq_contact')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'faq_contact'
                 ? 'bg-navy text-white shadow-sm'
@@ -667,6 +819,30 @@ export const CmsPage: React.FC = () => {
           >
             <HelpCircle className="w-4 h-4" />
             6. FAQ & Kontak
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('identity')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'identity'
+                ? 'bg-navy text-white shadow-sm'
+                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            7. Identitas & Logo Yayasan
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('system')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'system'
+                ? 'bg-navy text-white shadow-sm'
+                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            8. Sistem & Akademik
           </button>
         </div>
       </div>
@@ -1037,7 +1213,13 @@ export const CmsPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => showToast('Visi & Misi yayasan berhasil disimpan.')}
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    vision: visionText,
+                    mission: JSON.stringify(missionList),
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
                 className="text-xs flex items-center gap-1.5 bg-navy text-white"
               >
                 <Save className="w-4 h-4 text-star" /> Simpan Visi Misi
@@ -1055,7 +1237,16 @@ export const CmsPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-navy uppercase tracking-wider">Poin-Poin Misi:</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-navy uppercase tracking-wider">Poin-Poin Misi:</label>
+                <button
+                  type="button"
+                  onClick={() => setMissionList((prev) => [...prev, ''])}
+                  className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Tambah Poin Misi
+                </button>
+              </div>
               {missionList.map((m, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-navy/10 text-navy font-bold text-xs flex items-center justify-center shrink-0">
@@ -1071,8 +1262,55 @@ export const CmsPage: React.FC = () => {
                     }}
                     className="w-full text-xs p-2 bg-paper border border-navy/20 rounded-control text-ink"
                   />
+                  {missionList.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setMissionList((prev) => prev.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
+                      title="Hapus poin"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Sejarah & Deskripsi Yayasan (Tentang Kami) */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">Tentang Yayasan & Sejarah Singkat</h3>
+                <p className="text-xs text-ink-muted">Tampil pada section "Tentang Kami" di Landing Page utama website publik.</p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    about_description: aboutDescription,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Save className="w-4 h-4 text-star" /> Simpan Profil Yayasan
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-navy uppercase tracking-wider">Deskripsi / Profil Lengkap Yayasan:</label>
+              <textarea
+                rows={4}
+                value={aboutDescription}
+                onChange={(e) => setAboutDescription(e.target.value)}
+                placeholder="Tuliskan sejarah singkat, profil, dan komitmen Yayasan Padindi..."
+                className="w-full text-xs p-3 bg-paper border border-navy/20 rounded-control focus:ring-2 focus:ring-navy/20 text-ink leading-relaxed"
+              />
+              <p className="text-[11px] text-ink-muted">
+                Tip: Gunakan baris kosong ganda (enter 2 kali) untuk memisahkan antar paragraf pada tampilan publik.
+              </p>
             </div>
           </div>
 
@@ -1238,12 +1476,25 @@ export const CmsPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-navy/10 pb-3">
               <div>
                 <h3 className="font-display font-bold text-base text-navy">Informasi Kontak & Footer Website</h3>
-                <p className="text-xs text-ink-muted">Muncul di footer seluruh halaman website publik.</p>
+                <p className="text-xs text-ink-muted">Muncul di footer dan section kontak seluruh halaman website publik.</p>
               </div>
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => showToast('Informasi kontak footer berhasil disimpan.')}
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    contact_address: contactInfo.address,
+                    contact_email: contactInfo.email,
+                    contact_phone: contactInfo.phone,
+                    contact_whatsapp: contactInfo.whatsapp,
+                    contact_hours: contactInfo.hours,
+                    contact_map_embed_url: contactInfo.maps_url,
+                    social_instagram: contactInfo.social_instagram,
+                    social_facebook: contactInfo.social_facebook,
+                    social_youtube: contactInfo.social_youtube,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
                 className="text-xs flex items-center gap-1.5 bg-navy text-white"
               >
                 <Save className="w-4 h-4 text-star" /> Simpan Informasi Kontak
@@ -1288,6 +1539,297 @@ export const CmsPage: React.FC = () => {
                   value={contactInfo.whatsapp}
                   onChange={(e) => setContactInfo({ ...contactInfo, whatsapp: e.target.value })}
                   className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Jam Operasional Kantor:</label>
+                <input
+                  type="text"
+                  value={contactInfo.hours}
+                  onChange={(e) => setContactInfo({ ...contactInfo, hours: e.target.value })}
+                  placeholder="Senin – Jumat: 07.30 – 15.30 WIB"
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Link Embed Google Maps:</label>
+                <input
+                  type="text"
+                  value={contactInfo.maps_url}
+                  onChange={(e) => setContactInfo({ ...contactInfo, maps_url: e.target.value })}
+                  placeholder="https://maps.google.com/..."
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">URL Akun Instagram Resmi:</label>
+                <input
+                  type="text"
+                  value={contactInfo.social_instagram}
+                  onChange={(e) => setContactInfo({ ...contactInfo, social_instagram: e.target.value })}
+                  placeholder="https://instagram.com/padindi"
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">URL Akun Facebook / YouTube:</label>
+                <input
+                  type="text"
+                  value={contactInfo.social_youtube}
+                  onChange={(e) => setContactInfo({ ...contactInfo, social_youtube: e.target.value })}
+                  placeholder="https://youtube.com/@padindi"
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: IDENTITAS & LOGO YAYASAN */}
+      {/* ========================================================================= */}
+      {activeTab === 'identity' && (
+        <div className="space-y-6">
+          {/* Identitas Yayasan */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">Identitas Resmi Yayasan</h3>
+                <p className="text-xs text-ink-muted">
+                  Nama yayasan dan slogan/tagline akan tampil di Navbar, Footer, dan metadata SEO.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    site_name: identityInfo.site_name,
+                    site_tagline: identityInfo.site_tagline,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Save className="w-4 h-4 text-star" /> Simpan Identitas Yayasan
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="font-bold text-navy block mb-1">Nama Resmi Lembaga / Yayasan *</label>
+                <input
+                  type="text"
+                  value={identityInfo.site_name}
+                  onChange={(e) => setIdentityInfo({ ...identityInfo, site_name: e.target.value })}
+                  placeholder="Misal: Yayasan Perguruan Padindi"
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Slogan / Tagline Resmi</label>
+                <input
+                  type="text"
+                  value={identityInfo.site_tagline}
+                  onChange={(e) => setIdentityInfo({ ...identityInfo, site_tagline: e.target.value })}
+                  placeholder="Misal: Menuntun setiap anak ke arah yang tepat"
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Logo Yayasan */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="border-b border-navy/10 pb-3">
+              <h3 className="font-display font-bold text-base text-navy">Logo Institusi & Pratinjau Visual</h3>
+              <p className="text-xs text-ink-muted">
+                Logo resmi akan langsung ditampilkan pada Header Navbar publik, Footer, dan dokumen resmi.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-paper rounded-card border border-navy/10">
+              <div className="w-28 h-28 bg-white rounded-xl border-2 border-navy/20 p-2 flex items-center justify-center shadow-xs shrink-0">
+                <img
+                  src={identityInfo.site_logo_url || '/images/logo.png'}
+                  alt={`Logo ${identityInfo.site_name}`}
+                  className="max-h-full max-w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/logo.png';
+                  }}
+                />
+              </div>
+
+              <div className="space-y-3 flex-1 text-xs">
+                <div>
+                  <h4 className="font-bold text-navy text-sm">Unggah Logo Institusi Baru</h4>
+                  <p className="text-ink-muted mt-0.5">
+                    Format file disarankan PNG transparan, JPG, atau WebP. Maksimal ukuran file 2 MB.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-navy text-white font-bold rounded-control cursor-pointer hover:bg-navy/90 transition-colors shadow-xs">
+                    <Upload className="w-4 h-4 text-star" />
+                    <span>Pilih Berkas Logo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          uploadLogoMutation.mutate(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                  {uploadLogoMutation.isPending && (
+                    <span className="text-primary font-semibold flex items-center gap-1.5 animate-pulse">
+                      <Sparkles className="w-4 h-4" /> Mengunggah logo...
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 8: PENGATURAN SISTEM & AKADEMIK */}
+      {/* ========================================================================= */}
+      {activeTab === 'system' && (
+        <div className="space-y-6">
+          {/* Pengaturan PPDB & Akademik */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">Tahun Akademik & Informasi Pendaftaran</h3>
+                <p className="text-xs text-ink-muted">
+                  Mengatur tahun ajaran aktif serta petunjuk seleksi calon murid dan rekrutmen guru.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    academic_year_active: systemInfo.academic_year_active,
+                    registration_student_test_info: systemInfo.registration_student_test_info,
+                    registration_teacher_interview_info: systemInfo.registration_teacher_interview_info,
+                    security_session_timeout: systemInfo.security_session_timeout,
+                    security_require_email_verification: systemInfo.security_require_email_verification,
+                    notification_admin_email_alert: systemInfo.notification_admin_email_alert,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Save className="w-4 h-4 text-star" /> Simpan Pengaturan Sistem
+              </Button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-navy block mb-1">Tahun Ajaran Aktif (PPDB):</label>
+                <input
+                  type="text"
+                  value={systemInfo.academic_year_active}
+                  onChange={(e) => setSystemInfo({ ...systemInfo, academic_year_active: e.target.value })}
+                  placeholder="2026/2027"
+                  className="w-full sm:w-64 p-2.5 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Petunjuk / Info Tes Observasi Calon Siswa:</label>
+                <textarea
+                  rows={2}
+                  value={systemInfo.registration_student_test_info}
+                  onChange={(e) => setSystemInfo({ ...systemInfo, registration_student_test_info: e.target.value })}
+                  placeholder="Informasi jadwal atau tata tertib tes observasi calon siswa..."
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Petunjuk / Info Seleksi Calon Guru:</label>
+                <textarea
+                  rows={2}
+                  value={systemInfo.registration_teacher_interview_info}
+                  onChange={(e) => setSystemInfo({ ...systemInfo, registration_teacher_interview_info: e.target.value })}
+                  placeholder="Informasi proses wawancara atau microteaching rekrutmen guru..."
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink leading-relaxed"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Keamanan & Kebijakan Sesi */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="border-b border-navy/10 pb-3">
+              <h3 className="font-display font-bold text-base text-navy">Keamanan & Kebijakan Akses</h3>
+              <p className="text-xs text-ink-muted">Konfigurasi batas waktu sesi admin dan notifikasi sistem.</p>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-paper rounded-card border border-navy/10">
+                <div>
+                  <h4 className="font-bold text-navy">Batas Waktu Sesi Admin (Session Timeout)</h4>
+                  <p className="text-ink-muted">Sesi admin otomatis kedaluwarsa setelah durasi tanpa aktivitas.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="15"
+                    max="480"
+                    value={systemInfo.security_session_timeout}
+                    onChange={(e) => setSystemInfo({ ...systemInfo, security_session_timeout: e.target.value })}
+                    className="w-24 p-2 bg-white border border-navy/20 rounded-control text-ink text-center"
+                  />
+                  <span className="font-semibold text-ink-muted">Menit</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-3 bg-paper rounded-card border border-navy/10">
+                <div>
+                  <h4 className="font-bold text-navy">Wajib Verifikasi Email Calon Pendaftar</h4>
+                  <p className="text-ink-muted">Calon pendaftar wajib memverifikasi email sebelum melanjutkan proses formulir.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemInfo.security_require_email_verification === '1'}
+                  onChange={(e) =>
+                    setSystemInfo({
+                      ...systemInfo,
+                      security_require_email_verification: e.target.checked ? '1' : '0',
+                    })
+                  }
+                  className="w-4 h-4 text-navy rounded border-navy/30 focus:ring-navy"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-3 bg-paper rounded-card border border-navy/10">
+                <div>
+                  <h4 className="font-bold text-navy">Kirim Email Notifikasi Admin untuk Pendaftar Baru</h4>
+                  <p className="text-ink-muted">Kirim notifikasi otomatis ke email pengurus yayasan setiap ada berkas masuk.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemInfo.notification_admin_email_alert === '1'}
+                  onChange={(e) =>
+                    setSystemInfo({
+                      ...systemInfo,
+                      notification_admin_email_alert: e.target.checked ? '1' : '0',
+                    })
+                  }
+                  className="w-4 h-4 text-navy rounded border-navy/30 focus:ring-navy"
                 />
               </div>
             </div>

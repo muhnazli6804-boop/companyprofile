@@ -12,8 +12,6 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
-  Newspaper,
-  Settings,
   ShieldCheck,
   Users,
   Wallet,
@@ -50,7 +48,7 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: Luc
   {
     label: 'Konten',
     items: [
-      { to: '/admin/cms', label: 'CMS Konten', icon: Newspaper, permission: 'content.manage' },
+      { to: '/admin/cms', label: 'CMS & Pengaturan Situs', icon: Globe, permission: 'content.manage' },
       { to: '/admin/pesan-kontak', label: 'Pesan Kontak', icon: Mail, permission: 'messages.manage' },
     ],
   },
@@ -60,7 +58,6 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: Luc
       { to: '/admin/keuangan', label: 'Keuangan', icon: Wallet, permission: 'finance.view' },
       { to: '/admin/pengguna', label: 'Pengguna & Role', icon: ShieldCheck, permission: 'users.manage' },
       { to: '/admin/log-aktivitas', label: 'Log Aktivitas', icon: History, permission: 'logs.view' },
-      { to: '/admin/pengaturan', label: 'Pengaturan Situs', icon: Settings, permission: 'settings.manage' },
     ],
   },
 ];

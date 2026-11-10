@@ -17,18 +17,25 @@ interface RawSetting {
 }
 
 interface RawSettingsResponse {
-  data: RawSetting[];
+  data: RawSetting[] | Record<string, unknown>;
 }
 
 /**
- * Memetakan array key-value dari API ke objek SiteSettings yang diketik.
+ * Memetakan array key-value atau dictionary object dari API ke objek SiteSettings yang diketik.
  */
-function mapRawSettings(raw: RawSetting[]): SiteSettings {
-  const map = new Map(raw.map((s) => [s.key, s.value ?? undefined]));
+function mapRawSettings(raw: RawSetting[] | Record<string, unknown>): SiteSettings {
+  const map = new Map<string, unknown>();
+  if (Array.isArray(raw)) {
+    raw.forEach((s) => map.set(s.key, s.value ?? undefined));
+  } else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([k, v]) => map.set(k, v ?? undefined));
+  }
 
   const missionRaw = map.get('mission');
   let mission: string[] | undefined;
-  if (missionRaw) {
+  if (Array.isArray(missionRaw)) {
+    mission = missionRaw.map(String);
+  } else if (typeof missionRaw === 'string') {
     try {
       const parsed = JSON.parse(missionRaw);
       mission = Array.isArray(parsed) ? parsed : [missionRaw];
@@ -38,22 +45,27 @@ function mapRawSettings(raw: RawSetting[]): SiteSettings {
     }
   }
 
+  const getStr = (key: string): string | undefined => {
+    const val = map.get(key);
+    return typeof val === 'string' ? val : (val != null ? String(val) : undefined);
+  };
+
   return {
-    site_name: map.get('site_name') ?? 'Yayasan Padindi',
-    site_tagline: map.get('site_tagline'),
-    site_logo_url: map.get('site_logo_url'),
-    about_description: map.get('about_description'),
-    vision: map.get('vision'),
+    site_name: getStr('site_name') ?? 'Yayasan Padindi',
+    site_tagline: getStr('site_tagline'),
+    site_logo_url: getStr('site_logo_url'),
+    about_description: getStr('about_description'),
+    vision: getStr('vision'),
     mission,
-    contact_phone: map.get('contact_phone'),
-    contact_whatsapp: map.get('contact_whatsapp'),
-    contact_email: map.get('contact_email'),
-    contact_address: map.get('contact_address'),
-    contact_hours: map.get('contact_hours'),
-    contact_map_embed_url: map.get('contact_map_embed_url'),
-    social_instagram: map.get('social_instagram'),
-    social_facebook: map.get('social_facebook'),
-    social_youtube: map.get('social_youtube'),
+    contact_phone: getStr('contact_phone'),
+    contact_whatsapp: getStr('contact_whatsapp'),
+    contact_email: getStr('contact_email'),
+    contact_address: getStr('contact_address'),
+    contact_hours: getStr('contact_hours'),
+    contact_map_embed_url: getStr('contact_map_embed_url'),
+    social_instagram: getStr('social_instagram'),
+    social_facebook: getStr('social_facebook'),
+    social_youtube: getStr('social_youtube'),
   };
 }
 
