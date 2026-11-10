@@ -1056,16 +1056,16 @@ export const CmsPage: React.FC = () => {
           </div>
 
           {/* Banner Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
             {banners.map((b) => (
               <div
                 key={b.id}
-                className={`bg-white rounded-card border overflow-hidden shadow-sm transition-all hover:shadow-md ${
+                className={`bg-white rounded-card border overflow-hidden shadow-sm transition-all hover:shadow-md flex flex-col justify-between h-full ${
                   b.is_active ? 'border-navy/20 ring-1 ring-navy/10' : 'border-ink-muted/20 opacity-70'
                 }`}
               >
                 {/* Banner Image Preview */}
-                <div className="relative h-44 bg-navy/90 overflow-hidden group">
+                <div className="relative h-48 bg-navy/90 overflow-hidden group w-full">
                   <img
                     src={b.image_path}
                     alt={b.title}
@@ -1077,14 +1077,16 @@ export const CmsPage: React.FC = () => {
                       }
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-transparent p-4 flex flex-col justify-end">
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/60 to-transparent p-4 flex flex-col justify-end">
                     <span className="text-[11px] font-bold text-star uppercase tracking-wider mb-1">
                       Urutan #{b.sort_order}
                     </span>
-                    <h4 className="text-white font-bold text-sm leading-snug drop-shadow-sm">{b.title}</h4>
-                    {b.subtitle && (
-                      <p className="text-white/80 text-xs line-clamp-1 mt-0.5">{b.subtitle}</p>
-                    )}
+                    <h4 className="text-white font-bold text-sm leading-snug drop-shadow-sm h-[2.5rem] line-clamp-2 overflow-hidden">
+                      {b.title}
+                    </h4>
+                    <p className="text-white/80 text-xs line-clamp-1 mt-0.5 h-[1.25rem] overflow-hidden">
+                      {b.subtitle || '—'}
+                    </p>
                   </div>
 
                   {/* Status Pill */}
@@ -1100,7 +1102,7 @@ export const CmsPage: React.FC = () => {
                 </div>
 
                 {/* Banner Details & Controls */}
-                <div className="p-4 space-y-3 bg-white">
+                <div className="p-4 space-y-3 bg-white flex flex-col justify-between flex-1">
                   <div className="flex items-center justify-between text-xs text-ink-muted border-b border-navy/10 pb-2">
                     <span>Tombol CTA: <strong>{b.cta_label || '—'}</strong></span>
                     <span>Tujuan Link: <code className="text-[11px] text-navy">{b.link_url || '/'}</code></span>

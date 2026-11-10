@@ -66,7 +66,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative bg-primary on-blue bg-cover bg-center overflow-hidden transition-all duration-700"
+      className="relative bg-primary on-blue bg-cover bg-center overflow-hidden transition-all duration-700 min-h-[480px] md:min-h-[540px] flex items-center"
       style={bgImage ? { backgroundImage: `url("${bgImage}")` } : undefined}
     >
       {/* Overlay gradien biru navy agar teks dan tombol selalu jelas terbaca dan kontras sesuai standar WCAG AA/AAA */}
@@ -79,20 +79,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         }}
       />
 
-      <div className="relative z-10 max-w-content mx-auto px-4 md:px-6 lg:px-8 py-20 md:py-28">
+      <div className="relative z-10 max-w-content mx-auto px-4 md:px-6 lg:px-8 py-20 md:py-28 w-full">
         <div className="max-w-3xl flex flex-col gap-6">
           <h1
             id="hero-heading"
-            className="font-display font-semibold text-display text-white leading-tight"
+            className="font-display font-semibold text-display text-white leading-tight min-h-[4.5rem] flex items-center"
           >
             {displayTitle}
           </h1>
 
-          {displaySubtitle && (
-            <p className="font-sans text-lg md:text-xl text-white/90 leading-relaxed font-normal max-w-2xl">
-              {displaySubtitle}
-            </p>
-          )}
+          <p className="font-sans text-lg md:text-xl text-white/90 leading-relaxed font-normal max-w-2xl min-h-[3.5rem]">
+            {displaySubtitle || '\u00A0'}
+          </p>
 
           <div className="flex flex-wrap gap-4 pt-1">
             {/* Tombol CTA Utama — Aksen: Kuning Bintang */}
