@@ -35,7 +35,8 @@ class PostController extends Controller
         }
 
         $posts = $query->orderBy('published_at', 'desc')
-            ->paginate((int) $request->query('per_page', 9));
+            ->orderBy('created_at', 'desc')
+            ->paginate((int) $request->query('per_page', 10));
 
         return response()->json($posts);
     }

@@ -62,7 +62,6 @@ const AdminMessagesPage = lazy(() => import('@/features/admin/messages/pages/Mes
 const AdminFinancePage = lazy(() => import('@/features/admin/finance/pages/FinancePage'));
 const AdminUsersPage = lazy(() => import('@/features/admin/users-roles/pages/UsersRolesPage'));
 const AdminLogsPage = lazy(() => import('@/features/admin/activity-logs/pages/ActivityLogsPage'));
-const AdminSettingsPage = lazy(() => import('@/features/admin/settings/pages/SettingsPage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<LoadingScreen message="Memuat halaman..." minHeight="min-h-[50vh]" />}>
@@ -187,7 +186,8 @@ export const router = createBrowserRouter([
             children: [{ path: 'pengguna', element: <SuspenseWrapper><AdminUsersPage /></SuspenseWrapper> }],
           },
           { path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> },
-          { path: 'pengaturan', element: <SuspenseWrapper><AdminSettingsPage /></SuspenseWrapper> },
+          { path: 'pengaturan', element: <Navigate to="/admin/cms?tab=identity" replace /> },
+          { path: 'settings', element: <Navigate to="/admin/cms?tab=identity" replace /> },
         ],
       },
     ],

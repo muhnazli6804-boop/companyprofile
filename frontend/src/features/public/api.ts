@@ -17,18 +17,25 @@ interface RawSetting {
 }
 
 interface RawSettingsResponse {
-  data: RawSetting[];
+  data: RawSetting[] | Record<string, unknown>;
 }
 
 /**
- * Memetakan array key-value dari API ke objek SiteSettings yang diketik.
+ * Memetakan array key-value atau dictionary object dari API ke objek SiteSettings yang diketik.
  */
-function mapRawSettings(raw: RawSetting[]): SiteSettings {
-  const map = new Map(raw.map((s) => [s.key, s.value ?? undefined]));
+function mapRawSettings(raw: RawSetting[] | Record<string, unknown>): SiteSettings {
+  const map = new Map<string, unknown>();
+  if (Array.isArray(raw)) {
+    raw.forEach((s) => map.set(s.key, s.value ?? undefined));
+  } else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([k, v]) => map.set(k, v ?? undefined));
+  }
 
   const missionRaw = map.get('mission');
   let mission: string[] | undefined;
-  if (missionRaw) {
+  if (Array.isArray(missionRaw)) {
+    mission = missionRaw.map(String);
+  } else if (typeof missionRaw === 'string') {
     try {
       const parsed = JSON.parse(missionRaw);
       mission = Array.isArray(parsed) ? parsed : [missionRaw];
@@ -38,22 +45,28 @@ function mapRawSettings(raw: RawSetting[]): SiteSettings {
     }
   }
 
+  const getStr = (key: string): string | undefined => {
+    const val = map.get(key);
+    return typeof val === 'string' ? val : (val != null ? String(val) : undefined);
+  };
+
   return {
-    site_name: map.get('site_name') ?? 'Yayasan Padindi',
-    site_tagline: map.get('site_tagline'),
-    site_logo_url: map.get('site_logo_url'),
-    about_description: map.get('about_description'),
-    vision: map.get('vision'),
+    site_name: getStr('site_name') ?? 'Yayasan Padindi',
+    site_tagline: getStr('site_tagline'),
+    site_logo_url: getStr('site_logo_url'),
+    hero_background_image: getStr('hero_background_image'),
+    about_description: getStr('about_description'),
+    vision: getStr('vision'),
     mission,
-    contact_phone: map.get('contact_phone'),
-    contact_whatsapp: map.get('contact_whatsapp'),
-    contact_email: map.get('contact_email'),
-    contact_address: map.get('contact_address'),
-    contact_hours: map.get('contact_hours'),
-    contact_map_embed_url: map.get('contact_map_embed_url'),
-    social_instagram: map.get('social_instagram'),
-    social_facebook: map.get('social_facebook'),
-    social_youtube: map.get('social_youtube'),
+    contact_phone: getStr('contact_phone'),
+    contact_whatsapp: getStr('contact_whatsapp'),
+    contact_email: getStr('contact_email'),
+    contact_address: getStr('contact_address'),
+    contact_hours: getStr('contact_hours'),
+    contact_map_embed_url: getStr('contact_map_embed_url'),
+    social_instagram: getStr('social_instagram'),
+    social_facebook: getStr('social_facebook'),
+    social_youtube: getStr('social_youtube'),
   };
 }
 
@@ -69,6 +82,7 @@ interface RawPost {
   title: string;
   slug: string;
   excerpt?: string | null;
+  cover_path?: string | null;
   cover_url?: string | null;
   cover_alt?: string | null;
   published_at: string;
@@ -90,21 +104,21 @@ function mapRawPost(raw: RawPost): Activity {
     title: raw.title,
     slug: raw.slug,
     excerpt: raw.excerpt ?? undefined,
-    cover_url: raw.cover_url ?? undefined,
-    cover_alt: raw.cover_alt ?? undefined,
+    cover_url: raw.cover_path || raw.cover_url || undefined,
+    cover_alt: raw.cover_alt ?? raw.title ?? '',
     published_at: raw.published_at,
-    // TODO: href ke halaman detail belum ada; kosongkan agar tidak ada tautan
-    href: undefined,
+    href: `/berita/${raw.slug}`,
   };
 }
 
 export async function fetchActivities(): Promise<PaginatedResponse<Activity>> {
-  const res = await apiClient.get<RawPostsResponse>(
-    '/public/posts?filter[category]=kegiatan&per_page=9',
+  const res = await apiClient.get<RawPostsResponse | { data: RawPost[] }>(
+    '/public/posts?per_page=10',
   );
+  const items = Array.isArray(res.data?.data) ? res.data.data : [];
   return {
-    data: res.data.data.map(mapRawPost),
-    meta: res.data.meta,
+    data: items.map(mapRawPost),
+    meta: (res.data as RawPostsResponse)?.meta,
   };
 }
 

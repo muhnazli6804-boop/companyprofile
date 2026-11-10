@@ -10,91 +10,145 @@
  * - Ponsel: teks dahulu, foto di bawah (maks 70% lebar), batang diagonal disembunyikan
  */
 import React from 'react';
-import { Roundel } from '@/components/brand/Roundel';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+
+interface BannerData {
+  id: number;
+  title: string;
+  subtitle?: string | null;
+  image_path?: string | null;
+  cta_label?: string | null;
+  link_url?: string | null;
+}
 
 interface HeroSectionProps {
   siteName: string;
   tagline?: string;
   logoUrl?: string;
+  heroBgImage?: string;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   siteName,
   tagline,
-  logoUrl,
+  heroBgImage,
 }) => {
+  const { data: banners } = useQuery<BannerData[]>({
+    queryKey: ['public', 'banners'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: BannerData[] }>('/public/banners');
+        return res.data.data;
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+
+  const [currentIdx, setCurrentIdx] = React.useState(0);
+  const activeBanners = banners && banners.length > 0 ? banners : [];
+  const currentBanner = activeBanners[currentIdx] || activeBanners[0] || null;
+
+  const displayTitle = currentBanner?.title || tagline || siteName;
+  const displaySubtitle =
+    currentBanner?.subtitle ||
+    (tagline
+      ? 'Lembaga pendidikan swasta yang berkomitmen menuntun setiap anak ke arah yang tepat.'
+      : undefined);
+  const displayCtaLabel = currentBanner?.cta_label || 'Daftar sekarang';
+  const displayCtaLink = currentBanner?.link_url || '/pendaftaran';
+  const bgImage = currentBanner?.image_path || heroBgImage || '/images/banner-hero-1.jpg';
+
   return (
     <section
       aria-labelledby="hero-heading"
-      className="bg-primary on-blue"
+      className="relative bg-primary on-blue overflow-hidden transition-all duration-700 min-h-[480px] md:min-h-[540px] flex items-center w-full"
     >
-      <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8 py-16 md:py-20">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-10 md:gap-8">
+      {/* Background Image — Mengisi penuh rasio banner tanpa mengubah ukuran tinggi banner */}
+      {bgImage && (
+        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
+          <img
+            src={bgImage}
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover object-center"
+          />
+        </div>
+      )}
 
-          {/* Teks kiri */}
-          <div className="flex flex-col gap-6 md:max-w-[55%]">
-            <h1
-              id="hero-heading"
-              className="font-display font-semibold text-display text-white"
-            >
-              {/* TODO: naskah final berasal dari yayasan */}
-              {tagline || siteName}
-            </h1>
+      {/* Overlay gradien biru navy agar teks dan tombol selalu jelas terbaca dan kontras sesuai standar WCAG AA/AAA */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-all duration-500"
+        style={{
+          background: bgImage
+            ? 'linear-gradient(90deg, rgba(6, 31, 92, 0.92) 0%, rgba(6, 31, 92, 0.80) 55%, rgba(6, 31, 92, 0.55) 100%)'
+            : 'var(--color-primary, #0B3C95)',
+        }}
+      />
 
-            {tagline && (
-              <p className="font-sans text-lg text-white/85 leading-relaxed">
-                {/* TODO: deskripsi singkat dari yayasan */}
-                Lembaga pendidikan swasta yang berkomitmen menuntun setiap anak
-                ke arah yang tepat.
-              </p>
-            )}
+      <div className="relative z-10 max-w-content mx-auto px-4 md:px-6 lg:px-8 py-20 md:py-28 w-full">
+        <div className="max-w-3xl flex flex-col gap-6">
+          <h1
+            id="hero-heading"
+            className="font-display font-semibold text-display text-white leading-tight min-h-[4.5rem] flex items-center"
+          >
+            {displayTitle}
+          </h1>
 
-            <div className="flex flex-wrap gap-3">
-              {/* Tombol "Daftar sekarang" — Aksen: Kuning Bintang */}
-              <a
-                href="/pendaftaran"
-                className="
-                  inline-flex items-center justify-center px-5 py-3 rounded-control
-                  bg-star text-ink font-sans font-bold text-base
-                  hover:bg-[#E0BE16] active:bg-[#CCA80C] transition-colors
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
-                "
-                style={{ minHeight: 44 }}
-              >
-                Daftar sekarang
-              </a>
+          <p className="font-sans text-lg md:text-xl text-white/90 leading-relaxed font-normal max-w-2xl min-h-[3.5rem]">
+            {displaySubtitle || '\u00A0'}
+          </p>
 
-              {/* Tombol "Hubungi kami" — Sekunder di atas biru */}
-              <a
-                href="#kontak"
-                className="
-                  inline-flex items-center justify-center px-5 py-3 rounded-control
-                  bg-transparent text-white font-sans font-bold text-base
-                  border-2 border-white
-                  hover:bg-white/10 active:bg-white/20 transition-colors
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
-                "
-                style={{ minHeight: 44 }}
-              >
-                Hubungi kami
-              </a>
-            </div>
-          </div>
-
-          {/* Foto bundar (kanan di desktop, di bawah di ponsel) */}
-          <div className="flex justify-center md:justify-end">
-            <Roundel
-              src={logoUrl}
-              alt={`Logo ${siteName}`}
-              withSpokes={true}
-              animated={true}
-              size={240}
+          <div className="flex flex-wrap gap-4 pt-1">
+            {/* Tombol CTA Utama — Aksen: Kuning Bintang */}
+            <a
+              href={displayCtaLink}
               className="
-                max-w-[70vw] md:max-w-none
-                [&_line]:hidden md:[&_line]:block
+                inline-flex items-center justify-center px-6 py-3 rounded-control
+                bg-star text-ink font-sans font-bold text-base shadow-sm
+                hover:bg-[#E0BE16] active:bg-[#CCA80C] transition-colors
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
               "
-            />
+              style={{ minHeight: 44 }}
+            >
+              {displayCtaLabel}
+            </a>
+
+            {/* Tombol "Hubungi kami" — Sekunder di atas biru */}
+            <a
+              href="#kontak"
+              className="
+                inline-flex items-center justify-center px-6 py-3 rounded-control
+                bg-transparent text-white font-sans font-bold text-base
+                border-2 border-white
+                hover:bg-white/10 active:bg-white/20 transition-colors
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary
+              "
+              style={{ minHeight: 44 }}
+            >
+              Hubungi kami
+            </a>
           </div>
+
+          {activeBanners.length > 1 && (
+            <div className="flex items-center gap-2 pt-2" aria-label="Navigasi Banner Hero">
+              {activeBanners.map((b, idx) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setCurrentIdx(idx)}
+                  aria-label={`Lihat banner ${idx + 1}`}
+                  className={`h-2.5 rounded-full transition-all cursor-pointer ${
+                    idx === currentIdx ? 'w-8 bg-star' : 'w-2.5 bg-white/40 hover:bg-white/70'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

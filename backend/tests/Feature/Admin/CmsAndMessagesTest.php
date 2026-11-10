@@ -106,4 +106,22 @@ class CmsAndMessagesTest extends TestCase
         ]);
         $replyResponse->assertStatus(200);
     }
+
+    public function test_admin_can_upload_image(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $file = \Illuminate\Http\UploadedFile::fake()->image('hero-school.jpg', 1200, 600);
+
+        $response = $this->actingAs($this->admin)->postJson('/api/v1/admin/uploads/images', [
+            'image' => $file,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'message',
+            'data' => ['url', 'path'],
+        ]);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($response->json('data.path'));
+    }
 }

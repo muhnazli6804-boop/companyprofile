@@ -25,6 +25,16 @@ class RoleSeeder extends Seeder
                 'label' => 'Admin Konten',
                 'description' => 'Pengelolaan berita, galeri, dan profil',
             ],
+            [
+                'name' => 'guru',
+                'label' => 'Guru / Tenaga Pengajar',
+                'description' => 'Tenaga pendidik dan pengajar di lingkungan yayasan',
+            ],
+            [
+                'name' => 'staff',
+                'label' => 'Staf Tata Usaha',
+                'description' => 'Tenaga administrasi dan operasional yayasan',
+            ],
         ];
 
         foreach ($roles as $role) {

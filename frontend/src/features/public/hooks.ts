@@ -20,10 +20,22 @@ const USE_MOCK = env.VITE_USE_MOCK === 'true';
 export function usePublicSettings() {
   return useQuery<SiteSettings, Error>({
     queryKey: ['public', 'settings'],
-    queryFn: USE_MOCK
-      ? () => Promise.resolve(mockSettings)
-      : fetchPublicSettings,
-    staleTime: 5 * 60 * 1000, // 5 menit
+    queryFn: async () => {
+      if (import.meta.env.MODE === 'test' && USE_MOCK) {
+        return mockSettings;
+      }
+      try {
+        const real = await fetchPublicSettings();
+        return {
+          ...mockSettings,
+          ...real,
+        };
+      } catch {
+        return mockSettings;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -32,10 +44,22 @@ export function usePublicSettings() {
 export function useActivities() {
   return useQuery<PaginatedResponse<Activity>, Error>({
     queryKey: ['public', 'activities'],
-    queryFn: USE_MOCK
-      ? () => Promise.resolve({ data: mockActivities })
-      : fetchActivities,
-    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      if (import.meta.env.MODE === 'test' && USE_MOCK) {
+        return { data: mockActivities };
+      }
+      try {
+        const real = await fetchActivities();
+        if (real.data && real.data.length > 0) {
+          return real;
+        }
+        return { data: mockActivities };
+      } catch {
+        return { data: mockActivities };
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

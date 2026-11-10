@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Image,
   Newspaper,
@@ -15,12 +16,17 @@ import {
   Layers,
   Save,
   Globe,
+  Building2,
+  ShieldCheck,
+  Upload,
+  Sparkles,
 } from 'lucide-react';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { apiClient } from '@/lib/api-client';
+import { getSettings, updateSettings, uploadLogo } from '@/features/admin/settings/api';
 
 // Types
 export interface BannerItem {
@@ -91,7 +97,7 @@ const FALLBACK_BANNERS: BannerItem[] = [
     id: 1,
     title: '[Contoh] Selamat Datang di Yayasan Perguruan Padindi',
     subtitle: 'Mewujudkan Generasi Cerdas, Berkarakter, dan Berakhlak Mulia Menuju Masa Depan Gemilang',
-    image_path: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1200&q=80',
+    image_path: '/images/banner-hero-1.jpg',
     cta_label: 'Daftar PPDB Online',
     link_url: '/pendaftaran',
     sort_order: 1,
@@ -101,7 +107,7 @@ const FALLBACK_BANNERS: BannerItem[] = [
     id: 2,
     title: '[Contoh] Pendaftaran Murid Baru (PPDB) 2026/2027 Resmi Dibuka',
     subtitle: 'Dapatkan Beasiswa Prestasi dan Fasilitas Pembelajaran Berbasis Teknologi Modern',
-    image_path: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
+    image_path: '/images/banner-hero-2.jpg',
     cta_label: 'Pelajari Persyaratan',
     link_url: '/informasi-pendaftaran',
     sort_order: 2,
@@ -211,8 +217,39 @@ const FALLBACK_ACHIEVEMENTS: AchievementItem[] = [
   },
 ];
 
+type TabKey =
+  | 'hero'
+  | 'articles'
+  | 'gallery'
+  | 'profile'
+  | 'achievements'
+  | 'faq_contact'
+  | 'identity'
+  | 'system';
+
 export const CmsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'hero' | 'articles' | 'gallery' | 'profile' | 'achievements' | 'faq_contact'>('hero');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  const getInitialTab = (): TabKey => {
+    const t = searchParams.get('tab');
+    if (t === 'identity' || t === 'logo') return 'identity';
+    if (t === 'system' || t === 'academic' || t === 'security') return 'system';
+    if (t === 'contact' || t === 'faq' || t === 'faq_contact') return 'faq_contact';
+    if (t === 'profile') return 'profile';
+    if (t === 'articles') return 'articles';
+    if (t === 'gallery') return 'gallery';
+    if (t === 'achievements') return 'achievements';
+    return 'hero';
+  };
+
+  const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -221,7 +258,22 @@ export const CmsPage: React.FC = () => {
   };
 
   // 1. Banners state
-  const [banners, setBanners] = useState<BannerItem[]>(FALLBACK_BANNERS);
+  const [localBanners, setLocalBanners] = useState<BannerItem[]>(FALLBACK_BANNERS);
+  const { data: remoteBanners } = useQuery({
+    queryKey: ['adminCmsBanners'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: BannerItem[] }>('/admin/banners');
+        return res.data.data;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const banners = remoteBanners && remoteBanners.length > 0 ? remoteBanners : localBanners;
   const [bannerModalOpen, setBannerModalOpen] = useState(false);
   const [bannerForm, setBannerForm] = useState<Partial<BannerItem>>({
     title: '',
@@ -233,9 +285,29 @@ export const CmsPage: React.FC = () => {
   });
   const [heroPreviewOpen, setHeroPreviewOpen] = useState(false);
   const [deleteBannerTarget, setDeleteBannerTarget] = useState<BannerItem | null>(null);
+  const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
 
   // 2. Articles state
-  const [articles, setArticles] = useState<PostItem[]>(FALLBACK_POSTS);
+  const [localArticles, setLocalArticles] = useState<PostItem[]>(FALLBACK_POSTS);
+  const { data: remotePosts } = useQuery({
+    queryKey: ['adminCmsPosts'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<any>('/admin/posts?per_page=50');
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as PostItem[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const articles = remotePosts && remotePosts.length > 0 ? remotePosts : localArticles;
   const [articleSearch, setArticleSearch] = useState('');
   const [articleModalOpen, setArticleModalOpen] = useState(false);
   const [articleForm, setArticleForm] = useState<Partial<PostItem>>({
@@ -244,13 +316,33 @@ export const CmsPage: React.FC = () => {
     excerpt: '',
     content: '',
     cover_path: '',
-    status: 'draft',
+    status: 'published',
   });
   const [articlePreviewTarget, setArticlePreviewTarget] = useState<PostItem | null>(null);
   const [deleteArticleTarget, setDeleteArticleTarget] = useState<PostItem | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   // 3. Galleries state
-  const [galleries, setGalleries] = useState<GalleryItemType[]>(FALLBACK_GALLERIES);
+  const [localGalleries, setLocalGalleries] = useState<GalleryItemType[]>(FALLBACK_GALLERIES);
+  const { data: remoteGalleries } = useQuery({
+    queryKey: ['adminCmsGalleries'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<any>('/admin/galleries');
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as GalleryItemType[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const galleries = remoteGalleries && remoteGalleries.length > 0 ? remoteGalleries : localGalleries;
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [galleryForm, setGalleryForm] = useState<Partial<GalleryItemType>>({
     title: '',
@@ -262,7 +354,26 @@ export const CmsPage: React.FC = () => {
   const [deleteGalleryTarget, setDeleteGalleryTarget] = useState<GalleryItemType | null>(null);
 
   // 4. Organization Profile state
-  const [orgMembers, setOrgMembers] = useState<OrgMemberItem[]>(FALLBACK_ORG);
+  const [localOrgMembers, setLocalOrgMembers] = useState<OrgMemberItem[]>(FALLBACK_ORG);
+  const { data: remoteOrgMembers } = useQuery({
+    queryKey: ['adminCmsOrgMembers'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<any>('/admin/organization-members');
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as OrgMemberItem[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const orgMembers = remoteOrgMembers && remoteOrgMembers.length > 0 ? remoteOrgMembers : localOrgMembers;
   const [orgModalOpen, setOrgModalOpen] = useState(false);
   const [orgForm, setOrgForm] = useState<Partial<OrgMemberItem>>({
     name: '',
@@ -273,8 +384,13 @@ export const CmsPage: React.FC = () => {
   });
   const [deleteOrgTarget, setDeleteOrgTarget] = useState<OrgMemberItem | null>(null);
 
-  // Profile Static text
-  const [visionText, setVisionText] = useState('Terwujudnya lembaga pendidikan Islam terpadu yang unggul, berakhlak mulia, berprestasi tinggi, serta mampu beradaptasi dengan kemajuan teknologi global.');
+  // Profile Static text & History Description
+  const [aboutDescription, setAboutDescription] = useState(
+    'Yayasan Padindi adalah yayasan pendidikan swasta di Jakarta yang menaungi jenjang SD dan SMP, berkomitmen memberikan pengasuhan dan pembelajaran berkarakter unggul.'
+  );
+  const [visionText, setVisionText] = useState(
+    'Terwujudnya lembaga pendidikan Islam terpadu yang unggul, berakhlak mulia, berprestasi tinggi, serta mampu beradaptasi dengan kemajuan teknologi global.'
+  );
   const [missionList, setMissionList] = useState([
     'Menyelenggarakan pendidikan holistik yang memadukan ilmu pengetahuan umum dan nilai-nilai akhlakul karimah.',
     'Menciptakan lingkungan belajar yang inovatif, ramah anak, disiplin, dan berwawasan lingkungan.',
@@ -300,119 +416,213 @@ export const CmsPage: React.FC = () => {
     answer: '',
   });
 
-  // Contact info state
+  // 7. Identity & Logo state
+  const [identityInfo, setIdentityInfo] = useState({
+    site_name: 'Yayasan Padindi',
+    site_tagline: 'Menuntun setiap anak ke arah yang tepat',
+    site_logo: '',
+    site_logo_url: '',
+  });
+
+  // Contact info state (includes phone, whatsapp, email, hours, maps embed, social links)
   const [contactInfo, setContactInfo] = useState({
     address: 'Jl. Padindi Raya No. 10–12, Jakarta Barat, DKI Jakarta 11840',
     phone: '021-5550100',
-    whatsapp: '081234567890',
+    whatsapp: '6281234567890',
     email: 'info@padindi.sch.id',
+    hours: 'Senin – Jumat: 07.30 – 15.30 WIB',
     maps_url: 'https://maps.google.com/?q=-6.15555,106.70555',
+    social_instagram: 'https://instagram.com/padindi',
+    social_facebook: 'https://facebook.com/padindi',
+    social_youtube: 'https://youtube.com/@padindi',
   });
 
-  // Load backend data if available
-  useQuery({
-    queryKey: ['adminCmsBanners'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: BannerItem[] }>('/admin/banners');
-        if (res.data?.data?.length) setBanners(res.data.data);
-      } catch {
-        // use fallback
+  // 8. Academic & System info state
+  const [systemInfo, setSystemInfo] = useState({
+    academic_year_active: '2026/2027',
+    registration_student_test_info:
+      '[Contoh] Calon murid perlu mengikuti tes penempatan / observasi secara offline di kampus sekolah Yayasan Padindi sesuai jadwal yang akan diinformasikan.',
+    registration_teacher_interview_info:
+      '[Contoh] Pelamar guru akan dihubungi oleh tim rekrutmen Yayasan Padindi melalui nomor telepon/WhatsApp untuk jadwal wawancara daring.',
+    security_session_timeout: '120',
+    security_require_email_verification: '1',
+    notification_admin_email_alert: '1',
+  });
+
+  // Query Settings from Backend API
+  const { data: settingsData } = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: () => getSettings(),
+  });
+
+  useEffect(() => {
+    if (settingsData?.flat) {
+      const f = settingsData.flat;
+      if (f.vision) setVisionText(f.vision);
+      if (f.mission) {
+        try {
+          const parsed = JSON.parse(f.mission);
+          if (Array.isArray(parsed)) setMissionList(parsed);
+          else setMissionList([f.mission]);
+        } catch {
+          setMissionList([f.mission]);
+        }
       }
-      return null;
+      if (f.about_description) setAboutDescription(f.about_description);
+      setIdentityInfo((prev) => ({
+        ...prev,
+        site_name: f.site_name || prev.site_name,
+        site_tagline: f.site_tagline || prev.site_tagline,
+        site_logo: f.site_logo || prev.site_logo,
+        site_logo_url: f.site_logo_url || prev.site_logo_url,
+      }));
+      setContactInfo((prev) => ({
+        ...prev,
+        address: f.contact_address || prev.address,
+        phone: f.contact_phone || prev.phone,
+        whatsapp: f.contact_whatsapp || prev.whatsapp,
+        email: f.contact_email || prev.email,
+        hours: f.contact_hours || prev.hours,
+        maps_url: f.contact_map_embed_url || prev.maps_url,
+        social_instagram: f.social_instagram || prev.social_instagram,
+        social_facebook: f.social_facebook || prev.social_facebook,
+        social_youtube: f.social_youtube || prev.social_youtube,
+      }));
+      setSystemInfo((prev) => ({
+        ...prev,
+        academic_year_active: f.academic_year_active || prev.academic_year_active,
+        registration_student_test_info:
+          f.registration_student_test_info || prev.registration_student_test_info,
+        registration_teacher_interview_info:
+          f.registration_teacher_interview_info || prev.registration_teacher_interview_info,
+        security_session_timeout: f.security_session_timeout || prev.security_session_timeout,
+        security_require_email_verification:
+          f.security_require_email_verification ?? prev.security_require_email_verification,
+        notification_admin_email_alert:
+          f.notification_admin_email_alert ?? prev.notification_admin_email_alert,
+      }));
+    }
+  }, [settingsData]);
+
+  // Mutations for Settings and Logo
+  const updateSettingsMutation = useMutation({
+    mutationFn: (settings: Record<string, string>) => updateSettings(settings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+      showToast('Pengaturan berhasil disimpan dan langsung diterapkan ke website publik.');
+    },
+    onError: () => {
+      alert('Gagal menyimpan pengaturan. Silakan coba lagi.');
     },
   });
 
-  useQuery({
-    queryKey: ['adminCmsPosts'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: PostItem[] }>('/admin/posts');
-        if (res.data?.data?.length) setArticles(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
+  const uploadLogoMutation = useMutation({
+    mutationFn: (file: File) => uploadLogo(file),
+    onSuccess: (res) => {
+      setIdentityInfo((prev) => ({
+        ...prev,
+        site_logo: res.data.path,
+        site_logo_url: res.data.logo_url,
+      }));
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast('Logo resmi yayasan berhasil diunggah dan langsung tampil di website publik.');
     },
-  });
-
-  useQuery({
-    queryKey: ['adminCmsGalleries'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: GalleryItemType[] }>('/admin/galleries');
-        if (res.data?.data?.length) setGalleries(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
-    },
-  });
-
-  useQuery({
-    queryKey: ['adminCmsOrgMembers'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<{ data: OrgMemberItem[] }>('/admin/organization-members');
-        if (res.data?.data?.length) setOrgMembers(res.data.data);
-      } catch {
-        // use fallback
-      }
-      return null;
+    onError: () => {
+      alert('Gagal mengunggah file logo yayasan.');
     },
   });
 
   // --- Handlers: Banner ---
+  const handleBannerImageUpload = async (file: File) => {
+    setUploadingBannerImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await apiClient.post<{ data: { url: string; path: string } }>(
+        '/admin/uploads/images',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      if (res.data?.data?.url) {
+        setBannerForm((prev) => ({ ...prev, image_path: res.data.data.url }));
+        showToast('Foto banner berhasil diunggah.');
+      }
+    } catch {
+      alert('Gagal mengunggah gambar banner. Pastikan ukuran file di bawah 5MB.');
+    } finally {
+      setUploadingBannerImage(false);
+    }
+  };
+
   const handleSaveBanner = async () => {
     if (!bannerForm.title || !bannerForm.image_path) {
       alert('Judul dan URL gambar banner wajib diisi.');
       return;
     }
 
-    if (bannerForm.id) {
-      // Edit
-      try {
-        await apiClient.put(`/admin/banners/${bannerForm.id}`, bannerForm);
-      } catch {
-        // offline mock
+    const payload = {
+      title: bannerForm.title.trim(),
+      subtitle: bannerForm.subtitle?.trim() || null,
+      image_path: bannerForm.image_path.trim(),
+      cta_label: bannerForm.cta_label?.trim() || 'Daftar Sekarang',
+      link_url: bannerForm.link_url?.trim() || '/pendaftaran',
+      sort_order: bannerForm.sort_order ?? 1,
+      is_active: bannerForm.is_active ?? true,
+    };
+
+    try {
+      if (bannerForm.id && bannerForm.id > 0) {
+        try {
+          await apiClient.put(`/admin/banners/${bannerForm.id}`, payload);
+        } catch (err: unknown) {
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          if (status === 404) {
+            // Jika ID fallback belum ada di DB, buat baru
+            await apiClient.post('/admin/banners', payload);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        await apiClient.post('/admin/banners', payload);
       }
-      setBanners((prev) =>
-        prev.map((b) => (b.id === bannerForm.id ? { ...(bannerForm as BannerItem) } : b))
-      );
-      showToast('Banner hero berhasil diperbarui.');
-    } else {
-      // Add
-      const newId = Date.now();
-      const newBanner: BannerItem = {
-        id: newId,
-        title: bannerForm.title || '',
-        subtitle: bannerForm.subtitle || '',
-        image_path: bannerForm.image_path || '',
-        cta_label: bannerForm.cta_label || 'Daftar Sekarang',
-        link_url: bannerForm.link_url || '/pendaftaran',
-        sort_order: banners.length + 1,
-        is_active: bannerForm.is_active ?? true,
-      };
-      try {
-        await apiClient.post('/admin/banners', newBanner);
-      } catch {
-        // offline mock
-      }
-      setBanners((prev) => [...prev, newBanner]);
-      showToast('Banner hero baru berhasil ditambahkan.');
+
+      queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast('Banner hero berhasil disimpan dan langsung diperbarui di website publik.');
+      setBannerModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan banner hero.';
+      alert(`Gagal: ${msg}`);
     }
-    setBannerModalOpen(false);
   };
 
   const handleToggleBannerActive = async (b: BannerItem) => {
-    const updated = { ...b, is_active: !b.is_active };
-    setBanners((prev) => prev.map((item) => (item.id === b.id ? updated : item)));
+    const updated = {
+      title: b.title,
+      subtitle: b.subtitle,
+      image_path: b.image_path,
+      cta_label: b.cta_label,
+      link_url: b.link_url,
+      sort_order: b.sort_order,
+      is_active: !b.is_active,
+    };
     try {
       await apiClient.put(`/admin/banners/${b.id}`, updated);
+      queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+      showToast(`Banner "${b.title}" ${updated.is_active ? 'diaktifkan' : 'dinonaktifkan'}.`);
     } catch {
-      // mock
+      // Offline fallback
+      setLocalBanners((prev) => prev.map((item) => (item.id === b.id ? { ...b, is_active: !b.is_active } : item)));
+      showToast(`Status banner diperbarui.`);
     }
-    showToast(`Banner "${b.title}" ${updated.is_active ? 'diaktifkan' : 'dinonaktifkan'}.`);
   };
 
   // --- Handlers: Article ---
@@ -422,38 +632,56 @@ export const CmsPage: React.FC = () => {
       return;
     }
 
-    if (articleForm.id) {
-      try {
-        await apiClient.put(`/admin/posts/${articleForm.id}`, articleForm);
-      } catch {
-        // mock
+    const payload = {
+      title: articleForm.title.trim(),
+      slug: articleForm.slug?.trim() || undefined,
+      excerpt: articleForm.excerpt?.trim() || null,
+      content: articleForm.content.trim(),
+      cover_path: articleForm.cover_path?.trim() || '/images/news/ppdb-cover.jpg',
+      status: articleForm.status || 'published',
+      published_at: articleForm.published_at || new Date().toISOString(),
+      post_category_id: articleForm.post_category_id || articleForm.category?.id || 11,
+    };
+
+    try {
+      if (articleForm.id && typeof articleForm.id === 'number' && articleForm.id < 1000000000) {
+        await apiClient.put(`/admin/posts/${articleForm.id}`, payload);
+        showToast('Artikel berhasil diperbarui.');
+      } else {
+        await apiClient.post('/admin/posts', payload);
+        showToast('Artikel berhasil dipublikasikan ke Landing Page.');
       }
-      setArticles((prev) =>
-        prev.map((a) => (a.id === articleForm.id ? { ...(articleForm as PostItem) } : a))
-      );
-      showToast('Artikel berhasil diperbarui.');
-    } else {
-      const newPost: PostItem = {
-        id: Date.now(),
-        title: articleForm.title || '',
-        slug: articleForm.slug || articleForm.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'post',
-        excerpt: articleForm.excerpt || '',
-        content: articleForm.content || '',
-        cover_path: articleForm.cover_path || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80',
-        status: articleForm.status || 'published',
-        published_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        category: { id: 1, name: 'Informasi Umum' },
-      };
-      try {
-        await apiClient.post('/admin/posts', newPost);
-      } catch {
-        // mock
-      }
-      setArticles((prev) => [newPost, ...prev]);
-      showToast('Artikel berhasil dipublikasikan ke Landing Page.');
+      queryClient.invalidateQueries({ queryKey: ['adminCmsPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'activities'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'posts'] });
+      setArticleModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan artikel.';
+      alert(`Gagal: ${msg}`);
     }
-    setArticleModalOpen(false);
+  };
+
+  const handleTogglePublishArticle = async (art: PostItem) => {
+    try {
+      if (art.status === 'published') {
+        await apiClient.patch(`/admin/posts/${art.id}/unpublish`);
+        showToast('Artikel berhasil diubah menjadi draft.');
+      } else {
+        await apiClient.patch(`/admin/posts/${art.id}/publish`);
+        showToast('Artikel berhasil dipublikasikan ke Landing Page.');
+      }
+      queryClient.invalidateQueries({ queryKey: ['adminCmsPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'activities'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'posts'] });
+    } catch {
+      // offline fallback
+      setLocalArticles((prev) =>
+        prev.map((a) => (a.id === art.id ? { ...a, status: a.status === 'published' ? 'draft' : 'published' } : a))
+      );
+      showToast('Status publikasi artikel diperbarui.');
+    }
   };
 
   // --- Handlers: Gallery ---
@@ -462,26 +690,30 @@ export const CmsPage: React.FC = () => {
       alert('Judul album galeri wajib diisi.');
       return;
     }
-    const newGal: GalleryItemType = {
-      id: Date.now(),
-      title: galleryForm.title || '',
-      slug: galleryForm.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'galeri',
-      description: galleryForm.description || '',
-      cover_path: galleryForm.cover_path || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    const payload = {
+      title: galleryForm.title.trim(),
+      description: galleryForm.description?.trim() || null,
+      cover_path: galleryForm.cover_path?.trim() || '/images/gallery/pensi-cover.jpg',
       event_date: galleryForm.event_date || new Date().toISOString().split('T')[0],
-      is_published: true,
-      items: [
-        { id: 1, path: galleryForm.cover_path || '', caption: 'Dokumentasi Utama' },
-      ],
+      is_published: galleryForm.is_published ?? true,
     };
     try {
-      await apiClient.post('/admin/galleries', newGal);
-    } catch {
-      // mock
+      if (galleryForm.id && typeof galleryForm.id === 'number' && galleryForm.id < 1000000000) {
+        await apiClient.put(`/admin/galleries/${galleryForm.id}`, payload);
+        showToast('Album galeri berhasil diperbarui.');
+      } else {
+        await apiClient.post('/admin/galleries', payload);
+        showToast('Album galeri berhasil ditambahkan.');
+      }
+      queryClient.invalidateQueries({ queryKey: ['adminCmsGalleries'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'galleries'] });
+      setGalleryModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan galeri.';
+      alert(`Gagal: ${msg}`);
     }
-    setGalleries((prev) => [newGal, ...prev]);
-    setGalleryModalOpen(false);
-    showToast('Album galeri berhasil ditambahkan.');
   };
 
   // --- Handlers: Profile & Org ---
@@ -491,70 +723,91 @@ export const CmsPage: React.FC = () => {
       return;
     }
 
-    if (orgForm.id) {
-      try {
-        await apiClient.put(`/admin/organization-members/${orgForm.id}`, orgForm);
-      } catch {
-        // mock
+    const payload = {
+      name: orgForm.name.trim(),
+      position: orgForm.position.trim(),
+      bio: orgForm.bio?.trim() || null,
+      photo_path: orgForm.photo_path?.trim() || '/images/org/ketua-pembina.jpg',
+      sort_order: orgForm.sort_order ?? 1,
+      is_active: orgForm.is_active ?? true,
+    };
+
+    try {
+      if (orgForm.id && typeof orgForm.id === 'number' && orgForm.id < 1000000000) {
+        await apiClient.put(`/admin/organization-members/${orgForm.id}`, payload);
+        showToast('Data pengurus berhasil diperbarui.');
+      } else {
+        await apiClient.post('/admin/organization-members', payload);
+        showToast('Pengurus baru berhasil ditambahkan.');
       }
-      setOrgMembers((prev) =>
-        prev.map((m) => (m.id === orgForm.id ? { ...(orgForm as OrgMemberItem) } : m))
-      );
-      showToast('Data pengurus berhasil diperbarui.');
-    } else {
-      const newMember: OrgMemberItem = {
-        id: Date.now(),
-        name: orgForm.name || '',
-        position: orgForm.position || '',
-        bio: orgForm.bio || '',
-        photo_path: orgForm.photo_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-        sort_order: orgMembers.length + 1,
-        is_active: true,
-      };
-      try {
-        await apiClient.post('/admin/organization-members', newMember);
-      } catch {
-        // mock
-      }
-      setOrgMembers((prev) => [...prev, newMember]);
-      showToast('Pengurus baru berhasil ditambahkan.');
+      queryClient.invalidateQueries({ queryKey: ['adminCmsOrgMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'organization'] });
+      setOrgModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Gagal menyimpan anggota pengurus.';
+      alert(`Gagal: ${msg}`);
     }
-    setOrgModalOpen(false);
   };
 
   // --- Handlers: Achievement ---
-  const handleSaveAchievement = () => {
+  const handleSaveAchievement = async () => {
     if (!achievementForm.title) {
       alert('Nama prestasi wajib diisi.');
       return;
     }
-    const newAch: AchievementItem = {
-      id: Date.now(),
-      title: achievementForm.title || '',
-      category: achievementForm.category || 'Akademik',
-      year: achievementForm.year || '2026',
-      description: achievementForm.description || '',
-    };
-    setAchievements((prev) => [newAch, ...prev]);
+    const updated = achievementForm.id
+      ? achievements.map((a) => (a.id === achievementForm.id ? { ...(achievementForm as AchievementItem) } : a))
+      : [
+          {
+            id: Date.now(),
+            title: achievementForm.title || '',
+            category: achievementForm.category || 'Akademik',
+            year: achievementForm.year || '2026',
+            description: achievementForm.description || '',
+          },
+          ...achievements,
+        ];
+    setAchievements(updated);
+    try {
+      await updateSettings({ site_achievements: JSON.stringify(updated) });
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+    } catch {
+      // offline fallback
+    }
     setAchievementModalOpen(false);
-    showToast('Prestasi siswa berhasil ditambahkan.');
+    showToast('Prestasi siswa berhasil disimpan.');
   };
 
   // --- Handlers: FAQ ---
-  const handleSaveFaq = () => {
+  const handleSaveFaq = async () => {
     if (!faqForm.question || !faqForm.answer) {
       alert('Pertanyaan dan jawaban FAQ wajib diisi.');
       return;
     }
-    const newFaq: FaqItem = {
-      id: Date.now(),
-      question: faqForm.question || '',
-      answer: faqForm.answer || '',
-      sort_order: faqs.length + 1,
-    };
-    setFaqs((prev) => [...prev, newFaq]);
+    const updated = faqForm.id
+      ? faqs.map((f) => (f.id === faqForm.id ? { ...(faqForm as FaqItem) } : f))
+      : [
+          ...faqs,
+          {
+            id: Date.now(),
+            question: faqForm.question || '',
+            answer: faqForm.answer || '',
+            sort_order: faqs.length + 1,
+          },
+        ];
+    setFaqs(updated);
+    try {
+      await updateSettings({ site_faqs: JSON.stringify(updated) });
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+    } catch {
+      // offline fallback
+    }
     setFaqModalOpen(false);
-    showToast('FAQ baru berhasil ditambahkan.');
+    showToast('FAQ berhasil disimpan.');
   };
 
   return (
@@ -598,7 +851,7 @@ export const CmsPage: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveTab('hero')}
+            onClick={() => handleTabChange('hero')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'hero'
                 ? 'bg-navy text-white shadow-sm'
@@ -610,7 +863,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('articles')}
+            onClick={() => handleTabChange('articles')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'articles'
                 ? 'bg-navy text-white shadow-sm'
@@ -622,7 +875,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('gallery')}
+            onClick={() => handleTabChange('gallery')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'gallery'
                 ? 'bg-navy text-white shadow-sm'
@@ -634,7 +887,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('profile')}
+            onClick={() => handleTabChange('profile')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'profile'
                 ? 'bg-navy text-white shadow-sm'
@@ -646,7 +899,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('achievements')}
+            onClick={() => handleTabChange('achievements')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'achievements'
                 ? 'bg-navy text-white shadow-sm'
@@ -658,7 +911,7 @@ export const CmsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('faq_contact')}
+            onClick={() => handleTabChange('faq_contact')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
               activeTab === 'faq_contact'
                 ? 'bg-navy text-white shadow-sm'
@@ -668,6 +921,30 @@ export const CmsPage: React.FC = () => {
             <HelpCircle className="w-4 h-4" />
             6. FAQ & Kontak
           </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('identity')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'identity'
+                ? 'bg-navy text-white shadow-sm'
+                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            7. Identitas & Logo Yayasan
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('system')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'system'
+                ? 'bg-navy text-white shadow-sm'
+                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            8. Sistem & Akademik
+          </button>
         </div>
       </div>
 
@@ -676,6 +953,71 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'hero' && (
         <div className="space-y-6">
+          {/* Quick Hero Background Upload Card */}
+          <div className="bg-gradient-to-r from-navy via-[#0C3259] to-primary text-white p-5 rounded-card shadow-sm border border-navy/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="space-y-1 max-w-xl">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-star/20 text-star text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5" /> Ganti Latar Belakang Hero
+              </span>
+              <h4 className="font-display font-bold text-base text-white">Latar Belakang Gambar Hero Landing Page</h4>
+              <p className="text-xs text-white/80 leading-relaxed">
+                Ganti latar belakang biru polos pada halaman utama dengan foto gedung sekolah, kelas, atau kegiatan siswa.
+                Gambar yang diunggah akan otomatis memiliki lapisan gradien biru agar teks tetap kontras dan mudah dibaca.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-star text-navy font-bold text-xs rounded-control cursor-pointer hover:bg-star/90 transition-all shadow-md">
+                <Upload className="w-4 h-4 text-navy" />
+                <span>{uploadingBannerImage ? 'Mengunggah...' : 'Unggah Background Hero'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingBannerImage}
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      const formData = new FormData();
+                      formData.append('image', file);
+                      try {
+                        setUploadingBannerImage(true);
+                        const res = await apiClient.post<{ data: { url: string; path: string } }>(
+                          '/admin/uploads/images',
+                          formData,
+                          { headers: { 'Content-Type': 'multipart/form-data' } }
+                        );
+                        if (res.data?.data?.url) {
+                          const uploadedUrl = res.data.data.url;
+                          if (banners && banners.length > 0) {
+                            const first = banners[0];
+                            try {
+                              await apiClient.put(`/admin/banners/${first.id}`, {
+                                ...first,
+                                image_path: uploadedUrl,
+                              });
+                            } catch {
+                              // fallback
+                            }
+                          }
+                          await updateSettings({ hero_background_image: uploadedUrl });
+                          queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+                          queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+                          queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+                          showToast('Background hero berhasil diperbarui dan langsung tampil di landing page publik.');
+                        }
+                      } catch {
+                        alert('Gagal mengunggah background hero.');
+                      } finally {
+                        setUploadingBannerImage(false);
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-card border border-navy/10 shadow-sm">
             <div>
               <h3 className="font-display font-bold text-base text-navy">Manajemen Hero Section & Banner Utama</h3>
@@ -699,7 +1041,7 @@ export const CmsPage: React.FC = () => {
                   setBannerForm({
                     title: '',
                     subtitle: '',
-                    image_path: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
+                    image_path: '/images/banner-hero-1.jpg',
                     cta_label: 'Daftar PPDB Online',
                     link_url: '/pendaftaran',
                     is_active: true,
@@ -714,29 +1056,37 @@ export const CmsPage: React.FC = () => {
           </div>
 
           {/* Banner Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
             {banners.map((b) => (
               <div
                 key={b.id}
-                className={`bg-white rounded-card border overflow-hidden shadow-sm transition-all hover:shadow-md ${
+                className={`bg-white rounded-card border overflow-hidden shadow-sm transition-all hover:shadow-md flex flex-col justify-between h-full ${
                   b.is_active ? 'border-navy/20 ring-1 ring-navy/10' : 'border-ink-muted/20 opacity-70'
                 }`}
               >
                 {/* Banner Image Preview */}
-                <div className="relative h-44 bg-navy/90 overflow-hidden group">
+                <div className="relative h-48 bg-navy/90 overflow-hidden group w-full shrink-0">
                   <img
                     src={b.image_path}
                     alt={b.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (!target.src.endsWith('/images/banner-hero-1.jpg')) {
+                        target.src = '/images/banner-hero-1.jpg';
+                      }
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-transparent p-4 flex flex-col justify-end">
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/60 to-transparent p-4 flex flex-col justify-end">
                     <span className="text-[11px] font-bold text-star uppercase tracking-wider mb-1">
                       Urutan #{b.sort_order}
                     </span>
-                    <h4 className="text-white font-bold text-sm leading-snug drop-shadow-sm">{b.title}</h4>
-                    {b.subtitle && (
-                      <p className="text-white/80 text-xs line-clamp-1 mt-0.5">{b.subtitle}</p>
-                    )}
+                    <h4 className="text-white font-bold text-sm leading-snug drop-shadow-sm h-[2.5rem] line-clamp-2 overflow-hidden">
+                      {b.title}
+                    </h4>
+                    <p className="text-white/80 text-xs line-clamp-1 mt-0.5 h-[1.25rem] overflow-hidden">
+                      {b.subtitle || '—'}
+                    </p>
                   </div>
 
                   {/* Status Pill */}
@@ -752,7 +1102,7 @@ export const CmsPage: React.FC = () => {
                 </div>
 
                 {/* Banner Details & Controls */}
-                <div className="p-4 space-y-3 bg-white">
+                <div className="p-4 space-y-3 bg-white flex flex-col justify-between flex-1">
                   <div className="flex items-center justify-between text-xs text-ink-muted border-b border-navy/10 pb-2">
                     <span>Tombol CTA: <strong>{b.cta_label || '—'}</strong></span>
                     <span>Tujuan Link: <code className="text-[11px] text-navy">{b.link_url || '/'}</code></span>
@@ -915,6 +1265,15 @@ export const CmsPage: React.FC = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => handleTogglePublishArticle(art)}
+                            className="text-xs p-1 text-emerald-600 hover:bg-emerald-50"
+                            title={art.status === 'published' ? 'Ubah ke Draft' : 'Terbitkan ke Website'}
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setArticlePreviewTarget(art)}
                             className="text-xs p-1 text-navy hover:bg-navy/10"
                             title="Pratinjau Artikel"
@@ -1037,7 +1396,13 @@ export const CmsPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => showToast('Visi & Misi yayasan berhasil disimpan.')}
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    vision: visionText,
+                    mission: JSON.stringify(missionList),
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
                 className="text-xs flex items-center gap-1.5 bg-navy text-white"
               >
                 <Save className="w-4 h-4 text-star" /> Simpan Visi Misi
@@ -1055,7 +1420,16 @@ export const CmsPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-navy uppercase tracking-wider">Poin-Poin Misi:</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-navy uppercase tracking-wider">Poin-Poin Misi:</label>
+                <button
+                  type="button"
+                  onClick={() => setMissionList((prev) => [...prev, ''])}
+                  className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Tambah Poin Misi
+                </button>
+              </div>
               {missionList.map((m, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-navy/10 text-navy font-bold text-xs flex items-center justify-center shrink-0">
@@ -1071,8 +1445,55 @@ export const CmsPage: React.FC = () => {
                     }}
                     className="w-full text-xs p-2 bg-paper border border-navy/20 rounded-control text-ink"
                   />
+                  {missionList.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setMissionList((prev) => prev.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
+                      title="Hapus poin"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Sejarah & Deskripsi Yayasan (Tentang Kami) */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">Tentang Yayasan & Sejarah Singkat</h3>
+                <p className="text-xs text-ink-muted">Tampil pada section "Tentang Kami" di Landing Page utama website publik.</p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    about_description: aboutDescription,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Save className="w-4 h-4 text-star" /> Simpan Profil Yayasan
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-navy uppercase tracking-wider">Deskripsi / Profil Lengkap Yayasan:</label>
+              <textarea
+                rows={4}
+                value={aboutDescription}
+                onChange={(e) => setAboutDescription(e.target.value)}
+                placeholder="Tuliskan sejarah singkat, profil, dan komitmen Yayasan Padindi..."
+                className="w-full text-xs p-3 bg-paper border border-navy/20 rounded-control focus:ring-2 focus:ring-navy/20 text-ink leading-relaxed"
+              />
+              <p className="text-[11px] text-ink-muted">
+                Tip: Gunakan baris kosong ganda (enter 2 kali) untuk memisahkan antar paragraf pada tampilan publik.
+              </p>
             </div>
           </div>
 
@@ -1238,12 +1659,25 @@ export const CmsPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-navy/10 pb-3">
               <div>
                 <h3 className="font-display font-bold text-base text-navy">Informasi Kontak & Footer Website</h3>
-                <p className="text-xs text-ink-muted">Muncul di footer seluruh halaman website publik.</p>
+                <p className="text-xs text-ink-muted">Muncul di footer dan section kontak seluruh halaman website publik.</p>
               </div>
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => showToast('Informasi kontak footer berhasil disimpan.')}
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    contact_address: contactInfo.address,
+                    contact_email: contactInfo.email,
+                    contact_phone: contactInfo.phone,
+                    contact_whatsapp: contactInfo.whatsapp,
+                    contact_hours: contactInfo.hours,
+                    contact_map_embed_url: contactInfo.maps_url,
+                    social_instagram: contactInfo.social_instagram,
+                    social_facebook: contactInfo.social_facebook,
+                    social_youtube: contactInfo.social_youtube,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
                 className="text-xs flex items-center gap-1.5 bg-navy text-white"
               >
                 <Save className="w-4 h-4 text-star" /> Simpan Informasi Kontak
@@ -1288,6 +1722,297 @@ export const CmsPage: React.FC = () => {
                   value={contactInfo.whatsapp}
                   onChange={(e) => setContactInfo({ ...contactInfo, whatsapp: e.target.value })}
                   className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Jam Operasional Kantor:</label>
+                <input
+                  type="text"
+                  value={contactInfo.hours}
+                  onChange={(e) => setContactInfo({ ...contactInfo, hours: e.target.value })}
+                  placeholder="Senin – Jumat: 07.30 – 15.30 WIB"
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Link Embed Google Maps:</label>
+                <input
+                  type="text"
+                  value={contactInfo.maps_url}
+                  onChange={(e) => setContactInfo({ ...contactInfo, maps_url: e.target.value })}
+                  placeholder="https://maps.google.com/..."
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">URL Akun Instagram Resmi:</label>
+                <input
+                  type="text"
+                  value={contactInfo.social_instagram}
+                  onChange={(e) => setContactInfo({ ...contactInfo, social_instagram: e.target.value })}
+                  placeholder="https://instagram.com/padindi"
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">URL Akun Facebook / YouTube:</label>
+                <input
+                  type="text"
+                  value={contactInfo.social_youtube}
+                  onChange={(e) => setContactInfo({ ...contactInfo, social_youtube: e.target.value })}
+                  placeholder="https://youtube.com/@padindi"
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: IDENTITAS & LOGO YAYASAN */}
+      {/* ========================================================================= */}
+      {activeTab === 'identity' && (
+        <div className="space-y-6">
+          {/* Identitas Yayasan */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">Identitas Resmi Yayasan</h3>
+                <p className="text-xs text-ink-muted">
+                  Nama yayasan dan slogan/tagline akan tampil di Navbar, Footer, dan metadata SEO.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    site_name: identityInfo.site_name,
+                    site_tagline: identityInfo.site_tagline,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Save className="w-4 h-4 text-star" /> Simpan Identitas Yayasan
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="font-bold text-navy block mb-1">Nama Resmi Lembaga / Yayasan *</label>
+                <input
+                  type="text"
+                  value={identityInfo.site_name}
+                  onChange={(e) => setIdentityInfo({ ...identityInfo, site_name: e.target.value })}
+                  placeholder="Misal: Yayasan Perguruan Padindi"
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Slogan / Tagline Resmi</label>
+                <input
+                  type="text"
+                  value={identityInfo.site_tagline}
+                  onChange={(e) => setIdentityInfo({ ...identityInfo, site_tagline: e.target.value })}
+                  placeholder="Misal: Menuntun setiap anak ke arah yang tepat"
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Logo Yayasan */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="border-b border-navy/10 pb-3">
+              <h3 className="font-display font-bold text-base text-navy">Logo Institusi & Pratinjau Visual</h3>
+              <p className="text-xs text-ink-muted">
+                Logo resmi akan langsung ditampilkan pada Header Navbar publik, Footer, dan dokumen resmi.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-paper rounded-card border border-navy/10">
+              <div className="w-28 h-28 bg-white rounded-xl border-2 border-navy/20 p-2 flex items-center justify-center shadow-xs shrink-0">
+                <img
+                  src={identityInfo.site_logo_url || '/images/logo.png'}
+                  alt={`Logo ${identityInfo.site_name}`}
+                  className="max-h-full max-w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/logo.png';
+                  }}
+                />
+              </div>
+
+              <div className="space-y-3 flex-1 text-xs">
+                <div>
+                  <h4 className="font-bold text-navy text-sm">Unggah Logo Institusi Baru</h4>
+                  <p className="text-ink-muted mt-0.5">
+                    Format file disarankan PNG transparan, JPG, atau WebP. Maksimal ukuran file 2 MB.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-navy text-white font-bold rounded-control cursor-pointer hover:bg-navy/90 transition-colors shadow-xs">
+                    <Upload className="w-4 h-4 text-star" />
+                    <span>Pilih Berkas Logo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          uploadLogoMutation.mutate(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                  {uploadLogoMutation.isPending && (
+                    <span className="text-primary font-semibold flex items-center gap-1.5 animate-pulse">
+                      <Sparkles className="w-4 h-4" /> Mengunggah logo...
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 8: PENGATURAN SISTEM & AKADEMIK */}
+      {/* ========================================================================= */}
+      {activeTab === 'system' && (
+        <div className="space-y-6">
+          {/* Pengaturan PPDB & Akademik */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">Tahun Akademik & Informasi Pendaftaran</h3>
+                <p className="text-xs text-ink-muted">
+                  Mengatur tahun ajaran aktif serta petunjuk seleksi calon murid dan rekrutmen guru.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateSettingsMutation.mutate({
+                    academic_year_active: systemInfo.academic_year_active,
+                    registration_student_test_info: systemInfo.registration_student_test_info,
+                    registration_teacher_interview_info: systemInfo.registration_teacher_interview_info,
+                    security_session_timeout: systemInfo.security_session_timeout,
+                    security_require_email_verification: systemInfo.security_require_email_verification,
+                    notification_admin_email_alert: systemInfo.notification_admin_email_alert,
+                  })
+                }
+                disabled={updateSettingsMutation.isPending}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Save className="w-4 h-4 text-star" /> Simpan Pengaturan Sistem
+              </Button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-navy block mb-1">Tahun Ajaran Aktif (PPDB):</label>
+                <input
+                  type="text"
+                  value={systemInfo.academic_year_active}
+                  onChange={(e) => setSystemInfo({ ...systemInfo, academic_year_active: e.target.value })}
+                  placeholder="2026/2027"
+                  className="w-full sm:w-64 p-2.5 bg-paper border border-navy/20 rounded-control text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Petunjuk / Info Tes Observasi Calon Siswa:</label>
+                <textarea
+                  rows={2}
+                  value={systemInfo.registration_student_test_info}
+                  onChange={(e) => setSystemInfo({ ...systemInfo, registration_student_test_info: e.target.value })}
+                  placeholder="Informasi jadwal atau tata tertib tes observasi calon siswa..."
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-navy block mb-1">Petunjuk / Info Seleksi Calon Guru:</label>
+                <textarea
+                  rows={2}
+                  value={systemInfo.registration_teacher_interview_info}
+                  onChange={(e) => setSystemInfo({ ...systemInfo, registration_teacher_interview_info: e.target.value })}
+                  placeholder="Informasi proses wawancara atau microteaching rekrutmen guru..."
+                  className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink leading-relaxed"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Keamanan & Kebijakan Sesi */}
+          <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
+            <div className="border-b border-navy/10 pb-3">
+              <h3 className="font-display font-bold text-base text-navy">Keamanan & Kebijakan Akses</h3>
+              <p className="text-xs text-ink-muted">Konfigurasi batas waktu sesi admin dan notifikasi sistem.</p>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-paper rounded-card border border-navy/10">
+                <div>
+                  <h4 className="font-bold text-navy">Batas Waktu Sesi Admin (Session Timeout)</h4>
+                  <p className="text-ink-muted">Sesi admin otomatis kedaluwarsa setelah durasi tanpa aktivitas.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="15"
+                    max="480"
+                    value={systemInfo.security_session_timeout}
+                    onChange={(e) => setSystemInfo({ ...systemInfo, security_session_timeout: e.target.value })}
+                    className="w-24 p-2 bg-white border border-navy/20 rounded-control text-ink text-center"
+                  />
+                  <span className="font-semibold text-ink-muted">Menit</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-3 bg-paper rounded-card border border-navy/10">
+                <div>
+                  <h4 className="font-bold text-navy">Wajib Verifikasi Email Calon Pendaftar</h4>
+                  <p className="text-ink-muted">Calon pendaftar wajib memverifikasi email sebelum melanjutkan proses formulir.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemInfo.security_require_email_verification === '1'}
+                  onChange={(e) =>
+                    setSystemInfo({
+                      ...systemInfo,
+                      security_require_email_verification: e.target.checked ? '1' : '0',
+                    })
+                  }
+                  className="w-4 h-4 text-navy rounded border-navy/30 focus:ring-navy"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-3 bg-paper rounded-card border border-navy/10">
+                <div>
+                  <h4 className="font-bold text-navy">Kirim Email Notifikasi Admin untuk Pendaftar Baru</h4>
+                  <p className="text-ink-muted">Kirim notifikasi otomatis ke email pengurus yayasan setiap ada berkas masuk.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemInfo.notification_admin_email_alert === '1'}
+                  onChange={(e) =>
+                    setSystemInfo({
+                      ...systemInfo,
+                      notification_admin_email_alert: e.target.checked ? '1' : '0',
+                    })
+                  }
+                  className="w-4 h-4 text-navy rounded border-navy/30 focus:ring-navy"
                 />
               </div>
             </div>
@@ -1338,14 +2063,46 @@ export const CmsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-navy block mb-1">URL Gambar Banner *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-navy">Gambar Banner *</label>
+                  <label className="text-xs text-primary font-bold cursor-pointer hover:underline flex items-center gap-1">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingBannerImage ? 'Mengunggah...' : 'Unggah File Foto'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingBannerImage}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleBannerImageUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={bannerForm.image_path || ''}
                   onChange={(e) => setBannerForm({ ...bannerForm, image_path: e.target.value })}
-                  placeholder="https://... atau /images/banner-1.jpg"
+                  placeholder="https://... atau unggah berkas dari perangkat Anda"
                   className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink focus:outline-none focus:ring-2 focus:ring-navy/30"
                 />
+                {bannerForm.image_path && (
+                  <div className="mt-2 relative w-full h-28 bg-navy/5 rounded-lg border border-navy/10 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={bannerForm.image_path}
+                      alt="Pratinjau Banner"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.endsWith('/images/banner-hero-1.jpg')) {
+                          target.src = '/images/banner-hero-1.jpg';
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1491,14 +2248,76 @@ export const CmsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-navy block mb-1">URL Gambar Sampul (Thumbnail)</label>
+                <label className="font-bold text-navy block mb-1">Kategori Berita / Konten *</label>
+                <select
+                  value={articleForm.post_category_id || articleForm.category?.id || 11}
+                  onChange={(e) => setArticleForm({ ...articleForm, post_category_id: Number(e.target.value) })}
+                  className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink text-xs font-semibold"
+                >
+                  <option value={11}>Kegiatan Sekolah</option>
+                  <option value={12}>Prestasi & Penghargaan</option>
+                  <option value={13}>Pengumuman Resmi</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-navy">Gambar Sampul (Thumbnail)</label>
+                  <label className="text-xs text-primary font-bold cursor-pointer hover:underline flex items-center gap-1">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingCover ? 'Mengunggah...' : 'Unggah Foto Sampul'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingCover}
+                      onChange={async (e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          try {
+                            setUploadingCover(true);
+                            const formData = new FormData();
+                            formData.append('image', e.target.files[0]);
+                            const res = await apiClient.post<{ data: { url: string; path: string } }>(
+                              '/admin/uploads/images',
+                              formData,
+                              { headers: { 'Content-Type': 'multipart/form-data' } }
+                            );
+                            if (res.data?.data?.url) {
+                              setArticleForm((prev) => ({ ...prev, cover_path: res.data.data.url }));
+                              showToast('Foto sampul berhasil diunggah.');
+                            }
+                          } catch {
+                            alert('Gagal mengunggah foto sampul.');
+                          } finally {
+                            setUploadingCover(false);
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={articleForm.cover_path || ''}
                   onChange={(e) => setArticleForm({ ...articleForm, cover_path: e.target.value })}
-                  placeholder="https://... atau /images/news/cover.jpg"
+                  placeholder="https://... atau unggah berkas dari perangkat Anda"
                   className="w-full p-2 bg-paper border border-navy/20 rounded-control text-ink"
                 />
+                {articleForm.cover_path && (
+                  <div className="mt-2 relative w-full h-28 bg-navy/5 rounded-lg border border-navy/10 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={articleForm.cover_path}
+                      alt="Pratinjau Sampul"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.endsWith('/images/news/ppdb-cover.jpg')) {
+                          target.src = '/images/news/ppdb-cover.jpg';
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1795,9 +2614,17 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteBannerTarget)}
         onClose={() => setDeleteBannerTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteBannerTarget) {
-            setBanners((prev) => prev.filter((b) => b.id !== deleteBannerTarget.id));
+            try {
+              await apiClient.delete(`/admin/banners/${deleteBannerTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsBanners'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'banners'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+            setLocalBanners((prev) => prev.filter((b) => b.id !== deleteBannerTarget.id));
             setDeleteBannerTarget(null);
             showToast('Banner hero berhasil dihapus.');
           }
@@ -1811,11 +2638,19 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteArticleTarget)}
         onClose={() => setDeleteArticleTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteArticleTarget) {
-            setArticles((prev) => prev.filter((a) => a.id !== deleteArticleTarget.id));
+            try {
+              await apiClient.delete(`/admin/posts/${deleteArticleTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsPosts'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'activities'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'posts'] });
+            setLocalArticles((prev) => prev.filter((a) => a.id !== deleteArticleTarget.id));
             setDeleteArticleTarget(null);
-            showToast('Artikel berita berhasil dihapus.');
+            showToast('Artikel berita berhasil dihapus dan langsung diperbarui di website publik.');
           }
         }}
         title="Hapus Artikel"
@@ -1827,9 +2662,16 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteGalleryTarget)}
         onClose={() => setDeleteGalleryTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteGalleryTarget) {
-            setGalleries((prev) => prev.filter((g) => g.id !== deleteGalleryTarget.id));
+            try {
+              await apiClient.delete(`/admin/galleries/${deleteGalleryTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsGalleries'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'galleries'] });
+            setLocalGalleries((prev) => prev.filter((g) => g.id !== deleteGalleryTarget.id));
             setDeleteGalleryTarget(null);
             showToast('Album galeri berhasil dihapus.');
           }
@@ -1843,9 +2685,16 @@ export const CmsPage: React.FC = () => {
       <ConfirmModal
         open={Boolean(deleteOrgTarget)}
         onClose={() => setDeleteOrgTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteOrgTarget) {
-            setOrgMembers((prev) => prev.filter((o) => o.id !== deleteOrgTarget.id));
+            try {
+              await apiClient.delete(`/admin/organization-members/${deleteOrgTarget.id}`);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsOrgMembers'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'organization'] });
+            setLocalOrgMembers((prev) => prev.filter((o) => o.id !== deleteOrgTarget.id));
             setDeleteOrgTarget(null);
             showToast('Data pengurus yayasan berhasil dihapus.');
           }
