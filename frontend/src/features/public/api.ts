@@ -113,7 +113,7 @@ function mapRawPost(raw: RawPost): Activity {
 
 export async function fetchActivities(): Promise<PaginatedResponse<Activity>> {
   const res = await apiClient.get<RawPostsResponse | { data: RawPost[] }>(
-    '/public/posts?per_page=9',
+    '/public/posts?per_page=10',
   );
   const items = Array.isArray(res.data?.data) ? res.data.data : [];
   return {

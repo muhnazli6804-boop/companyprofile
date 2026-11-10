@@ -19,7 +19,7 @@ import React, {
   useCallback,
   useId,
 } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import { ActivityCard } from './ActivityCard';
 import type { Activity } from '../types';
 
@@ -74,6 +74,19 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
   const regionId = useId();
   const liveRegionId = useId();
 
+  // Batasi maksimal 10 konten terbaru yang ditampilkan (konten terakhir dibuat / terbaru)
+  const displayedActivities = React.useMemo(() => {
+    return activities
+      .slice()
+      .sort((a, b) => {
+        const dateA = new Date(a.published_at).getTime();
+        const dateB = new Date(b.published_at).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return b.id - a.id;
+      })
+      .slice(0, 10);
+  }, [activities]);
+
   // ---- Hitung posisi scroll dan keadaan tombol ----
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -87,7 +100,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
     setShowButtons(scrollWidth > clientWidth + tolerance);
 
     // Hitung kartu yang sedang terlihat
-    if (activities.length > 0) {
+    if (displayedActivities.length > 0) {
       // Estimasi lebar kartu dari elemen pertama
       const firstCard = el.querySelector('[role="group"]') as HTMLElement | null;
       if (firstCard) {
@@ -101,13 +114,13 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
         const stride = cardWidth + gap;
         const visibleCount = Math.round(clientWidth / stride);
         const firstVisible = Math.round(scrollLeft / stride) + 1;
-        const lastVisible = Math.min(firstVisible + visibleCount - 1, activities.length);
+        const lastVisible = Math.min(firstVisible + visibleCount - 1, displayedActivities.length);
         setPositionLabel(
-          `Kegiatan ${firstVisible}${lastVisible > firstVisible ? '–' + lastVisible : ''} dari ${activities.length}`,
+          `Kegiatan ${firstVisible}${lastVisible > firstVisible ? '–' + lastVisible : ''} dari ${displayedActivities.length}`,
         );
       }
     }
-  }, [activities.length]);
+  }, [displayedActivities.length]);
 
   // Throttle via rAF untuk event scroll
   const handleScroll = useCallback(() => {
@@ -138,7 +151,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
       if (debounceRef.current) clearTimeout(debounceRef.current);
       resizeObserverRef.current?.disconnect();
     };
-  }, [handleScrollDebounced, updateScrollState, activities]);
+  }, [handleScrollDebounced, updateScrollState, displayedActivities]);
 
   // ---- Scroll satu kartu ----
   const scroll = useCallback((direction: 'prev' | 'next') => {
@@ -189,17 +202,33 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
       className="bg-paper py-16 md:py-24"
     >
       <div className="max-w-content mx-auto px-4 md:px-6 lg:px-8">
-        {/* Header baris: judul + tombol panah */}
+        {/* Header baris: judul + tombol Lihat Semua + tombol panah */}
         <div className="flex items-center justify-between mb-6 gap-4">
-          <h2
-            id="activities-heading"
-            className="font-display font-semibold text-2xl text-ink"
-          >
-            {sectionTitle}
-          </h2>
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+            <h2
+              id="activities-heading"
+              className="font-display font-semibold text-2xl text-ink"
+            >
+              {sectionTitle}
+            </h2>
+            <a
+              href="/berita"
+              className="
+                inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-control
+                bg-primary/5 hover:bg-primary/10 text-primary hover:text-navy
+                border border-primary/20 text-xs sm:text-sm font-sans font-bold
+                transition-all duration-200 shadow-2xs hover:shadow-xs
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+              "
+              aria-label="Lihat semua kegiatan dan berita yayasan"
+            >
+              <span>Lihat semua</span>
+              <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />
+            </a>
+          </div>
 
           {/* Tombol panah + penunjuk posisi — hanya tampil bila perlu */}
-          {!isLoading && !isError && activities.length > 0 && showButtons && (
+          {!isLoading && !isError && displayedActivities.length > 0 && showButtons && (
             <div className="flex items-center gap-3">
               {/* Penunjuk posisi — diumumkan lewat aria-live */}
               <span
@@ -300,14 +329,14 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
         )}
 
         {/* Keadaan: kosong */}
-        {!isLoading && !isError && activities.length === 0 && (
+        {!isLoading && !isError && displayedActivities.length === 0 && (
           <p className="text-muted font-sans py-8">
             Belum ada kegiatan yang dipublikasikan.
           </p>
         )}
 
         {/* Carousel */}
-        {!isLoading && !isError && activities.length > 0 && (
+        {!isLoading && !isError && displayedActivities.length > 0 && (
           <div
             id={regionId}
             ref={scrollRef}
@@ -333,7 +362,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
               #${CSS.escape(regionId)}::-webkit-scrollbar { display: none; }
             `}</style>
 
-            {activities.map((activity, i) => (
+            {displayedActivities.map((activity, i) => (
               <div
                 key={activity.id}
                 style={{
@@ -356,7 +385,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
                   href={activity.href}
                   index={i}
                   cardNumber={i + 1}
-                  total={activities.length}
+                  total={displayedActivities.length}
                 />
               </div>
             ))}
