@@ -7,6 +7,7 @@ import { RequireAuth } from '@/app/guards/RequireAuth';
 import { RequireAdmin } from '@/app/guards/RequireAdmin';
 import { RequirePermission } from '@/app/guards/RequirePermission';
 import { GuestOnly } from '@/app/guards/GuestOnly';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 // Lazy-loaded Public Pages
 const HomePage = lazy(() => import('@/features/public/pages/HomePage'));
@@ -62,7 +63,7 @@ const AdminLogsPage = lazy(() => import('@/features/admin/activity-logs/pages/Ac
 const AdminSettingsPage = lazy(() => import('@/features/admin/settings/pages/SettingsPage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<div className="p-8 text-center text-muted font-sans">Memuat halaman...</div>}>
+  <Suspense fallback={<LoadingScreen message="Memuat halaman..." minHeight="min-h-[50vh]" />}>
     {children}
   </Suspense>
 );

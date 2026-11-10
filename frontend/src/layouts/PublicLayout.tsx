@@ -21,8 +21,8 @@ const NAV_LINKS = [
   { label: 'Tentang', anchor: 'tentang' },
   { label: 'Visi dan misi', anchor: 'visi-misi' },
   { label: 'Kegiatan', anchor: 'kegiatan' },
-  { label: 'Pendaftaran', path: '/pendaftaran' },
   { label: 'Kontak', anchor: 'kontak' },
+  { label: 'Pendaftaran', path: '/pendaftaran' },
 ] as const;
 
 const SECTION_IDS = ['tentang', 'visi-misi', 'kegiatan', 'kontak'] as const;
@@ -32,10 +32,14 @@ export const PublicLayout: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const isClickScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isHomePage = location.pathname === '/';
+
+  const token = localStorage.getItem('auth_token');
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -43,12 +47,17 @@ export const PublicLayout: React.FC = () => {
       try {
         const res = await apiClient.get<ApiResponse<User>>('/auth/me');
         return res.data.data;
-      } catch {
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 401) {
+          localStorage.removeItem('auth_token');
+        }
         return null;
       }
     },
+    enabled: Boolean(token),
     retry: false,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleLogout = async () => {
@@ -63,51 +72,137 @@ export const PublicLayout: React.FC = () => {
     navigate('/');
   };
 
-  // Intersection observer untuk menentukan bagian aktif
+  // Deteksi bagian aktif saat scroll
+  const updateActiveSection = useCallback(() => {
+    if (!isHomePage || isClickScrollingRef.current) return;
+
+    // 1. Cek jika scroll sudah mendekati bagian paling bawah halaman (Kontak)
+    const isAtBottom =
+      window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 80;
+    if (isAtBottom) {
+      setActiveSection('kontak');
+      return;
+    }
+
+    const checkpoint = 120;
+
+    // 2. Cek jika masih di Hero (belum mencapai section pertama 'tentang')
+    const tentangEl = document.getElementById('tentang');
+    if (tentangEl) {
+      const rect = tentangEl.getBoundingClientRect();
+      if (rect.top > checkpoint) {
+        setActiveSection(null);
+        return;
+      }
+    } else if (window.scrollY < 200) {
+      setActiveSection(null);
+      return;
+    }
+
+    // 3. Cari section aktif: section terakhir yang bagian atasnya sudah melewati checkpoint
+    let matchedSection: string | null = null;
+    for (const id of SECTION_IDS) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.top <= checkpoint) {
+        matchedSection = id;
+      }
+    }
+
+    if (matchedSection) {
+      setActiveSection(matchedSection);
+    }
+  }, [isHomePage]);
+
   useEffect(() => {
     if (!isHomePage) return;
 
-    const observers: IntersectionObserver[] = [];
+    let ticking = false;
 
-    SECTION_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
+    const handleScroll = () => {
+      if (!ticking) {
+        const raf = window.requestAnimationFrame || ((cb: FrameRequestCallback) => setTimeout(cb, 16));
+        raf(() => {
+          updateActiveSection();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
 
-      const obs = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            setActiveSection(id);
-          }
-        },
-        { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
-      );
-      obs.observe(el);
-      observers.push(obs);
-    });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+    updateActiveSection();
 
-    return () => observers.forEach((o) => o.disconnect());
-  }, [isHomePage, location.pathname]);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [isHomePage, updateActiveSection]);
 
   // Tutup menu saat tautan diklik
   const handleNavLinkClick = useCallback(() => {
     setMenuOpen(false);
   }, []);
 
-  // Gulir halus ke target (hormati prefers-reduced-motion)
+  // Gulir halus ke target (hormati prefers-reduced-motion) dengan navigasi SPA tanpa hard reload
   const handleAnchorClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, anchor: string) => {
+      e.preventDefault();
+      handleNavLinkClick();
+      setActiveSection(anchor);
+
+      // Kunci scroll spy sementara selama animasi smooth scroll berjalan agar tidak tertimpa
+      isClickScrollingRef.current = true;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        isClickScrollingRef.current = false;
+        updateActiveSection();
+      }, 850);
+
       if (isHomePage) {
-        e.preventDefault();
         const el = document.getElementById(anchor);
         if (el) {
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
         }
+      } else {
+        navigate(`/#${anchor}`);
       }
-      handleNavLinkClick();
     },
-    [isHomePage, handleNavLinkClick]
+    [isHomePage, handleNavLinkClick, navigate, updateActiveSection]
   );
+
+  // Gulir otomatis saat mendarat di halaman utama dengan hash
+  useEffect(() => {
+    if (isHomePage && location.hash) {
+      const anchor = location.hash.replace('#', '');
+      setActiveSection(anchor);
+      isClickScrollingRef.current = true;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        isClickScrollingRef.current = false;
+        updateActiveSection();
+      }, 850);
+
+      const timer = setTimeout(() => {
+        const el = document.getElementById(anchor);
+        if (el) {
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isHomePage, location.hash, updateActiveSection]);
 
   // Tutup menu saat Escape
   useEffect(() => {
@@ -146,7 +241,7 @@ export const PublicLayout: React.FC = () => {
   `;
 
   return (
-    <div className="min-h-screen flex flex-col bg-paper text-ink overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-paper text-ink overflow-x-clip">
       {/* Tautan "Lompat ke konten utama" */}
       <a
         href="#main-content"
@@ -160,8 +255,8 @@ export const PublicLayout: React.FC = () => {
         Lompat ke konten utama
       </a>
 
-      {/* Navbar */}
-      <header className="bg-white border-b border-line sticky top-0 z-50">
+      {/* Navbar (Sticky Header) */}
+      <header className="bg-white border-b border-line sticky top-0 z-50 shadow-xs">
         <nav
           aria-label="Navigasi utama"
           className="max-w-content mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between"
@@ -203,7 +298,9 @@ export const PublicLayout: React.FC = () => {
               }
 
               const href = isHomePage ? `#${item.anchor}` : `/#${item.anchor}`;
-              const isActive = isHomePage && activeSection === item.anchor;
+              const isActive = isHomePage
+                ? activeSection === item.anchor
+                : location.pathname === `/${item.anchor}` || location.pathname.startsWith(`/${item.anchor}/`);
               return (
                 <a
                   key={item.anchor}
@@ -294,7 +391,9 @@ export const PublicLayout: React.FC = () => {
                 }
 
                 const href = isHomePage ? `#${item.anchor}` : `/#${item.anchor}`;
-                const isActive = isHomePage && activeSection === item.anchor;
+                const isActive = isHomePage
+                  ? activeSection === item.anchor
+                  : location.pathname === `/${item.anchor}` || location.pathname.startsWith(`/${item.anchor}/`);
                 return (
                   <a
                     key={item.anchor}

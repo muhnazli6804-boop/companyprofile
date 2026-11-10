@@ -7,6 +7,7 @@ import { SeoHead } from '@/components/seo/SeoHead';
 import { Stepper } from '@/components/form/Stepper';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useRegistrationInfo } from '@/features/public/hooks';
 import {
   createTeacherApplication,
@@ -55,8 +56,14 @@ const formSchema = z.object({
         level: z.string().min(1, 'Jenjang wajib dipilih'),
         institution: z.string().min(2, 'Nama perguruan tinggi / sekolah wajib diisi'),
         major: z.string().optional().or(z.literal('')),
-        graduation_year: z.number().int().optional().nullable(),
-        gpa: z.number().min(0).max(4.0).optional().nullable(),
+        graduation_year: z.preprocess(
+          (v) => (v === '' || v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) ? null : Number(v)),
+          z.number().int('Tahun kelulusan harus bilangan bulat').nullable().optional()
+        ),
+        gpa: z.preprocess(
+          (v) => (v === '' || v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) ? null : Number(v)),
+          z.number().min(0, 'IPK minimal 0').max(4.0, 'IPK maksimal 4.00').nullable().optional()
+        ),
       })
     )
     .min(1, 'Minimal satu data pendidikan harus diisi'),
@@ -262,9 +269,11 @@ export const TeacherFormPage: React.FC = () => {
 
   if (loadingInitial) {
     return (
-      <div className="max-w-content mx-auto p-12 text-center text-muted font-sans">
-        Memuat data lamaran...
-      </div>
+      <LoadingScreen
+        message="Memuat data formulir lamaran guru..."
+        submessage="Menyiapkan data pendaftaran..."
+        minHeight="min-h-screen"
+      />
     );
   }
 
@@ -607,6 +616,11 @@ export const TeacherFormPage: React.FC = () => {
                           errors.educations?.[index]?.institution ? 'border-danger' : ''
                         }
                       />
+                      {errors.educations?.[index]?.institution && (
+                        <p className="mt-1 text-xs text-danger font-sans">
+                          {errors.educations[index]?.institution?.message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -620,26 +634,52 @@ export const TeacherFormPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-sans font-semibold text-ink mb-1">
+                      <label htmlFor={`edu-grad-year-${index}`} className="block text-xs font-sans font-semibold text-ink mb-1">
                         Tahun Kelulusan
                       </label>
                       <Input
+                        id={`edu-grad-year-${index}`}
                         type="number"
                         placeholder="Contoh: 2021"
-                        {...register(`educations.${index}.graduation_year`)}
+                        {...register(`educations.${index}.graduation_year`, {
+                          setValueAs: (v) =>
+                            v === '' || v === null || v === undefined || Number.isNaN(Number(v))
+                              ? null
+                              : Number(v),
+                        })}
+                        className={
+                          errors.educations?.[index]?.graduation_year ? 'border-danger' : ''
+                        }
                       />
+                      {errors.educations?.[index]?.graduation_year && (
+                        <p className="mt-1 text-xs text-danger font-sans">
+                          {errors.educations[index]?.graduation_year?.message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-sans font-semibold text-ink mb-1">
+                      <label htmlFor={`edu-gpa-${index}`} className="block text-xs font-sans font-semibold text-ink mb-1">
                         IPK (skala 4.00)
                       </label>
                       <Input
+                        id={`edu-gpa-${index}`}
                         type="number"
                         step="0.01"
                         placeholder="Contoh: 3.75"
-                        {...register(`educations.${index}.gpa`)}
+                        {...register(`educations.${index}.gpa`, {
+                          setValueAs: (v) =>
+                            v === '' || v === null || v === undefined || Number.isNaN(Number(v))
+                              ? null
+                              : Number(v),
+                        })}
+                        className={errors.educations?.[index]?.gpa ? 'border-danger' : ''}
                       />
+                      {errors.educations?.[index]?.gpa && (
+                        <p className="mt-1 text-xs text-danger font-sans">
+                          {errors.educations[index]?.gpa?.message}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -10,11 +10,14 @@ use Illuminate\Support\Facades\Route;
 
 // TODO: see Rancangan-API-Padindi.md section 4
 
-// Guest auth routes
-Route::post('/register', [RegisterController::class, 'register']);
-Route::post('/login', [LoginController::class, 'login']);
-Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
-Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+// Guest auth routes: rate limited per Rancangan-API-Padindi.md section 1.6
+Route::middleware(['throttle:auth'])->group(function () {
+    Route::post('/register', [RegisterController::class, 'register']);
+    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+});
+
 // Tanda tangan dicek di controller (bukan middleware `signed`) agar tautan tak valid dialihkan, bukan 403 JSON.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
     ->name('verification.verify');

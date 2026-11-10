@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Stepper } from '@/components/form/Stepper';
 import { Button } from '@/components/ui/Button';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import {
   getTeacherApplication,
   getTeacherRequirements,
@@ -110,9 +111,11 @@ export const TeacherConfirmationPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="bg-paper min-h-screen py-12 flex items-center justify-center">
-        <p className="text-muted font-sans text-center">Memuat ringkasan lamaran...</p>
-      </div>
+      <LoadingScreen
+        message="Memuat ringkasan lamaran..."
+        submessage="Menyiapkan data pelamar, riwayat pendidikan, dan berkas..."
+        minHeight="min-h-screen"
+      />
     );
   }
 

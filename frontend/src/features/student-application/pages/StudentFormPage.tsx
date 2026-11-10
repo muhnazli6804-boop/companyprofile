@@ -7,6 +7,7 @@ import { SeoHead } from '@/components/seo/SeoHead';
 import { Stepper } from '@/components/form/Stepper';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useRegistrationInfo } from '@/features/public/hooks';
 import {
   createStudentApplication,
@@ -186,9 +187,11 @@ export const StudentFormPage: React.FC = () => {
 
   if (loadingInitial) {
     return (
-      <div className="max-w-content mx-auto p-12 text-center text-muted font-sans">
-        Memuat data pendaftaran...
-      </div>
+      <LoadingScreen
+        message="Memuat data formulir calon murid..."
+        submessage="Menyiapkan data pendaftaran..."
+        minHeight="min-h-screen"
+      />
     );
   }
 

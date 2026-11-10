@@ -26,8 +26,14 @@ export const teacherEducationSchema = z.object({
   level: z.string().min(1, 'Jenjang pendidikan wajib diisi'),
   institution: z.string().min(2, 'Nama institusi/universitas wajib diisi'),
   major: z.string().optional().or(z.literal('')),
-  graduation_year: z.number().int().optional().nullable(),
-  gpa: z.number().min(0).max(4.0).optional().nullable(),
+  graduation_year: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) ? null : Number(v)),
+    z.number().int('Tahun kelulusan harus bilangan bulat').nullable().optional()
+  ),
+  gpa: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) ? null : Number(v)),
+    z.number().min(0, 'IPK minimal 0').max(4.0, 'IPK maksimal 4.00').nullable().optional()
+  ),
 });
 
 export const teacherExperienceSchema = z.object({
@@ -42,7 +48,10 @@ export const teacherCertificationSchema = z.object({
   name: z.string().min(2, 'Nama sertifikat wajib diisi'),
   issuer: z.string().optional().or(z.literal('')),
   certificate_number: z.string().optional().or(z.literal('')),
-  year: z.number().int().optional().nullable(),
+  year: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) ? null : Number(v)),
+    z.number().int().nullable().optional()
+  ),
 });
 
 export const teacherStep2Schema = z.object({

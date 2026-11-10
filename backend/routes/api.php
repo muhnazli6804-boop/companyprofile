@@ -19,7 +19,6 @@ Route::prefix('v1/public')
 
 // Auth routes: /api/v1/auth
 Route::prefix('v1/auth')
-    ->middleware(['throttle:auth'])
     ->group(base_path('routes/api/v1/auth.php'));
 
 // Applicant routes: /api/v1

@@ -127,6 +127,25 @@ describe('Teacher Application Schemas (Zod Validation)', () => {
       experiences: [],
     });
     expect(resWithEdu.success).toBe(true);
+
+    // Menerima input string dari HTML input (coercion / preprocess)
+    const resWithStringEdu = teacherStep2Schema.safeParse({
+      educations: [
+        {
+          level: 'S1',
+          institution: 'Universitas Tadulako',
+          major: 'Teknik Perkapalan',
+          graduation_year: '2018',
+          gpa: '4.00',
+        },
+      ],
+      experiences: [],
+    });
+    expect(resWithStringEdu.success).toBe(true);
+    if (resWithStringEdu.success) {
+      expect(resWithStringEdu.data.educations[0].graduation_year).toBe(2018);
+      expect(resWithStringEdu.data.educations[0].gpa).toBe(4);
+    }
   });
 
   it('validates teacher step 3 declarations', () => {
