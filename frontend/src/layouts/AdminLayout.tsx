@@ -12,6 +12,8 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  PanelLeft,
+  PanelLeftClose,
   ShieldCheck,
   Users,
   Wallet,
@@ -69,6 +71,39 @@ export const AdminLayout: React.FC = () => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const navId = useId();
 
+  // State collapse sidebar ala ChatGPT (disimpan di localStorage)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('admin_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('admin_sidebar_collapsed', String(isCollapsed));
+    } catch {
+      // ignore
+    }
+  }, [isCollapsed]);
+
+  // Shortcut keyboard Ctrl+B / Cmd+B untuk toggle sidebar (seperti ChatGPT / VS Code)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        const target = e.target as HTMLElement | null;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+          return;
+        }
+        e.preventDefault();
+        setIsCollapsed((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Laci terbuka hanya untuk rute tempat ia dibuka: pindah rute menutupnya tanpa effect.
   const [openedAt, setOpenedAt] = useState<string | null>(null);
   const drawerOpen = openedAt === pathname && !isDesktop;
@@ -123,10 +158,11 @@ export const AdminLayout: React.FC = () => {
   };
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    // 44 px di layar sentuh (laci), 40 px di desktop agar 13 menu muat di 1080 px tanpa gulir.
-    `flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3 rounded-control border-l-4 text-white hover:bg-white/10 ` +
+    `group flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all duration-150 ` +
     `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy ` +
-    (isActive ? 'border-star bg-white/10 font-bold' : 'border-transparent');
+    (isActive
+      ? 'bg-white/15 text-white font-semibold shadow-xs'
+      : 'text-white/80 hover:text-white hover:bg-white/10 font-normal');
 
   let firstLinkAssigned = false;
 
@@ -146,30 +182,50 @@ export const AdminLayout: React.FC = () => {
         />
       )}
 
+      {/* Sidebar Admin Padindi ala ChatGPT */}
       <aside
         id="admin-sidebar"
-        inert={!isDesktop && !drawerOpen}
+        inert={(!isDesktop && !drawerOpen) || (isDesktop && isCollapsed)}
         className={
-          'fixed inset-y-0 left-0 z-40 w-64 bg-navy text-white flex flex-col ' +
-          'transition-transform motion-reduce:transition-none md:sticky md:top-0 md:h-screen md:shrink-0 md:translate-x-0 md:visible ' +
-          (drawerOpen ? 'translate-x-0' : '-translate-x-full invisible')
+          'fixed inset-y-0 left-0 z-40 bg-navy text-white flex flex-col border-white/10 ' +
+          'transition-all duration-300 ease-in-out motion-reduce:transition-none md:sticky md:top-0 md:h-screen md:shrink-0 ' +
+          (drawerOpen
+            ? 'w-64 translate-x-0 visible border-r'
+            : isCollapsed
+              ? 'w-64 -translate-x-full invisible md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden md:pointer-events-none md:border-r-0'
+              : 'w-64 -translate-x-full invisible md:w-64 md:translate-x-0 md:opacity-100 md:visible md:border-r')
         }
       >
-        <div className="shrink-0 flex items-center gap-3 px-4 pt-3 pb-2">
-          <div className="w-11 shrink-0">
-            <Roundel src="/images/logo.png" alt="" size={28} />
+        {/* Header Sidebar ala ChatGPT: Logo + Nama + Tombol Collapse */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3.5 pt-3 pb-2.5 border-b border-white/10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+              <Roundel src="/images/logo.png" alt="" size={24} />
+            </div>
+            <p className="font-display font-bold text-base leading-tight truncate text-white">Admin Padindi</p>
           </div>
-          <p className="font-display font-bold text-lg leading-tight">Admin Padindi</p>
+
+          {/* Tombol Tutup Sidebar ala ChatGPT (desktop) */}
+          <button
+            type="button"
+            aria-label="Tutup bilah samping"
+            title="Tutup bilah samping (Ctrl+B)"
+            onClick={() => setIsCollapsed(true)}
+            className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+          </button>
         </div>
-        {/* Scrollbar tipis dan transparan (Firefox dan Chromium 121+); browser lain memakai bawaan. */}
+
+        {/* Scrollbar tipis ala ChatGPT */}
         <nav
           aria-label="Navigasi Admin"
-          className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 px-3 pb-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.3)_transparent]"
+          className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-2.5 py-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
         >
           {visibleGroups.map((group, index) => (
-            <div key={group.label}>
-              {/* text-white/70 di atas Biru Dalam = 8,12:1 (AA dan AAA, DESIGN.md §3.4). */}
-              <p id={`${navId}-${index}`} className="px-3 mb-0.5 text-xs font-bold uppercase tracking-wide text-white/70">
+            <div key={group.label} className="mb-1">
+              {/* Heading kategori subtle ala ChatGPT */}
+              <p id={`${navId}-${index}`} className="px-3 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-white/50">
                 {group.label}
               </p>
               <ul aria-labelledby={`${navId}-${index}`} className="flex flex-col gap-0.5">
@@ -185,8 +241,8 @@ export const AdminLayout: React.FC = () => {
                         className={linkClass}
                         onClick={() => setOpenedAt(null)}
                       >
-                        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                        {item.label}
+                        <Icon className="h-4.5 w-4.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{item.label}</span>
                       </NavLink>
                     </li>
                   );
@@ -195,32 +251,44 @@ export const AdminLayout: React.FC = () => {
             </div>
           ))}
         </nav>
-        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-2">
-          <div className="px-3 pb-1 min-w-0 leading-tight">
-            {user?.name && <p className="font-bold truncate" title={user.name}>{user.name}</p>}
-            {user && (
-              <p className="text-sm text-white/70">
-                {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
-              </p>
-            )}
+
+        {/* Footer Sidebar ala ChatGPT: Profile pill + Tautan Lihat Situs */}
+        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/10 p-2.5 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/5">
+            <div className="w-8 h-8 rounded-full bg-star/20 text-star border border-star/30 flex items-center justify-center font-bold text-xs shrink-0">
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              {user?.name && (
+                <p className="font-semibold text-sm text-white truncate" title={user.name}>
+                  {user.name}
+                </p>
+              )}
+              {user && (
+                <p className="text-xs text-white/60 truncate">
+                  {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
+                </p>
+              )}
+            </div>
           </div>
           <Link
             to="/"
-            className="flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3 rounded-control text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+            className="flex items-center gap-2.5 min-h-[38px] px-3 py-1.5 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
           >
-            <Globe className="h-5 w-5 shrink-0" aria-hidden="true" />
-            Lihat situs
+            <Globe className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
+            <span>Lihat situs</span>
           </Link>
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col transition-all duration-300 ease-in-out">
         <header
           inert={drawerOpen}
-          className="sticky top-0 z-20 bg-white border-b border-line min-h-14 flex items-center gap-3 px-4 md:px-6 justify-between"
+          className="sticky top-0 z-20 bg-white border-b border-line min-h-14 flex items-center gap-3 px-4 md:px-6 justify-between transition-colors"
         >
           {/* Tanpa judul halaman: setiap halaman admin sudah punya h1 sendiri. */}
           <div className="flex items-center gap-3">
+            {/* Tombol hamburger untuk mobile (< 768px) */}
             <button
               ref={hamburgerRef}
               type="button"
@@ -232,6 +300,19 @@ export const AdminLayout: React.FC = () => {
             >
               <Menu className="h-6 w-6" aria-hidden="true" />
             </button>
+
+            {/* Tombol Buka Sidebar ala ChatGPT untuk desktop saat sidebar di-collapse */}
+            {isCollapsed && (
+              <button
+                type="button"
+                aria-label="Buka bilah samping"
+                title="Buka bilah samping (Ctrl+B)"
+                onClick={() => setIsCollapsed(false)}
+                className="hidden md:inline-flex items-center justify-center h-9 w-9 rounded-lg text-ink hover:text-navy hover:bg-navy/5 border border-navy/15 transition-all shadow-2xs hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <PanelLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3 min-w-0">
             {logoutError && (
