@@ -35,6 +35,18 @@ class PermissionSeeder extends Seeder
             'applications.export', 'periods.manage', 'requirements.manage', 'vacancies.manage',
         ],
         'admin_content' => ['dashboard.view', 'units.manage', 'content.manage', 'messages.manage'],
+        'guru' => [
+            'dashboard.view', 'applications.view', 'applications.view_sensitive', 'applications.verify',
+            'applications.export', 'periods.manage', 'requirements.manage', 'vacancies.manage',
+            'units.manage', 'content.manage', 'messages.manage', 'users.manage',
+            'settings.manage', 'logs.view', 'finance.view',
+        ],
+        'staff' => [
+            'dashboard.view', 'applications.view', 'applications.view_sensitive', 'applications.verify',
+            'applications.export', 'periods.manage', 'requirements.manage', 'vacancies.manage',
+            'units.manage', 'content.manage', 'messages.manage', 'users.manage',
+            'settings.manage', 'logs.view', 'finance.view',
+        ],
     ];
 
     public function run(): void

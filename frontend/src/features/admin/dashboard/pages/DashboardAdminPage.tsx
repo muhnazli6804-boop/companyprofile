@@ -73,7 +73,7 @@ const Content: React.FC<{ data: DashboardData }> = ({ data }) => {
   const quotaByUnit = new Map(data.quota.map((q) => [q.education_unit_id, q]));
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+      <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Pendaftar siswa" value={data.totals.students} note="Periode terpilih"
           link={<a href="#status-siswa" className={LINK}>Lihat status siswa</a>} />
         <StatCard label="Pelamar guru" value={data.totals.teachers} note="Semua periode"
@@ -155,7 +155,7 @@ const Content: React.FC<{ data: DashboardData }> = ({ data }) => {
 // Bentuknya meniru Content agar tata letak tidak melompat saat data tiba (DESIGN.md 8.8).
 const DashboardSkeleton: React.FC = () => (
   <div className="flex flex-col gap-6" aria-busy="true" aria-label="Memuat dashboard">
-    <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+    <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
       {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full" />)}
     </div>
     <div className="flex flex-wrap gap-6">

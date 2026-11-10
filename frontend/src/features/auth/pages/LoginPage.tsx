@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ensureCsrfCookie } from '@/lib/api-client';
+import type { ApiResponse, User } from '@/types';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,11 +37,20 @@ export const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);
     try {
+      await ensureCsrfCookie();
       const res = await apiClient.post('/auth/login', data);
 
       if (res.data.data?.user_type === 'admin') {
         // Admin hanya memakai cookie sesi: buang token Bearer basi, tunggu /auth/me sebelum pindah.
         localStorage.removeItem('auth_token');
+        try {
+          const meRes = await apiClient.get<ApiResponse<User>>('/auth/me');
+          if (meRes.data?.data) {
+            queryClient.setQueryData(['currentUser'], meRes.data.data);
+          }
+        } catch {
+          // fallback jika fetch me gagal
+        }
         await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         navigate('/admin/dashboard', { replace: true });
         return;
@@ -149,7 +159,7 @@ export const LoginPage: React.FC = () => {
         </Button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-line text-center">
+      <div className="mt-8 pt-6 border-t border-line text-center space-y-3">
         <p className="font-sans text-sm text-muted">
           Belum memiliki akun?{' '}
           <Link
@@ -159,6 +169,16 @@ export const LoginPage: React.FC = () => {
             Daftar akun baru
           </Link>
         </p>
+
+        <div className="pt-3 border-t border-dashed border-line">
+          <Link
+            to="/staff/login"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-full border border-slate-200 transition"
+          >
+            <span>Masuk sebagai Guru atau Staf Yayasan</span>
+            <span aria-hidden="true">&rarr;</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

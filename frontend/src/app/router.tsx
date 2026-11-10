@@ -6,6 +6,8 @@ import { AuthLayout } from '@/layouts/AuthLayout';
 import { RequireAuth } from '@/app/guards/RequireAuth';
 import { RequireAdmin } from '@/app/guards/RequireAdmin';
 import { RequirePermission } from '@/app/guards/RequirePermission';
+import { RequireStaff } from '@/app/guards/RequireStaff';
+import { StaffLayout } from '@/layouts/StaffLayout';
 import { GuestOnly } from '@/app/guards/GuestOnly';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
@@ -63,6 +65,22 @@ const AdminFinancePage = lazy(() => import('@/features/admin/finance/pages/Finan
 const AdminUsersPage = lazy(() => import('@/features/admin/users-roles/pages/UsersRolesPage'));
 const AdminLogsPage = lazy(() => import('@/features/admin/activity-logs/pages/ActivityLogsPage'));
 
+// Lazy-loaded Staff / Guru Pages
+const StaffLoginPage = lazy(() => import('@/features/staff/pages/StaffLoginPage'));
+const StaffForgotPasswordPage = lazy(() => import('@/features/staff/pages/StaffForgotPasswordPage'));
+const StaffResetPasswordPage = lazy(() => import('@/features/staff/pages/StaffResetPasswordPage'));
+const StaffDashboardPage = lazy(() => import('@/features/staff/pages/StaffDashboardPage'));
+const StaffNewsPage = lazy(() => import('@/features/staff/pages/StaffNewsPage'));
+const StaffNewsFormPage = lazy(() => import('@/features/staff/pages/StaffNewsFormPage'));
+const StaffWebsiteContentPage = lazy(() => import('@/features/staff/pages/StaffWebsiteContentPage'));
+const StaffGalleryPage = lazy(() => import('@/features/staff/pages/StaffGalleryPage'));
+const StaffAchievementsPage = lazy(() => import('@/features/staff/pages/StaffAchievementsPage'));
+const StaffFaqPage = lazy(() => import('@/features/staff/pages/StaffFaqPage'));
+const StaffMediaLibraryPage = lazy(() => import('@/features/staff/pages/StaffMediaLibraryPage'));
+const StaffPublicationsPage = lazy(() => import('@/features/staff/pages/StaffPublicationsPage'));
+const StaffProfilePage = lazy(() => import('@/features/staff/pages/StaffProfilePage'));
+const StaffChangePasswordPage = lazy(() => import('@/features/staff/pages/StaffChangePasswordPage'));
+
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<LoadingScreen message="Memuat halaman..." minHeight="min-h-[50vh]" />}>
     {children}
@@ -95,6 +113,11 @@ export const router = createBrowserRouter([
       { path: 'masuk', element: <SuspenseWrapper><LoginPage /></SuspenseWrapper> },
       { path: 'daftar-akun', element: <SuspenseWrapper><RegisterPage /></SuspenseWrapper> },
       { path: 'lupa-kata-sandi', element: <SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper> },
+
+      // Rute Masuk / Autentikasi Staff & Guru (dibungkus PublicLayout agar seragam)
+      { path: 'staff/login', element: <SuspenseWrapper><StaffLoginPage /></SuspenseWrapper> },
+      { path: 'staff/lupa-password', element: <SuspenseWrapper><StaffForgotPasswordPage /></SuspenseWrapper> },
+      { path: 'staff/reset-password', element: <SuspenseWrapper><StaffResetPasswordPage /></SuspenseWrapper> },
 
       // Rute Pendaftaran Murid (Dilindungi Autentikasi)
       {
@@ -188,6 +211,32 @@ export const router = createBrowserRouter([
           { path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> },
           { path: 'pengaturan', element: <Navigate to="/admin/cms?tab=identity" replace /> },
           { path: 'settings', element: <Navigate to="/admin/cms?tab=identity" replace /> },
+        ],
+      },
+    ],
+  },
+
+  // 4. Staff & Guru Portal Routes (Protected)
+  {
+    path: 'staff',
+    element: <RequireStaff />,
+    children: [
+      {
+        element: <StaffLayout />,
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: 'dashboard', element: <SuspenseWrapper><StaffDashboardPage /></SuspenseWrapper> },
+          { path: 'berita', element: <SuspenseWrapper><StaffNewsPage /></SuspenseWrapper> },
+          { path: 'berita/tambah', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
+          { path: 'berita/edit/:id', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
+          { path: 'konten', element: <SuspenseWrapper><StaffWebsiteContentPage /></SuspenseWrapper> },
+          { path: 'galeri', element: <SuspenseWrapper><StaffGalleryPage /></SuspenseWrapper> },
+          { path: 'prestasi', element: <SuspenseWrapper><StaffAchievementsPage /></SuspenseWrapper> },
+          { path: 'faq', element: <SuspenseWrapper><StaffFaqPage /></SuspenseWrapper> },
+          { path: 'media', element: <SuspenseWrapper><StaffMediaLibraryPage /></SuspenseWrapper> },
+          { path: 'publikasi', element: <SuspenseWrapper><StaffPublicationsPage /></SuspenseWrapper> },
+          { path: 'profil', element: <SuspenseWrapper><StaffProfilePage /></SuspenseWrapper> },
+          { path: 'ubah-password', element: <SuspenseWrapper><StaffChangePasswordPage /></SuspenseWrapper> },
         ],
       },
     ],

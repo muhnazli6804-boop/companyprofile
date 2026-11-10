@@ -12,6 +12,19 @@ export const apiClient = axios.create({
   },
 });
 
+export const ensureCsrfCookie = async (): Promise<void> => {
+  try {
+    const origin = env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+    await axios.get(`${origin}/sanctum/csrf-cookie`, { withCredentials: true });
+  } catch {
+    try {
+      await axios.get('/sanctum/csrf-cookie', { withCredentials: true });
+    } catch {
+      // ignore
+    }
+  }
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   if (token && config.headers) {
@@ -62,7 +75,7 @@ apiClient.interceptors.response.use(
       isRefreshingCsrf = true;
 
       try {
-        await axios.get('/sanctum/csrf-cookie', { withCredentials: true });
+        await ensureCsrfCookie();
         processQueue(null);
         return apiClient(originalRequest);
       } catch (csrfError) {

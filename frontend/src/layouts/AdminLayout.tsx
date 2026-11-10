@@ -13,7 +13,6 @@ import {
   Mail,
   Menu,
   PanelLeft,
-  PanelLeftClose,
   ShieldCheck,
   Users,
   Wallet,
@@ -71,22 +70,8 @@ export const AdminLayout: React.FC = () => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const navId = useId();
 
-  // State collapse sidebar ala ChatGPT (disimpan di localStorage)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('admin_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('admin_sidebar_collapsed', String(isCollapsed));
-    } catch {
-      // ignore
-    }
-  }, [isCollapsed]);
+  // State collapse sidebar desktop (default false agar layout selalu penuh)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   // Shortcut keyboard Ctrl+B / Cmd+B untuk toggle sidebar (seperti ChatGPT / VS Code)
   useEffect(() => {
@@ -158,11 +143,11 @@ export const AdminLayout: React.FC = () => {
   };
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `group flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all duration-150 ` +
+    `flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3.5 rounded-r-lg border-l-4 text-sm font-semibold transition-colors ` +
     `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy ` +
     (isActive
-      ? 'bg-white/15 text-white font-semibold shadow-xs'
-      : 'text-white/80 hover:text-white hover:bg-white/10 font-normal');
+      ? 'border-[#F4D21F] bg-[#1F366D] text-white shadow-xs'
+      : 'border-transparent text-white/85 hover:text-white hover:bg-white/10 font-medium');
 
   let firstLinkAssigned = false;
 
@@ -182,7 +167,7 @@ export const AdminLayout: React.FC = () => {
         />
       )}
 
-      {/* Sidebar Admin Padindi ala ChatGPT */}
+      {/* Sidebar Admin Padindi */}
       <aside
         id="admin-sidebar"
         inert={(!isDesktop && !drawerOpen) || (isDesktop && isCollapsed)}
@@ -190,42 +175,29 @@ export const AdminLayout: React.FC = () => {
           'fixed inset-y-0 left-0 z-40 bg-navy text-white flex flex-col border-white/10 ' +
           'transition-all duration-300 ease-in-out motion-reduce:transition-none md:sticky md:top-0 md:h-screen md:shrink-0 ' +
           (drawerOpen
-            ? 'w-64 translate-x-0 visible border-r'
+            ? 'w-[277px] translate-x-0 visible border-r'
             : isCollapsed
-              ? 'w-64 -translate-x-full invisible md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden md:pointer-events-none md:border-r-0'
-              : 'w-64 -translate-x-full invisible md:w-64 md:translate-x-0 md:opacity-100 md:visible md:border-r')
+              ? 'w-[277px] -translate-x-full invisible md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden md:pointer-events-none md:border-r-0'
+              : 'w-[277px] -translate-x-full invisible md:w-[277px] md:translate-x-0 md:opacity-100 md:visible md:border-r')
         }
       >
-        {/* Header Sidebar ala ChatGPT: Logo + Nama + Tombol Collapse */}
-        <div className="shrink-0 flex items-center justify-between gap-2 px-3.5 pt-3 pb-2.5 border-b border-white/10">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-              <Roundel src="/images/logo.png" alt="" size={24} />
-            </div>
-            <p className="font-display font-bold text-base leading-tight truncate text-white">Admin Padindi</p>
+        {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display */}
+        <div className="shrink-0 flex items-center gap-3 px-4 pt-4 pb-3">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
+            <Roundel src="/images/logo.png" alt="" size={32} />
           </div>
-
-          {/* Tombol Tutup Sidebar ala ChatGPT (desktop) */}
-          <button
-            type="button"
-            aria-label="Tutup bilah samping"
-            title="Tutup bilah samping (Ctrl+B)"
-            onClick={() => setIsCollapsed(true)}
-            className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
-          </button>
+          <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">Admin Padindi</p>
         </div>
 
-        {/* Scrollbar tipis ala ChatGPT */}
+        {/* Navigasi Admin */}
         <nav
           aria-label="Navigasi Admin"
-          className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-2.5 py-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
+          className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 py-2 pr-2.5 pl-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
         >
           {visibleGroups.map((group, index) => (
-            <div key={group.label} className="mb-1">
-              {/* Heading kategori subtle ala ChatGPT */}
-              <p id={`${navId}-${index}`} className="px-3 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-white/50">
+            <div key={group.label} className="mb-2">
+              {/* Heading kategori */}
+              <p id={`${navId}-${index}`} className="px-3.5 pt-2 pb-1 text-xs font-bold uppercase tracking-wider text-white/70">
                 {group.label}
               </p>
               <ul aria-labelledby={`${navId}-${index}`} className="flex flex-col gap-0.5">
@@ -241,7 +213,7 @@ export const AdminLayout: React.FC = () => {
                         className={linkClass}
                         onClick={() => setOpenedAt(null)}
                       >
-                        <Icon className="h-4.5 w-4.5 shrink-0" aria-hidden="true" />
+                        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
                         <span className="truncate">{item.label}</span>
                       </NavLink>
                     </li>
@@ -252,30 +224,25 @@ export const AdminLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* Footer Sidebar ala ChatGPT: Profile pill + Tautan Lihat Situs */}
-        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/10 p-2.5 flex flex-col gap-1.5">
-          <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/5">
-            <div className="w-8 h-8 rounded-full bg-star/20 text-star border border-star/30 flex items-center justify-center font-bold text-xs shrink-0">
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
-            </div>
-            <div className="min-w-0 flex-1 leading-tight">
-              {user?.name && (
-                <p className="font-semibold text-sm text-white truncate" title={user.name}>
-                  {user.name}
-                </p>
-              )}
-              {user && (
-                <p className="text-xs text-white/60 truncate">
-                  {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
-                </p>
-              )}
-            </div>
+        {/* Footer Sidebar: Nama Akun + Role + Tautan Lihat Situs */}
+        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-4 flex flex-col gap-2">
+          <div className="min-w-0 leading-tight">
+            {user?.name && (
+              <p className="font-bold text-white text-base truncate" title={user.name}>
+                {user.name}
+              </p>
+            )}
+            {user && (
+              <p className="text-xs text-white/70 truncate mt-0.5">
+                {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
+              </p>
+            )}
           </div>
           <Link
             to="/"
-            className="flex items-center gap-2.5 min-h-[38px] px-3 py-1.5 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
           >
-            <Globe className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
+            <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
             <span>Lihat situs</span>
           </Link>
         </div>
