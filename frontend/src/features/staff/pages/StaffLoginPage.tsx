@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ensureCsrfCookie } from '@/lib/api-client';
+import type { ApiResponse, User } from '@/types';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,10 +37,19 @@ export const StaffLoginPage: React.FC = () => {
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);
     try {
+      await ensureCsrfCookie();
       const res = await apiClient.post('/auth/login', data);
 
       if (res.data.data?.user_type === 'admin') {
         localStorage.removeItem('auth_token');
+        try {
+          const meRes = await apiClient.get<ApiResponse<User>>('/auth/me');
+          if (meRes.data?.data) {
+            queryClient.setQueryData(['currentUser'], meRes.data.data);
+          }
+        } catch {
+          // fallback
+        }
         await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         navigate('/staff/dashboard', { replace: true });
         return;

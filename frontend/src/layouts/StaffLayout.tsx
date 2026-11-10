@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useCurrentUser } from '@/features/auth/permissions';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ensureCsrfCookie } from '@/lib/api-client';
 import { StaffSidebar } from '@/features/staff/components/StaffSidebar';
 import { StaffHeader } from '@/features/staff/components/StaffHeader';
 
@@ -64,6 +64,7 @@ export const StaffLayout: React.FC = () => {
     }
     localStorage.removeItem('auth_token');
     queryClient.clear();
+    await ensureCsrfCookie();
     navigate('/staff/login', { replace: true });
   };
 
@@ -115,6 +116,7 @@ export const StaffLayout: React.FC = () => {
           isCollapsed={isCollapsed}
           onCollapse={setIsCollapsed}
           onLinkClick={() => setMobileDrawerOpen(false)}
+          onLogout={handleLogout}
         />
       </aside>
 

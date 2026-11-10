@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ensureCsrfCookie } from '@/lib/api-client';
+import type { ApiResponse, User } from '@/types';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,13 +37,28 @@ export const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);
     try {
+      await ensureCsrfCookie();
       const res = await apiClient.post('/auth/login', data);
 
       if (res.data.data?.user_type === 'admin') {
         // Admin hanya memakai cookie sesi: buang token Bearer basi, tunggu /auth/me sebelum pindah.
         localStorage.removeItem('auth_token');
+        let targetRoute = '/admin/dashboard';
+        try {
+          const meRes = await apiClient.get<ApiResponse<User>>('/auth/me');
+          if (meRes.data?.data) {
+            queryClient.setQueryData(['currentUser'], meRes.data.data);
+            const user = meRes.data.data;
+            const isStaffOrGuru = user.roles?.some((r) => ['guru', 'staff'].includes(r));
+            if (isStaffOrGuru && !user.roles?.includes('super_admin')) {
+              targetRoute = '/staff/dashboard';
+            }
+          }
+        } catch {
+          // fallback jika fetch me gagal
+        }
         await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-        navigate('/admin/dashboard', { replace: true });
+        navigate(targetRoute, { replace: true });
         return;
       }
 

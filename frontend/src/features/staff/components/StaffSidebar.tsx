@@ -27,6 +27,7 @@ interface StaffSidebarProps {
   isCollapsed: boolean;
   onCollapse: (val: boolean) => void;
   onLinkClick?: () => void;
+  onLogout?: () => void;
 }
 
 export const StaffSidebar: React.FC<StaffSidebarProps> = ({
@@ -34,6 +35,7 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   isCollapsed,
   onCollapse,
   onLinkClick,
+  onLogout,
 }) => {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `group flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-150 min-h-[40px] ` +
@@ -192,6 +194,21 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
                 <span>Ubah Password</span>
               </NavLink>
             </li>
+            {onLogout && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLinkClick?.();
+                    onLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-rose-300 hover:text-white hover:bg-rose-500/20 transition-colors text-left min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <LogOut className="h-4.5 w-4.5 shrink-0 text-rose-400 group-hover:text-white" />
+                  <span>Keluar (Logout)</span>
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       </nav>

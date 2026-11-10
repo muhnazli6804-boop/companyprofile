@@ -22,5 +22,14 @@ export const RequireAdmin: React.FC = () => {
     return <Navigate to="/masuk" replace />;
   }
 
+  // Jika akun adalah guru atau staff (dan bukan super_admin / admin_registration),
+  // arahkan mereka langsung ke /staff/dashboard
+  const isOnlyStaffOrGuru = data.roles?.some((r) => ['guru', 'staff'].includes(r)) &&
+    !data.roles?.some((r) => ['super_admin', 'admin_registration'].includes(r));
+
+  if (isOnlyStaffOrGuru) {
+    return <Navigate to="/staff/dashboard" replace />;
+  }
+
   return <Outlet />;
 };
