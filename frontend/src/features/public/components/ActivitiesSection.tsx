@@ -346,7 +346,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
             tabIndex={0}
             onKeyDown={handleKeyDown}
             className="
-              flex overflow-x-auto
+              flex overflow-x-auto items-stretch
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
             "
             style={{
@@ -374,7 +374,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
                   // 3 kartu (lg): calc(33.33% - gap*2/3)
                   width: 'clamp(220px, 88%, 340px)',
                 }}
-                className="md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
+                className="md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] flex flex-col h-full self-stretch"
               >
                 <ActivityCard
                   title={activity.title}

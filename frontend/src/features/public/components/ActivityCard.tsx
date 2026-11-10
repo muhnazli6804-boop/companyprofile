@@ -84,27 +84,27 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
       </div>
 
       {/* Konten teks */}
-      <div className="p-4 flex flex-col gap-2">
-        <time
-          dateTime={publishedAt}
-          className="text-xs text-muted font-sans"
-        >
-          {tanggal}
-        </time>
-        <h3
-          className="font-display font-semibold text-base text-ink leading-snug"
-          style={{
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: 2,
-            overflow: 'hidden',
-          }}
-        >
-          {title}
-        </h3>
-        {excerpt && (
+      <div className="p-4 flex flex-col flex-1 justify-between gap-2 bg-white">
+        <div className="flex flex-col gap-2">
+          <time
+            dateTime={publishedAt}
+            className="text-xs text-muted font-sans block"
+          >
+            {tanggal}
+          </time>
+          <h3
+            className="font-display font-semibold text-base text-ink leading-snug h-[2.75rem] overflow-hidden"
+            style={{
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 2,
+              overflow: 'hidden',
+            }}
+          >
+            {title}
+          </h3>
           <p
-            className="font-sans text-xs text-muted leading-relaxed"
+            className="font-sans text-xs text-muted leading-relaxed h-[3.75rem] overflow-hidden"
             style={{
               display: '-webkit-box',
               WebkitBoxOrient: 'vertical',
@@ -112,9 +112,9 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
               overflow: 'hidden',
             }}
           >
-            {excerpt}
+            {excerpt || '\u00A0'}
           </p>
-        )}
+        </div>
       </div>
     </>
   );
@@ -126,22 +126,24 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
       aria-roledescription="slide"
       aria-label={ariaLabel}
       className="
-        flex flex-col bg-white border border-line
-        overflow-hidden flex-shrink-0
+        flex flex-col h-full bg-white border border-line
+        overflow-hidden flex-shrink-0 w-full
       "
       style={{ borderRadius: 0 }}
     >
-      {/* TODO: Bungkus dengan <a href={href}> saat halaman detail kegiatan sudah ada */}
+      {/* Bungkus dengan <a href={href}> bila tautan tersedia */}
       {href ? (
         <a
           href={href}
-          className="flex flex-col flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex flex-col flex-1 h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           aria-label={title}
         >
           {cardContent}
         </a>
       ) : (
-        cardContent
+        <div className="flex flex-col flex-1 h-full">
+          {cardContent}
+        </div>
       )}
     </article>
   );
