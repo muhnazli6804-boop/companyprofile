@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { apiClient } from '@/lib/api-client';
 import { getSettings, updateSettings, uploadLogo } from '@/features/admin/settings/api';
+import { useCurrentUser } from '@/features/auth/permissions';
 
 // Types
 export interface BannerItem {
@@ -230,6 +231,8 @@ type TabKey =
 export const CmsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const isGuruOnly = Boolean(currentUser?.roles?.includes('guru') && !currentUser?.roles?.includes('super_admin'));
 
   const getInitialTab = (): TabKey => {
     const t = searchParams.get('tab');
@@ -244,6 +247,8 @@ export const CmsPage: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);
+  const currentTab: TabKey =
+    isGuruOnly && activeTab !== 'articles' && activeTab !== 'gallery' ? 'articles' : activeTab;
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
@@ -261,6 +266,7 @@ export const CmsPage: React.FC = () => {
   const [localBanners, setLocalBanners] = useState<BannerItem[]>(FALLBACK_BANNERS);
   const { data: remoteBanners } = useQuery({
     queryKey: ['adminCmsBanners'],
+    enabled: !isGuruOnly,
     queryFn: async () => {
       try {
         const res = await apiClient.get<{ data: BannerItem[] }>('/admin/banners');
@@ -357,6 +363,7 @@ export const CmsPage: React.FC = () => {
   const [localOrgMembers, setLocalOrgMembers] = useState<OrgMemberItem[]>(FALLBACK_ORG);
   const { data: remoteOrgMembers } = useQuery({
     queryKey: ['adminCmsOrgMembers'],
+    enabled: !isGuruOnly,
     queryFn: async () => {
       try {
         const res = await apiClient.get<any>('/admin/organization-members');
@@ -452,6 +459,7 @@ export const CmsPage: React.FC = () => {
   // Query Settings from Backend API
   const { data: settingsData } = useQuery({
     queryKey: ['admin-settings'],
+    enabled: !isGuruOnly,
     queryFn: () => getSettings(),
   });
 
@@ -849,109 +857,115 @@ export const CmsPage: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="bg-white rounded-card border border-navy/10 shadow-sm p-2">
         <div className="flex items-center gap-2 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => handleTabChange('hero')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'hero'
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
-            }`}
-          >
-            <Image className="w-4 h-4" />
-            1. Hero & Banner Beranda
-          </button>
+          {!isGuruOnly && (
+            <button
+              type="button"
+              onClick={() => handleTabChange('hero')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                currentTab === 'hero'
+                  ? 'bg-navy text-white shadow-sm'
+                  : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+              }`}
+            >
+              <Image className="w-4 h-4" />
+              1. Hero & Banner Beranda
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handleTabChange('articles')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'articles'
+              currentTab === 'articles'
                 ? 'bg-navy text-white shadow-sm'
                 : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
             }`}
           >
             <Newspaper className="w-4 h-4" />
-            2. Berita & Artikel
+            {isGuruOnly ? '1. Berita & Artikel' : '2. Berita & Artikel'}
           </button>
           <button
             type="button"
             onClick={() => handleTabChange('gallery')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'gallery'
+              currentTab === 'gallery'
                 ? 'bg-navy text-white shadow-sm'
                 : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
             }`}
           >
             <Layers className="w-4 h-4" />
-            3. Galeri Media
+            {isGuruOnly ? '2. Galeri Media' : '3. Galeri Media'}
           </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('profile')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'profile'
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            4. Profil & Organisasi
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('achievements')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'achievements'
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            5. Prestasi & Fasilitas
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('faq_contact')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'faq_contact'
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
-            }`}
-          >
-            <HelpCircle className="w-4 h-4" />
-            6. FAQ & Kontak
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('identity')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'identity'
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            7. Identitas & Logo Yayasan
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('system')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === 'system'
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            8. Sistem & Akademik
-          </button>
+          {!isGuruOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleTabChange('profile')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                  currentTab === 'profile'
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                4. Profil & Organisasi
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('achievements')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                  currentTab === 'achievements'
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                5. Prestasi & Fasilitas
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('faq_contact')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                  currentTab === 'faq_contact'
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                6. FAQ & Kontak
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('identity')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                  currentTab === 'identity'
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                7. Identitas & Logo Yayasan
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('system')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                  currentTab === 'system'
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                8. Sistem & Akademik
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: HERO & BANNER BERANDA */}
       {/* ========================================================================= */}
-      {activeTab === 'hero' && (
+      {!isGuruOnly && currentTab === 'hero' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-card border border-navy/10 shadow-sm">
             <div>
@@ -1090,7 +1104,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 2: BERITA & ARTIKEL */}
       {/* ========================================================================= */}
-      {activeTab === 'articles' && (
+      {currentTab === 'articles' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-card border border-navy/10 shadow-sm">
             <div>
@@ -1249,7 +1263,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 3: GALERI MEDIA */}
       {/* ========================================================================= */}
-      {activeTab === 'gallery' && (
+      {currentTab === 'gallery' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-card border border-navy/10 shadow-sm">
             <div>
@@ -1319,7 +1333,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 4: PROFIL & STRUKTUR ORGANISASI */}
       {/* ========================================================================= */}
-      {activeTab === 'profile' && (
+      {!isGuruOnly && currentTab === 'profile' && (
         <div className="space-y-6">
           {/* Visi & Misi Editor */}
           <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
@@ -1500,7 +1514,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 5: PRESTASI & FASILITAS */}
       {/* ========================================================================= */}
-      {activeTab === 'achievements' && (
+      {!isGuruOnly && currentTab === 'achievements' && (
         <div className="space-y-6">
           <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-navy/10 pb-3">
@@ -1540,7 +1554,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 6: FAQ & KONTAK FOOTER */}
       {/* ========================================================================= */}
-      {activeTab === 'faq_contact' && (
+      {!isGuruOnly && currentTab === 'faq_contact' && (
         <div className="space-y-6">
           {/* FAQ Editor */}
           <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
@@ -1711,7 +1725,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 7: IDENTITAS & LOGO YAYASAN */}
       {/* ========================================================================= */}
-      {activeTab === 'identity' && (
+      {!isGuruOnly && currentTab === 'identity' && (
         <div className="space-y-6">
           {/* Identitas Yayasan */}
           <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">
@@ -1822,7 +1836,7 @@ export const CmsPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 8: PENGATURAN SISTEM & AKADEMIK */}
       {/* ========================================================================= */}
-      {activeTab === 'system' && (
+      {!isGuruOnly && currentTab === 'system' && (
         <div className="space-y-6">
           {/* Pengaturan PPDB & Akademik */}
           <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-4">

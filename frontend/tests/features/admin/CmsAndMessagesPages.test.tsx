@@ -57,8 +57,10 @@ describe('MessagesPage — Pesan & Pengaduan', () => {
 });
 
 describe('CmsPage — Manajemen Konten Landing Page', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { data: [] } });
   });
 
   it('menampilkan tab navigasi CMS dan banner hero', async () => {
@@ -85,5 +87,34 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
     fireEvent.click(profileTab);
     expect(await screen.findByText('Visi & Misi Yayasan Padindi')).toBeInTheDocument();
     expect(screen.getByText('Struktur Dewan Pembina & Pengurus Yayasan')).toBeInTheDocument();
+  });
+
+  it('role guru hanya melihat tab Berita & Artikel dan Galeri Media', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            data: {
+              id: 2,
+              name: 'Siti Rahmawati, S.Pd',
+              email: 'guru@padindi.id',
+              roles: ['guru'],
+              permissions: ['dashboard.view', 'content.manage', 'messages.manage', 'logs.view'],
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderWithClient(<CmsPage />);
+
+    expect(await screen.findByText('1. Berita & Artikel')).toBeInTheDocument();
+    expect(screen.getByText('2. Galeri Media')).toBeInTheDocument();
+    expect(screen.queryByText(/Hero & Banner Beranda/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Profil & Organisasi/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Identitas & Logo Yayasan/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Manajemen Berita & Artikel Yayasan')).toBeInTheDocument();
   });
 });

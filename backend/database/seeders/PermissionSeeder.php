@@ -36,7 +36,7 @@ class PermissionSeeder extends Seeder
         ],
         'admin_content' => ['dashboard.view', 'units.manage', 'content.manage', 'messages.manage'],
         'guru' => [
-            'dashboard.view', 'content.manage', 'settings.manage', 'messages.manage', 'logs.view',
+            'dashboard.view', 'content.manage', 'messages.manage', 'logs.view',
         ],
         'staff' => [
             'dashboard.view', 'applications.view', 'applications.view_sensitive', 'applications.verify',

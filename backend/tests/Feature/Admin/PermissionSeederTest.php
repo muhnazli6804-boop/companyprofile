@@ -15,7 +15,7 @@ const SEEDED_MATRIX = [
         'applications.export', 'periods.manage', 'requirements.manage', 'vacancies.manage',
     ],
     'admin_content' => ['dashboard.view', 'units.manage', 'content.manage', 'messages.manage'],
-    'guru' => ['dashboard.view', 'content.manage', 'settings.manage', 'messages.manage', 'logs.view'],
+    'guru' => ['dashboard.view', 'content.manage', 'messages.manage', 'logs.view'],
 ];
 
 function seedPermissions(): void
