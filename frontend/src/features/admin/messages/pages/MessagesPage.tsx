@@ -20,6 +20,7 @@ import { AdminStatCard } from '@/components/admin/AdminStatCard';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
+import { useCurrentUser } from '@/features/auth/permissions';
 
 export interface ContactMessageItem {
   id: number;
@@ -30,9 +31,17 @@ export interface ContactMessageItem {
   message: string;
   status: 'new' | 'read' | 'replied';
   reply_notes?: string | null;
+  assigned_to?: number | null;
+  assignee?: { id: number; name: string; email?: string } | null;
   read_at?: string | null;
   ip_address?: string | null;
   created_at: string;
+}
+
+interface PublicGuruOption {
+  id: number;
+  name: string;
+  roles: { name: string; label: string }[];
 }
 
 const FALLBACK_MESSAGES: ContactMessageItem[] = [
@@ -91,6 +100,10 @@ const FALLBACK_MESSAGES: ContactMessageItem[] = [
 
 export const MessagesPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const isGuruOnly = Boolean(currentUser?.roles?.includes('guru') && !currentUser?.roles?.includes('super_admin'));
+  const messagesQueryKey = ['adminContactMessages', currentUser?.id ?? 'default', isGuruOnly] as const;
+
   const [activeTab, setActiveTab] = useState<'all' | 'new' | 'read' | 'replied' | 'complaint'>('all');
   const [search, setSearch] = useState('');
   const [selectedMessage, setSelectedMessage] = useState<ContactMessageItem | null>(null);
@@ -104,53 +117,101 @@ export const MessagesPage: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const { data: messages = FALLBACK_MESSAGES, isLoading, refetch } = useQuery({
-    queryKey: ['adminContactMessages'],
+  const { data: guruOptions = [] } = useQuery({
+    queryKey: ['public', 'staff', 'guru-options'],
+    enabled: !isGuruOnly,
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: PublicGuruOption[] }>('/public/staff');
+        const list = Array.isArray(res.data?.data) ? res.data.data : [];
+        return list.filter((u) => u.roles?.some((r) => r.name === 'guru'));
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: messages = isGuruOnly ? [] : FALLBACK_MESSAGES, isLoading, refetch } = useQuery({
+    queryKey: messagesQueryKey,
     queryFn: async () => {
       try {
         const res = await apiClient.get<{ data: ContactMessageItem[] }>('/admin/contact-messages');
+        if (isGuruOnly) {
+          return Array.isArray(res.data?.data) ? res.data.data : [];
+        }
         if (res.data?.data && res.data.data.length > 0) {
           return res.data.data;
         }
       } catch {
-        // Fallback to seeded demo messages
+        if (isGuruOnly) {
+          return [];
+        }
       }
-      return FALLBACK_MESSAGES;
+      return isGuruOnly ? [] : FALLBACK_MESSAGES;
     },
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status, replyNotes }: { id: number; status: 'new' | 'read' | 'replied'; replyNotes?: string }) => {
+    mutationFn: async ({
+      id,
+      status,
+      replyNotes,
+      assignedTo,
+    }: {
+      id: number;
+      status?: 'new' | 'read' | 'replied';
+      replyNotes?: string;
+      assignedTo?: number | null;
+    }) => {
       try {
-        await apiClient.put(`/admin/contact-messages/${id}`, {
-          status,
-          reply_notes: replyNotes,
+        const res = await apiClient.put<{ data?: ContactMessageItem }>(`/admin/contact-messages/${id}`, {
+          ...(status !== undefined ? { status } : {}),
+          ...(replyNotes !== undefined ? { reply_notes: replyNotes } : {}),
+          ...(assignedTo !== undefined ? { assigned_to: assignedTo } : {}),
         });
+        return res.data?.data;
       } catch {
-        // Mock optimistic state update
+        return undefined;
       }
     },
-    onSuccess: (_, variables) => {
-      queryClient.setQueryData(['adminContactMessages'], (old: ContactMessageItem[] = []) =>
+    onSuccess: (updated, variables) => {
+      queryClient.setQueryData(messagesQueryKey, (old: ContactMessageItem[] = []) =>
         old.map((m) =>
           m.id === variables.id
             ? {
                 ...m,
-                status: variables.status,
-                reply_notes: variables.replyNotes ?? m.reply_notes,
-                read_at: variables.status !== 'new' ? m.read_at || new Date().toISOString() : null,
+                ...(updated ?? {}),
+                status: variables.status ?? updated?.status ?? m.status,
+                reply_notes: variables.replyNotes ?? updated?.reply_notes ?? m.reply_notes,
+                assigned_to: variables.assignedTo !== undefined ? variables.assignedTo : (updated?.assigned_to ?? m.assigned_to),
+                read_at: (variables.status ?? m.status) !== 'new' ? m.read_at || new Date().toISOString() : null,
               }
             : m
         )
       );
       if (selectedMessage && selectedMessage.id === variables.id) {
-        setSelectedMessage((prev) => (prev ? { ...prev, status: variables.status, reply_notes: variables.replyNotes } : null));
+        setSelectedMessage((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...(updated ?? {}),
+                status: variables.status ?? updated?.status ?? prev.status,
+                reply_notes: variables.replyNotes ?? updated?.reply_notes ?? prev.reply_notes,
+                assigned_to: variables.assignedTo !== undefined ? variables.assignedTo : (updated?.assigned_to ?? prev.assigned_to),
+              }
+            : null
+        );
       }
-      showToast(
-        variables.status === 'replied'
-          ? 'Tanggapan berhasil disimpan dan pesan ditandai selesai.'
-          : 'Status pesan berhasil diperbarui.'
-      );
+      if (variables.assignedTo !== undefined) {
+        showToast('Penerima pesan berhasil diperbarui.');
+      } else {
+        showToast(
+          variables.status === 'replied'
+            ? 'Tanggapan berhasil disimpan dan pesan ditandai selesai.'
+            : 'Status pesan berhasil diperbarui.'
+        );
+      }
     },
   });
 
@@ -163,7 +224,7 @@ export const MessagesPage: React.FC = () => {
       }
     },
     onSuccess: (_, deletedId) => {
-      queryClient.setQueryData(['adminContactMessages'], (old: ContactMessageItem[] = []) =>
+      queryClient.setQueryData(messagesQueryKey, (old: ContactMessageItem[] = []) =>
         old.filter((m) => m.id !== deletedId)
       );
       if (selectedMessage?.id === deletedId) setSelectedMessage(null);
@@ -250,7 +311,11 @@ export const MessagesPage: React.FC = () => {
       {/* Page Header */}
       <AdminPageHeader
         title="Pesan Masuk & Pengaduan"
-        description="Kelola seluruh komunikasi, pertanyaan pendaftaran, dan laporan aspirasi dari pengunjung website Yayasan Padindi."
+        description={
+          isGuruOnly
+            ? 'Kelola pesan masuk yang ditujukan atau berkaitan langsung dengan akun Anda.'
+            : 'Kelola seluruh komunikasi, pertanyaan pendaftaran, dan laporan aspirasi dari pengunjung website Yayasan Padindi.'
+        }
         breadcrumbs={[
           { label: 'Admin', to: '/admin/dashboard' },
           { label: 'Konten', to: '/admin/cms' },
@@ -393,8 +458,16 @@ export const MessagesPage: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-ink-muted">
                     <Mail className="w-10 h-10 text-navy/20 mx-auto mb-2" />
-                    <p className="font-semibold text-ink">Tidak ada pesan yang cocok</p>
-                    <p className="text-xs">Coba sesuaikan kata kunci pencarian atau tab filter di atas.</p>
+                    <p className="font-semibold text-ink">
+                      {isGuruOnly && messages.length === 0
+                        ? 'Belum ada pesan untuk akun Anda'
+                        : 'Tidak ada pesan yang cocok'}
+                    </p>
+                    <p className="text-xs">
+                      {isGuruOnly && messages.length === 0
+                        ? 'Pesan dari pengunjung atau yang ditugaskan kepada akun Anda akan tampil di sini.'
+                        : 'Coba sesuaikan kata kunci pencarian atau tab filter di atas.'}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -434,6 +507,11 @@ export const MessagesPage: React.FC = () => {
                           {msg.subject || '(Tanpa subjek)'}
                         </p>
                         <p className="text-xs text-ink-muted truncate mt-0.5">{msg.message}</p>
+                        {!isGuruOnly && msg.assignee?.name && (
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-navy/10 text-navy">
+                            Untuk: {msg.assignee.name}
+                          </span>
+                        )}
                       </td>
 
                       {/* Date */}
@@ -573,6 +651,30 @@ export const MessagesPage: React.FC = () => {
                 {selectedMessage.ip_address && (
                   <div className="text-[11px] text-ink-muted pt-1">
                     IP Pengirim: <code>{selectedMessage.ip_address}</code>
+                  </div>
+                )}
+
+                {!isGuruOnly && guruOptions.length > 0 && (
+                  <div className="pt-2 border-t border-navy/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label htmlFor="assign-guru-select" className="text-xs font-bold text-navy">
+                      Tugaskan / Teruskan ke Guru:
+                    </label>
+                    <select
+                      id="assign-guru-select"
+                      value={selectedMessage.assigned_to ? String(selectedMessage.assigned_to) : ''}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : null;
+                        updateStatusMutation.mutate({ id: selectedMessage.id, assignedTo: val });
+                      }}
+                      className="text-xs px-2.5 py-1.5 bg-white border border-navy/20 rounded-control text-ink focus:outline-none focus:ring-2 focus:ring-navy/30"
+                    >
+                      <option value="">Umum (Admin Yayasan)</option>
+                      {guruOptions.map((g) => (
+                        <option key={g.id} value={String(g.id)}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>

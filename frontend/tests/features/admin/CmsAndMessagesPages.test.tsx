@@ -28,8 +28,10 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe('MessagesPage — Pesan & Pengaduan', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { data: [] } });
   });
 
   it('menampilkan halaman pesan masuk dengan stat card dan tabel data', async () => {
@@ -53,6 +55,31 @@ describe('MessagesPage — Pesan & Pengaduan', () => {
     expect(screen.getByText('Detail Pesan Masuk')).toBeInTheDocument();
     expect(screen.getAllByText('ratna.dewi@example.com').length).toBeGreaterThan(0);
     expect(screen.getByText('Simpan Tanggapan & Tandai Selesai')).toBeInTheDocument();
+  });
+
+  it('role guru hanya menampilkan pesan miliknya dan tidak menampilkan pesan fallback umum saat kosong', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            data: {
+              id: 2,
+              name: 'Siti Rahmawati, S.Pd',
+              email: 'guru@padindi.id',
+              roles: ['guru'],
+              permissions: ['dashboard.view', 'content.manage', 'messages.manage', 'logs.view'],
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderWithClient(<MessagesPage />);
+
+    expect(await screen.findByText('Belum ada pesan untuk akun Anda')).toBeInTheDocument();
+    expect(screen.queryByText('[Contoh] Ibu Ratna Dewi')).not.toBeInTheDocument();
   });
 });
 

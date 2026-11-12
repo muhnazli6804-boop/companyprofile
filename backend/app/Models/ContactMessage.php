@@ -23,4 +23,9 @@ class ContactMessage extends Model
     {
         return $this->belongsTo(User::class, 'read_by');
     }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
 }
