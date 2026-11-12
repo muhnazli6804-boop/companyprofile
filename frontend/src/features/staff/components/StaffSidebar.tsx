@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import React, { useId } from 'react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Newspaper,
@@ -17,231 +17,165 @@ import {
   KeyRound,
   LogOut,
   Globe,
-  PanelLeftClose,
+  type LucideIcon,
 } from 'lucide-react';
 import { Roundel } from '@/components/brand/Roundel';
 import { roleLabel, type useCurrentUser } from '@/features/auth/permissions';
 
 interface StaffSidebarProps {
   user: ReturnType<typeof useCurrentUser>['data'];
-  isCollapsed: boolean;
-  onCollapse: (val: boolean) => void;
   onLinkClick?: () => void;
   onLogout?: () => void;
 }
 
+interface SidebarItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  statusQuery?: string;
+}
+
+const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
+  {
+    label: 'Dashboard',
+    items: [{ to: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true }],
+  },
+  {
+    label: 'Pengelolaan Konten',
+    items: [
+      { to: '/staff/berita', label: 'Berita dan Artikel', icon: Newspaper },
+      { to: '/staff/konten', label: 'Konten Website', icon: LayoutTemplate },
+      { to: '/staff/galeri', label: 'Galeri Foto & Video', icon: ImageIcon },
+      { to: '/staff/prestasi', label: 'Prestasi', icon: Trophy },
+      { to: '/staff/faq', label: 'FAQ Website', icon: HelpCircle },
+      { to: '/staff/media', label: 'Media Library', icon: FolderOpen },
+    ],
+  },
+  {
+    label: 'Publikasi',
+    items: [
+      { to: '/staff/publikasi', label: 'Semua Konten Saya', icon: Send, end: true, statusQuery: '' },
+      { to: '/staff/publikasi?status=draft', label: 'Draft', icon: FileEdit, statusQuery: 'draft' },
+      { to: '/staff/publikasi?status=pending', label: 'Menunggu Persetujuan', icon: Clock, statusQuery: 'pending' },
+      { to: '/staff/publikasi?status=revision', label: 'Perlu Revisi', icon: AlertTriangle, statusQuery: 'revision' },
+      { to: '/staff/publikasi?status=published', label: 'Dipublikasikan', icon: CheckCircle, statusQuery: 'published' },
+    ],
+  },
+  {
+    label: 'Pengaturan Akun',
+    items: [
+      { to: '/staff/profil', label: 'Profil Saya', icon: User },
+      { to: '/staff/ubah-password', label: 'Ubah Password', icon: KeyRound },
+    ],
+  },
+];
+
 export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   user,
-  isCollapsed,
-  onCollapse,
   onLinkClick,
   onLogout,
 }) => {
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `group flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-150 min-h-[40px] ` +
+  const navId = useId();
+  const { pathname, search } = useLocation();
+  const currentStatus = new URLSearchParams(search).get('status') ?? '';
+
+  const buildLinkClass = (isActive: boolean) =>
+    `flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3.5 rounded-r-lg border-l-4 text-sm font-semibold transition-colors ` +
     `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy ` +
     (isActive
-      ? 'bg-white/15 text-white font-semibold shadow-xs'
-      : 'text-white/80 hover:text-white hover:bg-white/10 font-normal');
+      ? 'border-[#F4D21F] bg-[#1F366D] text-white shadow-xs'
+      : 'border-transparent text-white/85 hover:text-white hover:bg-white/10 font-medium');
 
   return (
     <div className="flex flex-col h-full bg-navy text-white">
-      {/* Top Header ala ChatGPT */}
-      <div className="shrink-0 flex items-center justify-between gap-2 px-3.5 pt-3 pb-2.5 border-b border-white/10">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-            <Roundel src="/images/logo.png" alt="" size={24} />
-          </div>
-          <div className="min-w-0">
-            <p className="font-display font-bold text-base leading-tight truncate text-white">
-              Portal Staff & Guru
-            </p>
-            <p className="text-[10px] text-white/60 truncate">Yayasan Padindi</p>
-          </div>
+      {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display (sama dengan AdminLayout) */}
+      <div className="shrink-0 flex items-center gap-3 px-4 pt-4 pb-3">
+        <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
+          <Roundel src="/images/logo.png" alt="" size={32} />
         </div>
-
-        {/* Toggle Collapse Button on desktop */}
-        <button
-          type="button"
-          aria-label="Tutup bilah samping"
-          title="Tutup bilah samping (Ctrl+B)"
-          onClick={() => onCollapse(true)}
-          className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-        >
-          <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
-        </button>
+        <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">
+          Portal Staff
+        </p>
       </div>
 
       {/* Navigasi Utama */}
       <nav
         aria-label="Navigasi Staff"
-        className="flex-1 min-h-0 overflow-y-auto px-2.5 py-2 space-y-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
+        className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 py-2 pr-2.5 pl-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
       >
-        {/* GROUP 1: DASHBOARD */}
-        <div>
-          <p className="px-3 pt-1 pb-1 text-[11px] font-bold uppercase tracking-wider text-white/50">
-            DASHBOARD
-          </p>
-          <ul className="space-y-0.5">
-            <li>
-              <NavLink to="/staff/dashboard" end className={linkClass} onClick={onLinkClick}>
-                <LayoutDashboard className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Dashboard</span>
-              </NavLink>
-            </li>
-          </ul>
-        </div>
+        {NAV_GROUPS.map((group, index) => (
+          <div key={group.label} className="mb-2">
+            {/* Heading kategori */}
+            <p id={`${navId}-${index}`} className="px-3.5 pt-2 pb-1 text-xs font-bold uppercase tracking-wider text-white/70">
+              {group.label}
+            </p>
+            <ul aria-labelledby={`${navId}-${index}`} className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isPublicationItem = item.statusQuery !== undefined;
 
-        {/* GROUP 2: PENGELOLAAN KONTEN */}
-        <div>
-          <p className="px-3 pt-1 pb-1 text-[11px] font-bold uppercase tracking-wider text-white/50">
-            PENGELOLAAN KONTEN
-          </p>
-          <ul className="space-y-0.5">
-            <li>
-              <NavLink to="/staff/berita" className={linkClass} onClick={onLinkClick}>
-                <Newspaper className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Berita dan Artikel</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/konten" className={linkClass} onClick={onLinkClick}>
-                <LayoutTemplate className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Konten Website</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/galeri" className={linkClass} onClick={onLinkClick}>
-                <ImageIcon className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Galeri Foto & Video</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/prestasi" className={linkClass} onClick={onLinkClick}>
-                <Trophy className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Prestasi</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/faq" className={linkClass} onClick={onLinkClick}>
-                <HelpCircle className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>FAQ Website</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/media" className={linkClass} onClick={onLinkClick}>
-                <FolderOpen className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Media Library</span>
-              </NavLink>
-            </li>
-          </ul>
-        </div>
+                return (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) => {
+                        const active = isPublicationItem
+                          ? pathname === '/staff/publikasi' && currentStatus === item.statusQuery
+                          : isActive;
+                        return buildLinkClass(active);
+                      }}
+                      onClick={onLinkClick}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{item.label}</span>
+                    </NavLink>
+                  </li>
+                );
+              })}
 
-        {/* GROUP 3: PUBLIKASI & WORKFLOW */}
-        <div>
-          <p className="px-3 pt-1 pb-1 text-[11px] font-bold uppercase tracking-wider text-white/50">
-            PUBLIKASI
-          </p>
-          <ul className="space-y-0.5">
-            <li>
-              <NavLink to="/staff/publikasi" end className={linkClass} onClick={onLinkClick}>
-                <Send className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Semua Konten Saya</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/publikasi?status=draft" className={linkClass} onClick={onLinkClick}>
-                <FileEdit className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Draft</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/publikasi?status=pending" className={linkClass} onClick={onLinkClick}>
-                <Clock className="h-4.5 w-4.5 shrink-0 text-amber-400 group-hover:text-white" />
-                <span>Menunggu Persetujuan</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/publikasi?status=revision" className={linkClass} onClick={onLinkClick}>
-                <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-rose-400 group-hover:text-white" />
-                <span>Perlu Revisi</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/publikasi?status=published" className={linkClass} onClick={onLinkClick}>
-                <CheckCircle className="h-4.5 w-4.5 shrink-0 text-emerald-400 group-hover:text-white" />
-                <span>Dipublikasikan</span>
-              </NavLink>
-            </li>
-          </ul>
-        </div>
-
-        {/* GROUP 4: PENGATURAN AKUN */}
-        <div>
-          <p className="px-3 pt-1 pb-1 text-[11px] font-bold uppercase tracking-wider text-white/50">
-            PENGATURAN AKUN
-          </p>
-          <ul className="space-y-0.5">
-            <li>
-              <NavLink to="/staff/profil" className={linkClass} onClick={onLinkClick}>
-                <User className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Profil Saya</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/staff/ubah-password" className={linkClass} onClick={onLinkClick}>
-                <KeyRound className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white" />
-                <span>Ubah Password</span>
-              </NavLink>
-            </li>
-            {onLogout && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLinkClick?.();
-                    onLogout();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-rose-300 hover:text-white hover:bg-rose-500/20 transition-colors text-left min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                >
-                  <LogOut className="h-4.5 w-4.5 shrink-0 text-rose-400 group-hover:text-white" />
-                  <span>Keluar (Logout)</span>
-                </button>
-              </li>
-            )}
-          </ul>
-        </div>
+              {group.label === 'Pengaturan Akun' && onLogout && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onLinkClick?.();
+                      onLogout();
+                    }}
+                    className={`${buildLinkClass(false)} w-full text-left`}
+                  >
+                    <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">Keluar (Logout)</span>
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      {/* User Info & Lihat Situs Footer */}
-      <div className="shrink-0 border-t border-white/10 p-2.5 flex flex-col gap-1.5">
-        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/5">
-          <div className="w-8 h-8 rounded-full bg-star/20 text-star border border-star/30 flex items-center justify-center font-bold text-xs shrink-0">
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'G'}
-          </div>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="font-semibold text-sm text-white truncate" title={user?.name || 'Staff Pengajar'}>
-              {user?.name || 'Staff Pengajar Padindi'}
-            </p>
-            <p className="text-xs text-white/60 truncate">
-              {user?.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Guru / Staf Yayasan'}
-            </p>
-          </div>
+      {/* Footer Sidebar: Nama Akun + Role + Tautan Lihat Situs (sama dengan AdminLayout) */}
+      <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-4 flex flex-col gap-2">
+        <div className="min-w-0 leading-tight">
+          <p className="font-bold text-white text-base truncate" title={user?.name || 'Staff Pengajar Padindi'}>
+            {user?.name || 'Staff Pengajar Padindi'}
+          </p>
+          <p className="text-xs text-white/70 truncate mt-0.5">
+            {user?.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Guru / Staf Yayasan'}
+          </p>
         </div>
-
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2">
           <Link
             to="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
           >
-            <Globe className="h-4 w-4 shrink-0 text-white/70" />
-            <span>Lihat Website</span>
+            <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
+            <span>Lihat situs</span>
           </Link>
           <Link
             to="/admin/dashboard"
-            className="px-2 py-1.5 rounded-lg text-xs text-star/80 hover:text-star hover:bg-white/10 transition-colors font-semibold"
+            className="text-xs font-semibold text-[#F4D21F]/90 hover:text-[#F4D21F] transition-colors px-2 py-1 rounded"
             title="Buka Admin Panel (jika memiliki hak akses)"
           >
             Admin
@@ -251,4 +185,3 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
     </div>
   );
 };
-

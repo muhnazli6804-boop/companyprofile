@@ -14,22 +14,8 @@ export const StaffLayout: React.FC = () => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const { data: user } = useCurrentUser();
 
-  // State sidebar collapse ala ChatGPT
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('staff_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('staff_sidebar_collapsed', String(isCollapsed));
-    } catch {
-      // ignore
-    }
-  }, [isCollapsed]);
+  // State collapse sidebar desktop (default false agar layout selalu penuh seperti Admin)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   // Keyboard shortcut Ctrl+B / Cmd+B
   useEffect(() => {
@@ -98,23 +84,22 @@ export const StaffLayout: React.FC = () => {
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Portal Staff & Guru (disamakan dengan AdminLayout Superadmin) */}
       <aside
         id="staff-sidebar"
+        inert={(!isDesktop && !mobileDrawerOpen) || (isDesktop && isCollapsed)}
         className={
           'fixed inset-y-0 left-0 z-50 bg-navy text-white flex flex-col border-white/10 ' +
-          'transition-all duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:shrink-0 ' +
+          'transition-all duration-300 ease-in-out motion-reduce:transition-none md:sticky md:top-0 md:h-screen md:shrink-0 ' +
           (mobileDrawerOpen
-            ? 'w-64 translate-x-0 visible border-r'
+            ? 'w-[277px] translate-x-0 visible border-r'
             : isCollapsed
-              ? 'w-64 -translate-x-full invisible md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden md:pointer-events-none md:border-r-0'
-              : 'w-64 -translate-x-full invisible md:w-64 md:translate-x-0 md:opacity-100 md:visible md:border-r')
+              ? 'w-[277px] -translate-x-full invisible md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden md:pointer-events-none md:border-r-0'
+              : 'w-[277px] -translate-x-full invisible md:w-[277px] md:translate-x-0 md:opacity-100 md:visible md:border-r')
         }
       >
         <StaffSidebar
           user={user}
-          isCollapsed={isCollapsed}
-          onCollapse={setIsCollapsed}
           onLinkClick={() => setMobileDrawerOpen(false)}
           onLogout={handleLogout}
         />
