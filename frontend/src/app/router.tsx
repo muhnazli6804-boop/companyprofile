@@ -192,25 +192,59 @@ export const router = createBrowserRouter([
         element: <AdminLayout />,
         children: [
           { index: true, element: <Navigate to="dashboard" replace /> },
-          { path: 'dashboard', element: <SuspenseWrapper><AdminDashboardPage /></SuspenseWrapper> },
-          { path: 'pendaftaran-siswa', element: <SuspenseWrapper><AdminStudentAppsPage /></SuspenseWrapper> },
-          { path: 'pendaftaran-siswa/:id', element: <SuspenseWrapper><AdminStudentAppDetailPage /></SuspenseWrapper> },
-          { path: 'lamaran-guru', element: <SuspenseWrapper><AdminTeacherAppsPage /></SuspenseWrapper> },
-          { path: 'lamaran-guru/:id', element: <SuspenseWrapper><AdminTeacherAppDetailPage /></SuspenseWrapper> },
-          { path: 'periode', element: <SuspenseWrapper><AdminPeriodsPage /></SuspenseWrapper> },
-          { path: 'unit-pendidikan', element: <SuspenseWrapper><AdminUnitsPage /></SuspenseWrapper> },
-          { path: 'syarat-dokumen', element: <SuspenseWrapper><AdminRequirementsPage /></SuspenseWrapper> },
-          { path: 'lowongan-guru', element: <SuspenseWrapper><AdminVacanciesPage /></SuspenseWrapper> },
-          { path: 'cms', element: <SuspenseWrapper><AdminCmsPage /></SuspenseWrapper> },
-          { path: 'pesan-kontak', element: <SuspenseWrapper><AdminMessagesPage /></SuspenseWrapper> },
-          { path: 'keuangan', element: <SuspenseWrapper><AdminFinancePage /></SuspenseWrapper> },
+          {
+            element: <RequirePermission permission="dashboard.view" />,
+            children: [{ path: 'dashboard', element: <SuspenseWrapper><AdminDashboardPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="applications.view" />,
+            children: [
+              { path: 'pendaftaran-siswa', element: <SuspenseWrapper><AdminStudentAppsPage /></SuspenseWrapper> },
+              { path: 'pendaftaran-siswa/:id', element: <SuspenseWrapper><AdminStudentAppDetailPage /></SuspenseWrapper> },
+              { path: 'lamaran-guru', element: <SuspenseWrapper><AdminTeacherAppsPage /></SuspenseWrapper> },
+              { path: 'lamaran-guru/:id', element: <SuspenseWrapper><AdminTeacherAppDetailPage /></SuspenseWrapper> },
+            ],
+          },
+          {
+            element: <RequirePermission permission="periods.manage" />,
+            children: [{ path: 'periode', element: <SuspenseWrapper><AdminPeriodsPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="units.manage" />,
+            children: [{ path: 'unit-pendidikan', element: <SuspenseWrapper><AdminUnitsPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="requirements.manage" />,
+            children: [{ path: 'syarat-dokumen', element: <SuspenseWrapper><AdminRequirementsPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="vacancies.manage" />,
+            children: [{ path: 'lowongan-guru', element: <SuspenseWrapper><AdminVacanciesPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="content.manage" />,
+            children: [
+              { path: 'cms', element: <SuspenseWrapper><AdminCmsPage /></SuspenseWrapper> },
+              { path: 'pengaturan', element: <Navigate to="/admin/cms?tab=identity" replace /> },
+              { path: 'settings', element: <Navigate to="/admin/cms?tab=identity" replace /> },
+            ],
+          },
+          {
+            element: <RequirePermission permission="messages.manage" />,
+            children: [{ path: 'pesan-kontak', element: <SuspenseWrapper><AdminMessagesPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="finance.view" />,
+            children: [{ path: 'keuangan', element: <SuspenseWrapper><AdminFinancePage /></SuspenseWrapper> }],
+          },
           {
             element: <RequirePermission permission="users.manage" />,
             children: [{ path: 'pengguna', element: <SuspenseWrapper><AdminUsersPage /></SuspenseWrapper> }],
           },
-          { path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> },
-          { path: 'pengaturan', element: <Navigate to="/admin/cms?tab=identity" replace /> },
-          { path: 'settings', element: <Navigate to="/admin/cms?tab=identity" replace /> },
+          {
+            element: <RequirePermission permission="logs.view" />,
+            children: [{ path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> }],
+          },
         ],
       },
     ],
