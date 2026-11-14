@@ -334,33 +334,35 @@ export const MessagesPage: React.FC = () => {
         }
       />
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <AdminStatCard
-          label="Total Pesan Masuk"
-          value={countTotal}
-          icon={Mail}
-          badge={{ text: 'Seluruh riwayat', variant: 'neutral' }}
-        />
-        <AdminStatCard
-          label="Pesan Baru (Belum Dibaca)"
-          value={countNew}
-          icon={AlertCircle}
-          badge={{ text: 'Perlu ditinjau', variant: countNew > 0 ? 'warning' : 'success' }}
-        />
-        <AdminStatCard
-          label="Sudah Dibalas / Selesai"
-          value={countReplied}
-          icon={CheckCircle2}
-          badge={{ text: 'Terselesaikan', variant: 'success' }}
-        />
-        <AdminStatCard
-          label="Pengaduan & Kendala"
-          value={countComplaints}
-          icon={MessageSquare}
-          badge={{ text: 'Aspirasi publik', variant: 'neutral' }}
-        />
-      </div>
+      {/* Metrics Row (disembunyikan pada role guru karena jumlah notifikasi sudah tertera di tab filter) */}
+      {!isGuruOnly && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <AdminStatCard
+            label="Total Pesan Masuk"
+            value={countTotal}
+            icon={Mail}
+            badge={{ text: 'Seluruh riwayat', variant: 'neutral' }}
+          />
+          <AdminStatCard
+            label="Pesan Baru (Belum Dibaca)"
+            value={countNew}
+            icon={AlertCircle}
+            badge={{ text: 'Perlu ditinjau', variant: countNew > 0 ? 'warning' : 'success' }}
+          />
+          <AdminStatCard
+            label="Sudah Dibalas / Selesai"
+            value={countReplied}
+            icon={CheckCircle2}
+            badge={{ text: 'Terselesaikan', variant: 'success' }}
+          />
+          <AdminStatCard
+            label="Pengaduan & Kendala"
+            value={countComplaints}
+            icon={MessageSquare}
+            badge={{ text: 'Aspirasi publik', variant: 'neutral' }}
+          />
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="bg-white rounded-card border border-navy/10 shadow-sm p-5 space-y-4">

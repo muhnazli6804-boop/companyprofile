@@ -80,6 +80,9 @@ describe('MessagesPage — Pesan & Pengaduan', () => {
 
     expect(await screen.findByText('Belum ada pesan untuk akun Anda')).toBeInTheDocument();
     expect(screen.queryByText('[Contoh] Ibu Ratna Dewi')).not.toBeInTheDocument();
+    // Stat card pesan disembunyikan pada role guru karena jumlah sudah tertera pada filter
+    expect(screen.queryByText('Total Pesan Masuk')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pesan Baru (Belum Dibaca)')).not.toBeInTheDocument();
   });
 });
 
