@@ -63,6 +63,46 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: Luc
   },
 ];
 
+const getActiveMenuTitle = (pathname: string, isGuru: boolean): string => {
+  if (pathname === '/admin/dashboard' || pathname.startsWith('/admin/dashboard')) {
+    return isGuru ? 'Dashboard Guru & Pendidik' : 'Dashboard Administrator';
+  }
+  if (pathname.startsWith('/admin/pendaftaran-siswa')) {
+    return 'Pendaftaran Siswa';
+  }
+  if (pathname.startsWith('/admin/lamaran-guru')) {
+    return 'Lamaran Guru';
+  }
+  if (pathname.startsWith('/admin/periode')) {
+    return 'Periode & Kuota';
+  }
+  if (pathname.startsWith('/admin/unit-pendidikan')) {
+    return 'Unit Pendidikan';
+  }
+  if (pathname.startsWith('/admin/syarat-dokumen')) {
+    return 'Syarat Dokumen';
+  }
+  if (pathname.startsWith('/admin/lowongan-guru')) {
+    return 'Lowongan Guru';
+  }
+  if (pathname.startsWith('/admin/cms')) {
+    return isGuru ? 'Kelola Konten & Berita' : 'CMS & Pengaturan Situs';
+  }
+  if (pathname.startsWith('/admin/pesan-kontak')) {
+    return 'Pesan Kontak';
+  }
+  if (pathname.startsWith('/admin/keuangan')) {
+    return 'Laporan Keuangan';
+  }
+  if (pathname.startsWith('/admin/pengguna')) {
+    return 'Pengguna & Role';
+  }
+  if (pathname.startsWith('/admin/log-aktivitas')) {
+    return isGuru ? 'Log Aktivitas Akun' : 'Log Aktivitas';
+  }
+  return '';
+};
+
 export const AdminLayout: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -100,6 +140,8 @@ export const AdminLayout: React.FC = () => {
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const { data: user } = useCurrentUser();
+  const isGuru = Boolean(user?.roles?.includes('guru') && !user?.roles?.includes('super_admin'));
+  const activeMenuTitle = getActiveMenuTitle(pathname, isGuru);
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => hasPermission(user, item.permission)),
@@ -253,8 +295,8 @@ export const AdminLayout: React.FC = () => {
           inert={drawerOpen}
           className="sticky top-0 z-20 bg-white border-b border-line min-h-14 flex items-center gap-3 px-4 md:px-6 justify-between transition-colors"
         >
-          {/* Tanpa judul halaman: setiap halaman admin sudah punya h1 sendiri. */}
-          <div className="flex items-center gap-3">
+          {/* Nama Menu Halaman Aktif pada Bar Header Atas */}
+          <div className="flex items-center gap-3 min-w-0">
             {/* Tombol hamburger untuk mobile (< 768px) */}
             <button
               ref={hamburgerRef}
@@ -279,6 +321,15 @@ export const AdminLayout: React.FC = () => {
               >
                 <PanelLeft className="h-5 w-5" aria-hidden="true" />
               </button>
+            )}
+
+            {/* Nama Menu Aktif */}
+            {activeMenuTitle && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-display font-bold text-base md:text-lg text-primary truncate tracking-tight">
+                  {activeMenuTitle}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-3 min-w-0">
