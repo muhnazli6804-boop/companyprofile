@@ -21,7 +21,6 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Button } from '@/components/ui/Button';
-import { Roundel } from '@/components/brand/Roundel';
 import { hasPermission, roleLabel, useCurrentUser } from '@/features/auth/permissions';
 
 // Menu disaring per permission hanya demi tampilan (PRD §7.6, FR-081); backend tetap memutuskan lewat 403.
@@ -239,13 +238,22 @@ export const AdminLayout: React.FC = () => {
               : 'w-[277px] -translate-x-full invisible md:w-[277px] md:translate-x-0 md:opacity-100 md:visible md:border-r')
         }
       >
-        {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display + Tombol Tutup Sidebar ala ChatGPT */}
+        {/* Header Sidebar: Logo Yayasan + Nama Yayasan + Tombol Tutup Sidebar ala ChatGPT */}
         <div className="shrink-0 flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-white/10">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
-              <Roundel src="/images/logo.png" alt="" size={32} />
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-xs">
+              <img
+                src="/images/logo.png"
+                alt="Logo Yayasan Padindi"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/images/logo.png';
+                }}
+              />
             </div>
-            <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">Admin Padindi</p>
+            <span className="font-display font-bold text-base text-white tracking-tight truncate" title="Yayasan Padindi">
+              Yayasan Padindi
+            </span>
           </div>
           {/* Tombol Tutup Sidebar ala ChatGPT */}
           <button

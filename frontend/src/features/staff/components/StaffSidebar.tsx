@@ -20,7 +20,6 @@ import {
   PanelLeft,
   type LucideIcon,
 } from 'lucide-react';
-import { Roundel } from '@/components/brand/Roundel';
 import { roleLabel, type useCurrentUser } from '@/features/auth/permissions';
 
 interface StaffSidebarProps {
@@ -92,15 +91,22 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-navy text-white">
-      {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display + Tombol Tutup Sidebar ala ChatGPT */}
+      {/* Header Sidebar: Logo Yayasan + Nama Yayasan + Tombol Tutup Sidebar ala ChatGPT */}
       <div className="shrink-0 flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-white/10">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
-            <Roundel src="/images/logo.png" alt="" size={32} />
+          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-xs">
+            <img
+              src="/images/logo.png"
+              alt="Logo Yayasan Padindi"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/images/logo.png';
+              }}
+            />
           </div>
-          <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">
-            Portal Staff
-          </p>
+          <span className="font-display font-bold text-base text-white tracking-tight truncate" title="Yayasan Padindi">
+            Yayasan Padindi
+          </span>
         </div>
         {onToggleCollapse && (
           <button
