@@ -1,18 +1,41 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { usePublicSettings } from '@/features/public/hooks';
 import { apiClient } from '@/lib/api-client';
 import { Phone, Mail, MapPin, Clock, MessageSquare, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { MapEmbed } from '../components/MapEmbed';
 
+interface PublicStaffMember {
+  id: number;
+  name: string;
+  roles: { name: string; label: string }[];
+}
+
 export const ContactPage: React.FC = () => {
   const { data: settings } = usePublicSettings();
+
+  const { data: staffList = [] } = useQuery({
+    queryKey: ['public', 'staff'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ data: PublicStaffMember[] }>('/public/staff');
+        return Array.isArray(res.data?.data) ? res.data.data : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60_000,
+  });
+
+  const guruList = staffList.filter((m) => m.roles.some((r) => r.name === 'guru'));
 
   const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
     subject: '',
+    assigned_to: '',
     message: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -34,10 +57,11 @@ export const ContactPage: React.FC = () => {
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         subject: form.subject.trim() || 'Pertanyaan Umum',
+        assigned_to: form.assigned_to ? Number(form.assigned_to) : undefined,
         message: form.message.trim(),
       });
       setSuccess(true);
-      setForm({ name: '', email: '', phone: '', subject: '', message: '' });
+      setForm({ name: '', email: '', phone: '', subject: '', assigned_to: '', message: '' });
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -216,6 +240,24 @@ export const ContactPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {guruList.length > 0 && (
+                  <div>
+                    <label className="font-bold text-navy block mb-1">Tujuan Pesan / Penerima</label>
+                    <select
+                      value={form.assigned_to}
+                      onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                      className="w-full p-2.5 bg-paper border border-navy/20 rounded-control text-ink focus:outline-none focus:ring-2 focus:ring-navy/30"
+                    >
+                      <option value="">Umum / Admin Yayasan</option>
+                      {guruList.map((g) => (
+                        <option key={g.id} value={String(g.id)}>
+                          {g.name} (Guru)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="font-bold text-navy block mb-1">Isi Pesan atau Pertanyaan *</label>

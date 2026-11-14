@@ -24,6 +24,6 @@ class DashboardController extends Controller
             $period = DashboardSummary::defaultPeriod();
         }
 
-        return response()->json(['data' => $summary->build($period)]);
+        return response()->json(['data' => $summary->build($period, $request->user())]);
     }
 }

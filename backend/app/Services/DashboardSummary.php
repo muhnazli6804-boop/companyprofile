@@ -11,6 +11,7 @@ use App\Models\PeriodUnitQuota;
 use App\Models\RegistrationPeriod;
 use App\Models\StudentApplication;
 use App\Models\TeacherApplication;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class DashboardSummary
             ?? $active->first();
     }
 
-    public function build(?RegistrationPeriod $period): array
+    public function build(?RegistrationPeriod $period, ?User $user = null): array
     {
         $students = fn () => StudentApplication::query()
             ->where('status', '!=', StudentApplicationStatus::DRAFT->value)
@@ -53,6 +54,38 @@ class DashboardSummary
         $quotas = $period
             ? PeriodUnitQuota::where('registration_period_id', $period->id)->pluck('quota', 'education_unit_id')
             : collect();
+
+        $isGuru = $user !== null && $user->hasRole('guru') && ! $user->hasRole('super_admin');
+
+        $guruMetrics = null;
+        if ($isGuru) {
+            $guruMetrics = [
+                'total_posts' => \App\Models\Post::count(),
+                'published_posts' => \App\Models\Post::where('status', \App\Enums\PostStatus::PUBLISHED->value)->count(),
+                'draft_posts' => \App\Models\Post::where('status', \App\Enums\PostStatus::DRAFT->value)->count(),
+                'total_galleries' => \App\Models\Gallery::count(),
+                'my_messages_total' => DB::table('contact_messages')->where('assigned_to', $user->id)->count(),
+                'my_messages_unread' => DB::table('contact_messages')->where('assigned_to', $user->id)->where('status', 'new')->count(),
+                'my_activity_logs_count' => DB::table('activity_logs')->where('user_id', $user->id)->count(),
+                'recent_posts' => \App\Models\Post::with('category:id,name')
+                    ->orderByDesc('created_at')
+                    ->limit(5)
+                    ->get(['id', 'title', 'slug', 'post_category_id', 'status', 'created_at']),
+                'recent_galleries' => \App\Models\Gallery::orderByDesc('created_at')
+                    ->limit(5)
+                    ->get(['id', 'title', 'slug', 'is_published', 'event_date', 'created_at']),
+                'recent_messages' => DB::table('contact_messages')
+                    ->where('assigned_to', $user->id)
+                    ->orderByDesc('created_at')
+                    ->limit(5)
+                    ->get(['id', 'name', 'subject', 'status', 'created_at']),
+                'recent_activities' => DB::table('activity_logs')
+                    ->where('user_id', $user->id)
+                    ->orderByDesc('created_at')
+                    ->limit(5)
+                    ->get(['id', 'action', 'subject_type', 'created_at']),
+            ];
+        }
 
         return [
             'period' => $period?->only(['id', 'name', 'academic_year', 'wave', 'is_active']),
@@ -77,8 +110,15 @@ class DashboardSummary
             ])->values()->all(),
             'new_applicants' => $this->trend($students(), $teachers()),
             // DB::table: model ContactMessage memakai SoftDeletes padahal tabelnya tidak punya deleted_at.
-            'unread_contact_messages' => DB::table('contact_messages')->where('status', 'new')->count(),
+            'unread_contact_messages' => DB::table('contact_messages')
+                ->where('status', 'new')
+                ->when(
+                    $isGuru,
+                    fn ($q) => $q->where('assigned_to', $user->id)
+                )
+                ->count(),
             'documents_pending' => $this->pendingDocuments($period),
+            'guru_metrics' => $guruMetrics,
         ];
     }
 

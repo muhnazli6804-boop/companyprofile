@@ -21,7 +21,6 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Button } from '@/components/ui/Button';
-import { Roundel } from '@/components/brand/Roundel';
 import { hasPermission, roleLabel, useCurrentUser } from '@/features/auth/permissions';
 
 // Menu disaring per permission hanya demi tampilan (PRD §7.6, FR-081); backend tetap memutuskan lewat 403.
@@ -63,6 +62,46 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: Luc
   },
 ];
 
+const getActiveMenuTitle = (pathname: string, isGuru: boolean): string => {
+  if (pathname === '/admin/dashboard' || pathname.startsWith('/admin/dashboard')) {
+    return isGuru ? 'Dashboard Guru & Pendidik' : 'Dashboard Administrator';
+  }
+  if (pathname.startsWith('/admin/pendaftaran-siswa')) {
+    return 'Pendaftaran Siswa';
+  }
+  if (pathname.startsWith('/admin/lamaran-guru')) {
+    return 'Lamaran Guru';
+  }
+  if (pathname.startsWith('/admin/periode')) {
+    return 'Periode & Kuota';
+  }
+  if (pathname.startsWith('/admin/unit-pendidikan')) {
+    return 'Unit Pendidikan';
+  }
+  if (pathname.startsWith('/admin/syarat-dokumen')) {
+    return 'Syarat Dokumen';
+  }
+  if (pathname.startsWith('/admin/lowongan-guru')) {
+    return 'Lowongan Guru';
+  }
+  if (pathname.startsWith('/admin/cms')) {
+    return isGuru ? 'Kelola Konten & Berita' : 'CMS & Pengaturan Situs';
+  }
+  if (pathname.startsWith('/admin/pesan-kontak')) {
+    return 'Pesan Kontak';
+  }
+  if (pathname.startsWith('/admin/keuangan')) {
+    return 'Laporan Keuangan';
+  }
+  if (pathname.startsWith('/admin/pengguna')) {
+    return 'Pengguna & Role';
+  }
+  if (pathname.startsWith('/admin/log-aktivitas')) {
+    return isGuru ? 'Log Aktivitas Akun' : 'Log Aktivitas';
+  }
+  return '';
+};
+
 export const AdminLayout: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -70,8 +109,24 @@ export const AdminLayout: React.FC = () => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const navId = useId();
 
-  // State collapse sidebar desktop (default false agar layout selalu penuh)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  // State collapse sidebar desktop ala ChatGPT (default false, tersimpan di localStorage)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('padindi_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = (collapse?: boolean) => {
+    setIsCollapsed((prev) => {
+      const next = collapse !== undefined ? collapse : !prev;
+      try {
+        localStorage.setItem('padindi_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Shortcut keyboard Ctrl+B / Cmd+B untuk toggle sidebar (seperti ChatGPT / VS Code)
   useEffect(() => {
@@ -82,7 +137,7 @@ export const AdminLayout: React.FC = () => {
           return;
         }
         e.preventDefault();
-        setIsCollapsed((prev) => !prev);
+        toggleSidebar();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -100,6 +155,8 @@ export const AdminLayout: React.FC = () => {
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const { data: user } = useCurrentUser();
+  const isGuru = Boolean(user?.roles?.includes('guru') && !user?.roles?.includes('super_admin'));
+  const activeMenuTitle = getActiveMenuTitle(pathname, isGuru);
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => hasPermission(user, item.permission)),
@@ -181,12 +238,39 @@ export const AdminLayout: React.FC = () => {
               : 'w-[277px] -translate-x-full invisible md:w-[277px] md:translate-x-0 md:opacity-100 md:visible md:border-r')
         }
       >
-        {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display */}
-        <div className="shrink-0 flex items-center gap-3 px-4 pt-4 pb-3">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
-            <Roundel src="/images/logo.png" alt="" size={32} />
+        {/* Header Sidebar: Logo Yayasan + Nama Yayasan + Tombol Tutup Sidebar ala ChatGPT */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-xs">
+              <img
+                src="/images/logo.png"
+                alt="Logo Yayasan Padindi"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/images/logo.png';
+                }}
+              />
+            </div>
+            <span className="font-display font-bold text-base text-white tracking-tight truncate" title="Yayasan Padindi">
+              Yayasan Padindi
+            </span>
           </div>
-          <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">Admin Padindi</p>
+          {/* Tombol Tutup Sidebar ala ChatGPT */}
+          <button
+            type="button"
+            aria-label="Tutup bilah samping"
+            title="Tutup bilah samping (Ctrl+B)"
+            onClick={() => {
+              if (drawerOpen) {
+                setOpenedAt(null);
+              } else {
+                toggleSidebar(true);
+              }
+            }}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white shrink-0"
+          >
+            <PanelLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
         </div>
 
         {/* Navigasi Admin */}
@@ -224,23 +308,28 @@ export const AdminLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* Footer Sidebar: Nama Akun + Role + Tautan Lihat Situs */}
-        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-4 flex flex-col gap-2">
-          <div className="min-w-0 leading-tight">
-            {user?.name && (
-              <p className="font-bold text-white text-base truncate" title={user.name}>
-                {user.name}
-              </p>
-            )}
-            {user && (
-              <p className="text-xs text-white/70 truncate mt-0.5">
-                {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
-              </p>
-            )}
+        {/* Footer Sidebar: Profil Akun ala ChatGPT + Role + Tautan Lihat Situs */}
+        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-3.5 flex flex-col gap-2">
+          <div className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-white/20 text-[#F4D21F] font-bold text-sm flex items-center justify-center shrink-0 border border-white/20">
+              {(user?.name || 'A').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              {user?.name && (
+                <p className="font-bold text-white text-sm truncate" title={user.name}>
+                  {user.name}
+                </p>
+              )}
+              {user && (
+                <p className="text-xs text-white/70 truncate mt-0.5">
+                  {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
+                </p>
+              )}
+            </div>
           </div>
           <Link
             to="/"
-            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy px-1.5"
           >
             <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
             <span>Lihat situs</span>
@@ -253,8 +342,8 @@ export const AdminLayout: React.FC = () => {
           inert={drawerOpen}
           className="sticky top-0 z-20 bg-white border-b border-line min-h-14 flex items-center gap-3 px-4 md:px-6 justify-between transition-colors"
         >
-          {/* Tanpa judul halaman: setiap halaman admin sudah punya h1 sendiri. */}
-          <div className="flex items-center gap-3">
+          {/* Nama Menu Halaman Aktif pada Bar Header Atas */}
+          <div className="flex items-center gap-3 min-w-0">
             {/* Tombol hamburger untuk mobile (< 768px) */}
             <button
               ref={hamburgerRef}
@@ -274,11 +363,20 @@ export const AdminLayout: React.FC = () => {
                 type="button"
                 aria-label="Buka bilah samping"
                 title="Buka bilah samping (Ctrl+B)"
-                onClick={() => setIsCollapsed(false)}
+                onClick={() => toggleSidebar(false)}
                 className="hidden md:inline-flex items-center justify-center h-9 w-9 rounded-lg text-ink hover:text-navy hover:bg-navy/5 border border-navy/15 transition-all shadow-2xs hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <PanelLeft className="h-5 w-5" aria-hidden="true" />
               </button>
+            )}
+
+            {/* Nama Menu Aktif */}
+            {activeMenuTitle && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-display font-bold text-base md:text-lg text-primary truncate tracking-tight">
+                  {activeMenuTitle}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-3 min-w-0">

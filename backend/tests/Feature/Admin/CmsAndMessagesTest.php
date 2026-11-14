@@ -124,4 +124,69 @@ class CmsAndMessagesTest extends TestCase
         ]);
         \Illuminate\Support\Facades\Storage::disk('public')->assertExists($response->json('data.path'));
     }
+
+    public function test_guru_only_sees_and_accesses_own_contact_messages(): void
+    {
+        $guruRole = \App\Models\Role::where('name', 'guru')->first();
+        $guruA = User::factory()->create(['user_type' => 'admin', 'is_active' => true, 'email' => 'guru.a.msg@padindi.test']);
+        $guruA->roles()->attach($guruRole->id);
+
+        $guruB = User::factory()->create(['user_type' => 'admin', 'is_active' => true, 'email' => 'guru.b.msg@padindi.test']);
+        $guruB->roles()->attach($guruRole->id);
+
+        $msgForA = \App\Models\ContactMessage::create([
+            'name' => 'Wali Murid A',
+            'email' => 'walia@example.com',
+            'subject' => 'Pesan untuk Guru A',
+            'message' => 'Halo Guru A',
+            'status' => 'new',
+            'assigned_to' => $guruA->id,
+        ]);
+
+        $msgForB = \App\Models\ContactMessage::create([
+            'name' => 'Wali Murid B',
+            'email' => 'walib@example.com',
+            'subject' => 'Pesan untuk Guru B',
+            'message' => 'Halo Guru B',
+            'status' => 'new',
+            'assigned_to' => $guruB->id,
+        ]);
+
+        $msgGeneral = \App\Models\ContactMessage::create([
+            'name' => 'Pengunjung Umum',
+            'email' => 'umum@example.com',
+            'subject' => 'Pesan Umum Admin',
+            'message' => 'Halo Admin',
+            'status' => 'new',
+            'assigned_to' => null,
+        ]);
+
+        $listA = $this->actingAs($guruA)->getJson('/api/v1/admin/contact-messages');
+        $listA->assertStatus(200)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('meta.unread', 1);
+
+        $idsA = collect($listA->json('data'))->pluck('id')->all();
+        $this->assertEquals([$msgForA->id], $idsA);
+
+        // Guru A boleh buka dan balas pesan miliknya sendiri
+        $this->actingAs($guruA)->getJson("/api/v1/admin/contact-messages/{$msgForA->id}")->assertStatus(200);
+        $this->actingAs($guruA)->putJson("/api/v1/admin/contact-messages/{$msgForA->id}", [
+            'status' => 'replied',
+            'reply_notes' => 'Sudah dijawab oleh Guru A',
+        ])->assertStatus(200);
+
+        // Guru A ditolak (403) saat akses pesan Guru B atau pesan umum
+        $this->actingAs($guruA)->getJson("/api/v1/admin/contact-messages/{$msgForB->id}")->assertStatus(403);
+        $this->actingAs($guruA)->putJson("/api/v1/admin/contact-messages/{$msgGeneral->id}", ['status' => 'read'])->assertStatus(403);
+        $this->actingAs($guruA)->deleteJson("/api/v1/admin/contact-messages/{$msgForB->id}")->assertStatus(403);
+
+        // Superadmin tetap melihat semua pesan
+        $listAdmin = $this->actingAs($this->admin)->getJson('/api/v1/admin/contact-messages');
+        $listAdmin->assertStatus(200);
+        $adminIds = collect($listAdmin->json('data'))->pluck('id')->all();
+        $this->assertContains($msgForA->id, $adminIds);
+        $this->assertContains($msgForB->id, $adminIds);
+        $this->assertContains($msgGeneral->id, $adminIds);
+    }
 }

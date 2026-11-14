@@ -49,12 +49,12 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
           </button>
         )}
 
-        {/* Current title or context */}
+        {/* Nama Menu Halaman Aktif pada Bar Header Atas */}
         {pageTitle && (
-          <div className="hidden sm:block">
-            <span className="text-xs text-muted font-sans">Staff & Guru Dashboard</span>
-            <span className="text-xs text-muted/50 mx-1.5">•</span>
-            <span className="text-xs font-semibold text-navy">{pageTitle}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-display font-bold text-base md:text-lg text-primary truncate tracking-tight">
+              {pageTitle}
+            </span>
           </div>
         )}
       </div>

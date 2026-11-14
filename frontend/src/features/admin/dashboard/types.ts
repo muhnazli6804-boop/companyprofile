@@ -28,6 +28,46 @@ export interface DashboardTrendDay {
   teachers: number;
 }
 
+export interface GuruMetrics {
+  total_posts: number;
+  published_posts: number;
+  draft_posts: number;
+  total_galleries: number;
+  my_messages_total: number;
+  my_messages_unread: number;
+  my_activity_logs_count: number;
+  recent_posts: Array<{
+    id: number;
+    title: string;
+    slug: string;
+    post_category_id: number;
+    status: string;
+    created_at: string;
+    category?: { id: number; name: string };
+  }>;
+  recent_galleries: Array<{
+    id: number;
+    title: string;
+    slug: string;
+    is_published: boolean;
+    event_date: string | null;
+    created_at: string;
+  }>;
+  recent_messages: Array<{
+    id: number;
+    name: string;
+    subject: string | null;
+    status: string;
+    created_at: string;
+  }>;
+  recent_activities: Array<{
+    id: number;
+    action: string;
+    subject_type: string | null;
+    created_at: string;
+  }>;
+}
+
 export interface DashboardData {
   period: DashboardPeriod | null;
   periods: Array<Pick<DashboardPeriod, 'id' | 'name' | 'is_active'>>;
@@ -38,4 +78,6 @@ export interface DashboardData {
   new_applicants: DashboardTrendDay[];
   unread_contact_messages: number;
   documents_pending: number;
+  guru_metrics?: GuruMetrics | null;
 }
+
