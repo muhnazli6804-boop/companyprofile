@@ -171,4 +171,83 @@ describe('DashboardAdminPage', () => {
 
     expect(await screen.findByText('Pendaftar siswa')).toBeInTheDocument();
   });
+
+  it('role guru hanya menampilkan informasi pengelolaan konten, galeri, pesan, dan log aktivitas miliknya', async () => {
+    const guruData: DashboardData = {
+      ...DATA,
+      guru_metrics: {
+        total_posts: 4,
+        published_posts: 3,
+        draft_posts: 1,
+        total_galleries: 2,
+        my_messages_total: 5,
+        my_messages_unread: 2,
+        my_activity_logs_count: 8,
+        recent_posts: [
+          {
+            id: 10,
+            title: 'Kunjungan Edukasi Siswa Padindi',
+            slug: 'kunjungan-edukasi-siswa-padindi',
+            post_category_id: 1,
+            status: 'published',
+            created_at: '2026-11-12T10:00:00.000Z',
+            category: { id: 1, name: 'Kegiatan' },
+          },
+        ],
+        recent_galleries: [
+          {
+            id: 5,
+            title: 'Dokumentasi Upacara Bendera',
+            slug: 'dokumentasi-upacara-bendera',
+            is_published: true,
+            event_date: '2026-11-10',
+            created_at: '2026-11-10T08:00:00.000Z',
+          },
+        ],
+        recent_messages: [
+          {
+            id: 20,
+            name: 'Wali Murid Budi',
+            subject: 'Konsultasi Belajar',
+            status: 'new',
+            created_at: '2026-11-14T09:00:00.000Z',
+          },
+        ],
+        recent_activities: [
+          {
+            id: 100,
+            action: 'posts.create',
+            subject_type: 'Post',
+            created_at: '2026-11-14T08:30:00.000Z',
+          },
+        ],
+      },
+    };
+
+    get.mockReturnValue(ok(guruData));
+    renderPage();
+
+    // Judul khusus guru
+    expect(await screen.findByText('Dashboard Guru & Pendidik')).toBeInTheDocument();
+
+    // Metrik khusus guru tampil
+    expect(screen.getByText('Berita & Artikel')).toBeInTheDocument();
+    expect(screen.getByText('Galeri & Dokumentasi')).toBeInTheDocument();
+    expect(screen.getByText('Pesan Kontak Masuk')).toBeInTheDocument();
+    expect(screen.getByText('Log Aktivitas Anda')).toBeInTheDocument();
+
+    // Konten daftar terbaru tampil
+    expect(screen.getByText('Kunjungan Edukasi Siswa Padindi')).toBeInTheDocument();
+    expect(screen.getByText('Dokumentasi Upacara Bendera')).toBeInTheDocument();
+    expect(screen.getByText('Wali Murid Budi')).toBeInTheDocument();
+    expect(screen.getByText('posts.create')).toBeInTheDocument();
+
+    // Informasi PPDB siswa dan pelamar rekrutmen TIDAK boleh tampil pada dashboard guru
+    expect(screen.queryByText('Pendaftar siswa')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pelamar guru')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dokumen menunggu verifikasi')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Periode')).not.toBeInTheDocument();
+    expect(screen.queryByText('Status pendaftar siswa')).not.toBeInTheDocument();
+    expect(screen.queryByText('Status pelamar guru')).not.toBeInTheDocument();
+  });
 });

@@ -203,5 +203,57 @@ test('pesan kontak baru dan dokumen menunggu verifikasi', function () {
     Sanctum::actingAs(dbAdmin('admin_registration'));
     $this->getJson('/api/v1/admin/dashboard')->assertOk()
         ->assertJsonPath('data.documents_pending', 2)
-        ->assertJsonPath('data.unread_contact_messages', 2);
+        ->assertJsonPath('data.unread_contact_messages', 2)
+        ->assertJsonPath('data.guru_metrics', null);
+});
+
+test('guru menerima metrik konten, galeri, dan pesan kontak miliknya pada dashboard', function () {
+    $guru = dbAdmin('guru');
+
+    $initialPosts = \App\Models\Post::count();
+    $initialGalleries = \App\Models\Gallery::count();
+
+    $cat = \App\Models\PostCategory::create([
+        'name' => 'Akademik Testing',
+        'slug' => 'akademik-testing',
+    ]);
+    $post1 = \App\Models\Post::create([
+        'title' => 'Berita Pembelajaran Aktif',
+        'slug' => 'berita-pembelajaran-aktif',
+        'post_category_id' => $cat->id,
+        'content' => 'Konten berita.',
+        'status' => 'published',
+        'author_id' => $guru->id,
+    ]);
+
+    $gallery = \App\Models\Gallery::create([
+        'title' => 'Dokumentasi Ekstrakurikuler',
+        'slug' => 'dokumentasi-ekstrakurikuler',
+        'is_published' => true,
+    ]);
+
+    $msgMy = ContactMessage::create([
+        'name' => 'Wali Murid',
+        'email' => 'wali@example.com',
+        'message' => 'Pertanyaan untuk guru.',
+        'status' => 'new',
+        'assigned_to' => $guru->id,
+    ]);
+
+    $msgOther = ContactMessage::create([
+        'name' => 'Pengunjung',
+        'email' => 'other@example.com',
+        'message' => 'Pesan umum.',
+        'status' => 'new',
+        'assigned_to' => null,
+    ]);
+
+    Sanctum::actingAs($guru);
+    $res = $this->getJson('/api/v1/admin/dashboard')->assertOk();
+
+    $res->assertJsonPath('data.unread_contact_messages', 1)
+        ->assertJsonPath('data.guru_metrics.total_posts', $initialPosts + 1)
+        ->assertJsonPath('data.guru_metrics.total_galleries', $initialGalleries + 1)
+        ->assertJsonPath('data.guru_metrics.my_messages_unread', 1)
+        ->assertJsonPath('data.guru_metrics.my_messages_total', 1);
 });
