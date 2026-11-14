@@ -17,6 +17,7 @@ import {
   KeyRound,
   LogOut,
   Globe,
+  PanelLeft,
   type LucideIcon,
 } from 'lucide-react';
 import { Roundel } from '@/components/brand/Roundel';
@@ -26,6 +27,7 @@ interface StaffSidebarProps {
   user: ReturnType<typeof useCurrentUser>['data'];
   onLinkClick?: () => void;
   onLogout?: () => void;
+  onToggleCollapse?: () => void;
 }
 
 interface SidebarItem {
@@ -75,6 +77,7 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   user,
   onLinkClick,
   onLogout,
+  onToggleCollapse,
 }) => {
   const navId = useId();
   const { pathname, search } = useLocation();
@@ -89,14 +92,27 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-navy text-white">
-      {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display (sama dengan AdminLayout) */}
-      <div className="shrink-0 flex items-center gap-3 px-4 pt-4 pb-3">
-        <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
-          <Roundel src="/images/logo.png" alt="" size={32} />
+      {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display + Tombol Tutup Sidebar ala ChatGPT */}
+      <div className="shrink-0 flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-white/10">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
+            <Roundel src="/images/logo.png" alt="" size={32} />
+          </div>
+          <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">
+            Portal Staff
+          </p>
         </div>
-        <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">
-          Portal Staff
-        </p>
+        {onToggleCollapse && (
+          <button
+            type="button"
+            aria-label="Tutup bilah samping"
+            title="Tutup bilah samping (Ctrl+B)"
+            onClick={onToggleCollapse}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white shrink-0"
+          >
+            <PanelLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {/* Navigasi Utama */}
@@ -155,17 +171,22 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         ))}
       </nav>
 
-      {/* Footer Sidebar: Nama Akun + Role + Tautan Lihat Situs (sama dengan AdminLayout) */}
-      <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-4 flex flex-col gap-2">
-        <div className="min-w-0 leading-tight">
-          <p className="font-bold text-white text-base truncate" title={user?.name || 'Staff Pengajar Padindi'}>
-            {user?.name || 'Staff Pengajar Padindi'}
-          </p>
-          <p className="text-xs text-white/70 truncate mt-0.5">
-            {user?.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Guru / Staf Yayasan'}
-          </p>
+      {/* Footer Sidebar: Profil Akun ala ChatGPT + Role + Tautan Lihat Situs */}
+      <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-3.5 flex flex-col gap-2">
+        <div className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-white/20 text-[#F4D21F] font-bold text-sm flex items-center justify-center shrink-0 border border-white/20">
+            {(user?.name || 'S').charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="font-bold text-white text-sm truncate" title={user?.name || 'Staff Pengajar Padindi'}>
+              {user?.name || 'Staff Pengajar Padindi'}
+            </p>
+            <p className="text-xs text-white/70 truncate mt-0.5">
+              {user?.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Guru / Staf Yayasan'}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 px-1.5">
           <Link
             to="/"
             className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"

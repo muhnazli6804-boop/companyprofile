@@ -110,8 +110,24 @@ export const AdminLayout: React.FC = () => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const navId = useId();
 
-  // State collapse sidebar desktop (default false agar layout selalu penuh)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  // State collapse sidebar desktop ala ChatGPT (default false, tersimpan di localStorage)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('padindi_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = (collapse?: boolean) => {
+    setIsCollapsed((prev) => {
+      const next = collapse !== undefined ? collapse : !prev;
+      try {
+        localStorage.setItem('padindi_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Shortcut keyboard Ctrl+B / Cmd+B untuk toggle sidebar (seperti ChatGPT / VS Code)
   useEffect(() => {
@@ -122,7 +138,7 @@ export const AdminLayout: React.FC = () => {
           return;
         }
         e.preventDefault();
-        setIsCollapsed((prev) => !prev);
+        toggleSidebar();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -223,12 +239,30 @@ export const AdminLayout: React.FC = () => {
               : 'w-[277px] -translate-x-full invisible md:w-[277px] md:translate-x-0 md:opacity-100 md:visible md:border-r')
         }
       >
-        {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display */}
-        <div className="shrink-0 flex items-center gap-3 px-4 pt-4 pb-3">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
-            <Roundel src="/images/logo.png" alt="" size={32} />
+        {/* Header Sidebar: Logo Badge Lingkaran Putih + Judul Fraunces Display + Tombol Tutup Sidebar ala ChatGPT */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
+              <Roundel src="/images/logo.png" alt="" size={32} />
+            </div>
+            <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">Admin Padindi</p>
           </div>
-          <p className="font-display font-bold text-xl leading-tight truncate text-white tracking-tight">Admin Padindi</p>
+          {/* Tombol Tutup Sidebar ala ChatGPT */}
+          <button
+            type="button"
+            aria-label="Tutup bilah samping"
+            title="Tutup bilah samping (Ctrl+B)"
+            onClick={() => {
+              if (drawerOpen) {
+                setOpenedAt(null);
+              } else {
+                toggleSidebar(true);
+              }
+            }}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white shrink-0"
+          >
+            <PanelLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
         </div>
 
         {/* Navigasi Admin */}
@@ -266,23 +300,28 @@ export const AdminLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* Footer Sidebar: Nama Akun + Role + Tautan Lihat Situs */}
-        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-4 flex flex-col gap-2">
-          <div className="min-w-0 leading-tight">
-            {user?.name && (
-              <p className="font-bold text-white text-base truncate" title={user.name}>
-                {user.name}
-              </p>
-            )}
-            {user && (
-              <p className="text-xs text-white/70 truncate mt-0.5">
-                {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
-              </p>
-            )}
+        {/* Footer Sidebar: Profil Akun ala ChatGPT + Role + Tautan Lihat Situs */}
+        <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-3.5 flex flex-col gap-2">
+          <div className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-white/20 text-[#F4D21F] font-bold text-sm flex items-center justify-center shrink-0 border border-white/20">
+              {(user?.name || 'A').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              {user?.name && (
+                <p className="font-bold text-white text-sm truncate" title={user.name}>
+                  {user.name}
+                </p>
+              )}
+              {user && (
+                <p className="text-xs text-white/70 truncate mt-0.5">
+                  {user.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Administrator'}
+                </p>
+              )}
+            </div>
           </div>
           <Link
             to="/"
-            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy px-1.5"
           >
             <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
             <span>Lihat situs</span>
@@ -316,7 +355,7 @@ export const AdminLayout: React.FC = () => {
                 type="button"
                 aria-label="Buka bilah samping"
                 title="Buka bilah samping (Ctrl+B)"
-                onClick={() => setIsCollapsed(false)}
+                onClick={() => toggleSidebar(false)}
                 className="hidden md:inline-flex items-center justify-center h-9 w-9 rounded-lg text-ink hover:text-navy hover:bg-navy/5 border border-navy/15 transition-all shadow-2xs hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <PanelLeft className="h-5 w-5" aria-hidden="true" />

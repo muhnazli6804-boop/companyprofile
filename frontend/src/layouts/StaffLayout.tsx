@@ -14,8 +14,24 @@ export const StaffLayout: React.FC = () => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const { data: user } = useCurrentUser();
 
-  // State collapse sidebar desktop (default false agar layout selalu penuh seperti Admin)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  // State collapse sidebar desktop ala ChatGPT (tersimpan di localStorage)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('padindi_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = (collapse?: boolean) => {
+    setIsCollapsed((prev) => {
+      const next = collapse !== undefined ? collapse : !prev;
+      try {
+        localStorage.setItem('padindi_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Keyboard shortcut Ctrl+B / Cmd+B
   useEffect(() => {
@@ -26,7 +42,7 @@ export const StaffLayout: React.FC = () => {
           return;
         }
         e.preventDefault();
-        setIsCollapsed((prev) => !prev);
+        toggleSidebar();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -102,6 +118,13 @@ export const StaffLayout: React.FC = () => {
           user={user}
           onLinkClick={() => setMobileDrawerOpen(false)}
           onLogout={handleLogout}
+          onToggleCollapse={() => {
+            if (mobileDrawerOpen) {
+              setMobileDrawerOpen(false);
+            } else {
+              toggleSidebar(true);
+            }
+          }}
         />
       </aside>
 
@@ -111,7 +134,7 @@ export const StaffLayout: React.FC = () => {
           drawerOpen={mobileDrawerOpen}
           onOpenDrawer={() => setMobileDrawerOpen(true)}
           isCollapsed={isCollapsed}
-          onExpandSidebar={() => setIsCollapsed(false)}
+          onExpandSidebar={() => toggleSidebar(false)}
           onLogout={handleLogout}
           loggingOut={loggingOut}
           pageTitle={getPageTitle()}
