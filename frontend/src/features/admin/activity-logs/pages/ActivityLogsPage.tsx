@@ -61,36 +61,25 @@ export const ActivityLogsPage: React.FC = () => {
         ]}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <AdminStatCard
-          title={isGuruOnly ? "Total Aktivitas Anda" : "Total Log Tercatat"}
-          value={meta?.total || logs.length}
-          subtitle={
-            isGuruOnly
-              ? "Aktivitas akun Anda tercatat"
-              : "Aktivitas audit sistem"
-          }
-          icon={<History className="w-5 h-5" />}
-          variant="navy"
-        />
-        <AdminStatCard
-          title={isGuruOnly ? "Akun Anda" : "Integritas Audit"}
-          value={isGuruOnly ? currentUser?.name || "Guru" : "100% Tercatat"}
-          subtitle={
-            isGuruOnly
-              ? currentUser?.email || "Guru Aktif"
-              : "Tercatat bersama IP & waktu"
-          }
-          icon={
-            isGuruOnly ? (
-              <User className="w-5 h-5" />
-            ) : (
-              <ShieldCheck className="w-5 h-5" />
-            )
-          }
-          variant="leaf"
-        />
-      </div>
+      {/* Stat Card hanya untuk Super Admin/Admin sistem; dihilangkan pada tampilan Guru */}
+      {!isGuruOnly && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <AdminStatCard
+            title="Total Log Tercatat"
+            value={meta?.total || logs.length}
+            subtitle="Aktivitas audit sistem"
+            icon={<History className="w-5 h-5" />}
+            variant="navy"
+          />
+          <AdminStatCard
+            title="Integritas Audit"
+            value="100% Tercatat"
+            subtitle="Tercatat bersama IP &amp; waktu"
+            icon={<ShieldCheck className="w-5 h-5" />}
+            variant="leaf"
+          />
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-border shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
