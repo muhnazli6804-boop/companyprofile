@@ -11,14 +11,23 @@ import {
 } from "lucide-react";
 import { SeoHead } from "@/components/seo/SeoHead";
 import { AdminPageHeader, AdminStatCard } from "@/components/admin";
+import { useCurrentUser } from "@/features/auth/permissions";
 import { getActivityLogs } from "../api";
 
 export const ActivityLogsPage: React.FC = () => {
   const [searchAction, setSearchAction] = useState("");
   const [page, setPage] = useState(1);
+  const { data: currentUser } = useCurrentUser();
+  const isGuruOnly = Boolean(
+    currentUser?.roles?.includes("guru") &&
+      !currentUser?.roles?.includes("super_admin")
+  );
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["admin-activity-logs", { searchAction, page }],
+    queryKey: [
+      "admin-activity-logs",
+      { searchAction, page, userId: currentUser?.id, isGuruOnly },
+    ],
     queryFn: () =>
       getActivityLogs({
         action: searchAction || undefined,
@@ -31,11 +40,21 @@ export const ActivityLogsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <SeoHead title="Log Aktivitas & Audit — Admin Yayasan" />
+      <SeoHead
+        title={
+          isGuruOnly
+            ? "Log Aktivitas Akun — Guru Padindi"
+            : "Log Aktivitas & Audit — Admin Yayasan"
+        }
+      />
 
       <AdminPageHeader
-        title="Log Aktivitas Sistem"
-        subtitle="Audit jejak tindakan administratif, perubahan status pendaftaran, modifikasi kuota, dan aktivitas pengguna secara berkala."
+        title={isGuruOnly ? "Log Aktivitas Akun" : "Log Aktivitas Sistem"}
+        subtitle={
+          isGuruOnly
+            ? "Catatan riwayat tindakan dan aktivitas pengelolaan konten yang dilakukan oleh akun Anda."
+            : "Audit jejak tindakan administratif, perubahan status pendaftaran, modifikasi kuota, dan aktivitas pengguna secara berkala."
+        }
         breadcrumbs={[
           { label: "Dashboard", href: "/admin/dashboard" },
           { label: "Log Aktivitas" },
@@ -44,17 +63,31 @@ export const ActivityLogsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <AdminStatCard
-          title="Total Log Tercatat"
+          title={isGuruOnly ? "Total Aktivitas Anda" : "Total Log Tercatat"}
           value={meta?.total || logs.length}
-          subtitle="Aktivitas audit sistem"
+          subtitle={
+            isGuruOnly
+              ? "Aktivitas akun Anda tercatat"
+              : "Aktivitas audit sistem"
+          }
           icon={<History className="w-5 h-5" />}
           variant="navy"
         />
         <AdminStatCard
-          title="Integritas Audit"
-          value="100% Tercatat"
-          subtitle="Tercatat bersama IP &amp; waktu"
-          icon={<ShieldCheck className="w-5 h-5" />}
+          title={isGuruOnly ? "Akun Anda" : "Integritas Audit"}
+          value={isGuruOnly ? currentUser?.name || "Guru" : "100% Tercatat"}
+          subtitle={
+            isGuruOnly
+              ? currentUser?.email || "Guru Aktif"
+              : "Tercatat bersama IP & waktu"
+          }
+          icon={
+            isGuruOnly ? (
+              <User className="w-5 h-5" />
+            ) : (
+              <ShieldCheck className="w-5 h-5" />
+            )
+          }
           variant="leaf"
         />
       </div>
@@ -65,7 +98,11 @@ export const ActivityLogsPage: React.FC = () => {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             type="text"
-            placeholder="Cari tindakan atau aksi (misal: login, status_update, store)..."
+            placeholder={
+              isGuruOnly
+                ? "Cari tindakan atau aksi Anda (misal: posts, create, update)..."
+                : "Cari tindakan atau aksi (misal: login, status_update, store)..."
+            }
             value={searchAction}
             onChange={(e) => {
               setSearchAction(e.target.value);
@@ -76,28 +113,41 @@ export const ActivityLogsPage: React.FC = () => {
         </div>
 
         <span className="text-xs text-muted">
-          Menampilkan catatan audit terbaru
+          {isGuruOnly
+            ? "Menampilkan riwayat aktivitas akun Anda"
+            : "Menampilkan catatan audit terbaru"}
         </span>
       </div>
 
       {isLoading ? (
         <div className="bg-white rounded-xl border border-border p-12 text-center text-muted">
           <div className="inline-block animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mb-3" />
-          <p>Memuat rekaman log audit...</p>
+          <p>Memuat rekaman log aktivitas...</p>
         </div>
       ) : error ? (
         <div className="bg-danger/10 border border-danger/20 rounded-xl p-6 text-center text-danger">
           <AlertCircle className="w-8 h-8 mx-auto mb-2 text-danger" />
           <p className="font-semibold">Gagal memuat log aktivitas</p>
-          <button onClick={() => refetch()} className="mt-3 text-sm underline hover:no-underline">
+          <button
+            onClick={() => refetch()}
+            className="mt-3 text-sm underline hover:no-underline"
+          >
             Coba lagi
           </button>
         </div>
       ) : logs.length === 0 ? (
         <div className="bg-white rounded-xl border border-border p-12 text-center text-muted">
           <History className="w-12 h-12 mx-auto mb-3 text-muted/60" />
-          <h3 className="text-base font-semibold text-foreground">Belum Ada Rekaman Aktivitas</h3>
-          <p className="text-sm mt-1">Setiap tindakan administratif akan tercatat secara otomatis di sini.</p>
+          <h3 className="text-base font-semibold text-foreground">
+            {isGuruOnly
+              ? "Belum Ada Aktivitas Tercatat"
+              : "Belum Ada Rekaman Aktivitas"}
+          </h3>
+          <p className="text-sm mt-1">
+            {isGuruOnly
+              ? "Setiap tindakan pengelolaan konten dan aktivitas akun Anda akan tercatat secara otomatis di sini."
+              : "Setiap tindakan administratif akan tercatat secara otomatis di sini."}
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
@@ -134,6 +184,11 @@ export const ActivityLogsPage: React.FC = () => {
                         <div className="flex items-center gap-1.5 font-semibold text-navy">
                           <User className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span>{log.user.name}</span>
+                          {isGuruOnly && (
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium ml-1">
+                              Anda
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-muted italic">Sistem Otomatis</span>
@@ -194,3 +249,4 @@ export const ActivityLogsPage: React.FC = () => {
 };
 
 export default ActivityLogsPage;
+
