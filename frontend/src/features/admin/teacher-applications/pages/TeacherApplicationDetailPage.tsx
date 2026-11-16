@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Button } from '@/components/ui/Button';
@@ -58,6 +58,9 @@ export const TeacherApplicationDetailPage: React.FC = () => {
   });
 
   const [customStatusModalOpen, setCustomStatusModalOpen] = useState(false);
+  const location = useLocation();
+  const isStaffRoute = location.pathname.startsWith('/staff');
+  const listHref = isStaffRoute ? '/staff/lamaran-guru' : '/admin/lamaran-guru';
 
   const { data: app, isLoading, isError } = useQuery({
     queryKey: ['admin', 'teacher-application', id],
@@ -137,7 +140,7 @@ export const TeacherApplicationDetailPage: React.FC = () => {
           Data pelamar guru dengan ID #{id} tidak ditemukan di sistem.
         </p>
         <Link
-          to="/admin/lamaran-guru"
+          to={listHref}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white font-sans text-sm font-semibold rounded-control"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -200,13 +203,13 @@ export const TeacherApplicationDetailPage: React.FC = () => {
         title={app.full_name}
         subtitle={`Nomor Registrasi: ${app.registration_number} • Posisi Dilamar: ${app.applied_position} • Unit: ${unit?.name || 'Semua Unit'}`}
         breadcrumbs={[
-          { label: 'Rekrutmen Guru', href: '/admin/lamaran-guru' },
+          { label: 'Rekrutmen Guru', href: listHref },
           { label: app.registration_number },
         ]}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Link
-              to="/admin/lamaran-guru"
+              to={listHref}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-line text-ink font-sans text-xs font-semibold rounded-control hover:bg-paper transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />

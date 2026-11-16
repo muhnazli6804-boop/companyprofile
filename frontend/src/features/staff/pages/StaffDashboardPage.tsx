@@ -294,7 +294,7 @@ export const StaffDashboardPage: React.FC = () => {
                 </div>
                 <div className="pt-2 border-t border-navy/10">
                   <Link
-                    to="/admin/pendaftaran-siswa"
+                    to="/staff/pendaftaran-siswa"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-navy transition-colors"
                   >
                     <span>Buka Verifikasi Dokumen PPDB</span>
@@ -326,7 +326,7 @@ export const StaffDashboardPage: React.FC = () => {
                 </div>
                 <div className="pt-2 border-t border-navy/10">
                   <Link
-                    to="/admin/lamaran-guru"
+                    to="/staff/lamaran-guru"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-navy transition-colors"
                   >
                     <span>Buka Seleksi Pelamar Guru</span>
@@ -358,7 +358,7 @@ export const StaffDashboardPage: React.FC = () => {
                 </div>
                 <div className="pt-2 border-t border-navy/10">
                   <Link
-                    to="/admin/pesan-kontak"
+                    to="/staff/pesan-kontak"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-navy transition-colors"
                   >
                     <span>Buka Kotak Masuk Pesan</span>
@@ -430,7 +430,7 @@ export const StaffDashboardPage: React.FC = () => {
                 </div>
               </div>
               <Link
-                to="/admin/pendaftaran-siswa"
+                to="/staff/pendaftaran-siswa"
                 className="shrink-0 text-xs font-semibold text-primary bg-white border border-navy/15 px-2.5 py-1 rounded hover:bg-navy/5 transition-colors"
               >
                 Buka
@@ -472,7 +472,7 @@ export const StaffDashboardPage: React.FC = () => {
                 </div>
               </div>
               <Link
-                to="/admin/pesan-kontak"
+                to="/staff/pesan-kontak"
                 className="shrink-0 text-xs font-semibold text-navy bg-white border border-navy/15 px-2.5 py-1 rounded hover:bg-navy/5 transition-colors"
               >
                 Periksa

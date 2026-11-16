@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { StatusBadge } from '@/components/data/StatusBadge';
 import { Pagination } from '@/components/data/Pagination';
@@ -46,6 +46,9 @@ const ALLOWED_TEACHER_STATUSES = [
 
 export const TeacherApplicationsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const isStaffRoute = location.pathname.startsWith('/staff');
+  const detailBasePath = isStaffRoute ? '/staff/lamaran-guru' : '/admin/lamaran-guru';
   const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
@@ -366,7 +369,7 @@ export const TeacherApplicationsPage: React.FC = () => {
                             <RefreshCw className="w-4 h-4" />
                           </button>
                           <Link
-                            to={`/admin/lamaran-guru/${app.id}`}
+                            to={`${detailBasePath}/${app.id}`}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-paper hover:bg-tint-100 text-primary font-semibold text-xs rounded-control transition-colors"
                             title="Lihat Detail Lamaran"
                           >

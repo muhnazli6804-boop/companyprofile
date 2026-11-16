@@ -266,6 +266,23 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission permission="applications.view" />,
+            children: [
+              { path: 'pendaftaran-siswa', element: <SuspenseWrapper><AdminStudentAppsPage /></SuspenseWrapper> },
+              { path: 'pendaftaran-siswa/:id', element: <SuspenseWrapper><AdminStudentAppDetailPage /></SuspenseWrapper> },
+              { path: 'lamaran-guru', element: <SuspenseWrapper><AdminTeacherAppsPage /></SuspenseWrapper> },
+              { path: 'lamaran-guru/:id', element: <SuspenseWrapper><AdminTeacherAppDetailPage /></SuspenseWrapper> },
+            ],
+          },
+          {
+            element: <RequirePermission permission="messages.manage" />,
+            children: [{ path: 'pesan-kontak', element: <SuspenseWrapper><AdminMessagesPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="logs.view" />,
+            children: [{ path: 'log-aktivitas', element: <SuspenseWrapper><AdminLogsPage /></SuspenseWrapper> }],
+          },
+          {
             element: <RequirePermission permission="content.manage" />,
             children: [
               { path: 'berita', element: <SuspenseWrapper><StaffNewsPage /></SuspenseWrapper> },
