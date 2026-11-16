@@ -2,6 +2,8 @@ import React, { useId } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
+  GraduationCap,
+  Briefcase,
   Newspaper,
   LayoutTemplate,
   Image as ImageIcon,
@@ -13,6 +15,8 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
+  Mail,
+  History,
   User,
   KeyRound,
   LogOut,
@@ -44,6 +48,13 @@ const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
     items: [{ to: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard.view' }],
   },
   {
+    label: 'Layanan Pendaftaran',
+    items: [
+      { to: '/admin/pendaftaran-siswa', label: 'Pendaftaran Siswa (PPDB)', icon: GraduationCap, permission: 'applications.view' },
+      { to: '/admin/lamaran-guru', label: 'Rekrutmen Tenaga Pendidik', icon: Briefcase, permission: 'applications.view' },
+    ],
+  },
+  {
     label: 'Pengelolaan Konten',
     items: [
       { to: '/staff/berita', label: 'Berita dan Artikel', icon: Newspaper, permission: 'content.manage' },
@@ -62,6 +73,13 @@ const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
       { to: '/staff/publikasi?status=pending', label: 'Menunggu Persetujuan', icon: Clock, statusQuery: 'pending', permission: 'content.manage' },
       { to: '/staff/publikasi?status=revision', label: 'Perlu Revisi', icon: AlertTriangle, statusQuery: 'revision', permission: 'content.manage' },
       { to: '/staff/publikasi?status=published', label: 'Dipublikasikan', icon: CheckCircle, statusQuery: 'published', permission: 'content.manage' },
+    ],
+  },
+  {
+    label: 'Komunikasi & Riwayat',
+    items: [
+      { to: '/admin/pesan-kontak', label: 'Pesan & Pengaduan', icon: Mail, permission: 'messages.manage' },
+      { to: '/admin/log-aktivitas', label: 'Log Aktivitas Akun', icon: History, permission: 'logs.view' },
     ],
   },
   {
