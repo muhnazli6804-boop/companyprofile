@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Newspaper,
   LayoutTemplate,
@@ -15,9 +16,18 @@ import {
   Calendar,
   Eye,
   Edit,
+  GraduationCap,
+  Briefcase,
+  Mail,
+  ListTodo,
+  ArrowRight,
+  FileCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { staffStore, type StaffNewsItem, type WebsiteContentItem, type RecentActivity } from '../services/staffContentStore';
-import { useCurrentUser } from '@/features/auth/permissions';
+import { useCurrentUser, hasPermission } from '@/features/auth/permissions';
+import { apiClient } from '@/lib/api-client';
+import type { ApiResponse } from '@/types';
 
 export const StaffDashboardPage: React.FC = () => {
   const { data: user } = useCurrentUser();
@@ -25,6 +35,24 @@ export const StaffDashboardPage: React.FC = () => {
   const [recentNews, setRecentNews] = useState<StaffNewsItem[]>([]);
   const [recentContent, setRecentContent] = useState<WebsiteContentItem[]>([]);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
+
+  const hasAppAccess = hasPermission(user, 'applications.view');
+  const hasMessageAccess = hasPermission(user, 'messages.manage');
+  const hasDashboardAccess = hasPermission(user, 'dashboard.view');
+
+  const { data: adminSummary } = useQuery({
+    queryKey: ['adminDashboardSummary'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<ApiResponse<any>>('/admin/dashboard');
+        return res.data.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(hasDashboardAccess),
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     setStats(staffStore.getStats());
@@ -121,8 +149,26 @@ export const StaffDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 5 Statistic Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      {/* 6 Statistic Cards: Status Alur Konten Lengkap */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        {/* Total Konten */}
+        <div className="bg-white p-4 rounded-card border border-navy/10 shadow-2xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">Total Konten</span>
+            <div className="w-8 h-8 rounded-lg bg-navy/10 text-navy flex items-center justify-center">
+              <LayoutTemplate size={17} />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-display font-bold text-2xl text-navy">{stats.totalContent}</span>
+            <span className="text-[11px] text-muted">item</span>
+          </div>
+          <Link to="/staff/konten" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium">
+            <span>Kelola konten</span>
+            <ArrowUpRight size={12} />
+          </Link>
+        </div>
+
         {/* Total Berita */}
         <div className="bg-white p-4 rounded-card border border-navy/10 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
@@ -141,24 +187,6 @@ export const StaffDashboardPage: React.FC = () => {
           </Link>
         </div>
 
-        {/* Total Konten */}
-        <div className="bg-white p-4 rounded-card border border-navy/10 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">Total Konten</span>
-            <div className="w-8 h-8 rounded-lg bg-navy/10 text-navy flex items-center justify-center">
-              <LayoutTemplate size={17} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display font-bold text-2xl text-navy">{stats.totalContent}</span>
-            <span className="text-[11px] text-muted">item</span>
-          </div>
-          <Link to="/staff/konten" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium">
-            <span>Lihat semua konten</span>
-            <ArrowUpRight size={12} />
-          </Link>
-        </div>
-
         {/* Dipublikasikan */}
         <div className="bg-white p-4 rounded-card border border-emerald-200/60 shadow-2xs space-y-2 bg-emerald-50/20">
           <div className="flex items-center justify-between">
@@ -172,7 +200,7 @@ export const StaffDashboardPage: React.FC = () => {
             <span className="text-[11px] text-emerald-600">aktif live</span>
           </div>
           <Link to="/staff/publikasi?status=published" className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:underline font-medium">
-            <span>Tampil di website</span>
+            <span>Tampil di web</span>
             <ArrowUpRight size={12} />
           </Link>
         </div>
@@ -190,27 +218,267 @@ export const StaffDashboardPage: React.FC = () => {
             <span className="text-[11px] text-amber-600">antrean review</span>
           </div>
           <Link to="/staff/publikasi?status=pending" className="inline-flex items-center gap-1 text-[11px] text-amber-700 hover:underline font-medium">
-            <span>Pantau persetujuan</span>
+            <span>Pantau review</span>
+            <ArrowUpRight size={12} />
+          </Link>
+        </div>
+
+        {/* Perlu Revisi */}
+        <div className={`bg-white p-4 rounded-card border shadow-2xs space-y-2 ${stats.revision > 0 ? 'border-rose-300 bg-rose-50/30 ring-1 ring-rose-200' : 'border-navy/10'}`}>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-semibold ${stats.revision > 0 ? 'text-rose-800' : 'text-muted'}`}>Perlu Revisi</span>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${stats.revision > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>
+              <AlertTriangle size={17} />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className={`font-display font-bold text-2xl ${stats.revision > 0 ? 'text-rose-700' : 'text-slate-800'}`}>{stats.revision}</span>
+            <span className={`text-[11px] ${stats.revision > 0 ? 'text-rose-600 font-semibold' : 'text-muted'}`}>harus diperbaiki</span>
+          </div>
+          <Link to="/staff/publikasi?status=revision" className="inline-flex items-center gap-1 text-[11px] text-rose-700 hover:underline font-medium">
+            <span>Tinjau revisi</span>
             <ArrowUpRight size={12} />
           </Link>
         </div>
 
         {/* Draft Konten */}
-        <div className="col-span-2 lg:col-span-1 bg-white p-4 rounded-card border border-navy/10 shadow-2xs space-y-2">
+        <div className="bg-white p-4 rounded-card border border-navy/10 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">Draft Belum Diajukan</span>
+            <span className="text-xs font-semibold text-muted">Draft Tersimpan</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
               <FileEdit size={17} />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-display font-bold text-2xl text-slate-800">{stats.draft}</span>
-            <span className="text-[11px] text-muted">draft tersimpan</span>
+            <span className="text-[11px] text-muted">draft artikel</span>
           </div>
           <Link to="/staff/publikasi?status=draft" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium">
-            <span>Lanjutkan penulisan</span>
+            <span>Lanjutkan naskah</span>
             <ArrowUpRight size={12} />
           </Link>
+        </div>
+      </div>
+
+      {/* Operasional Layanan Terpadu (Kondisional: PPDB, Rekrutmen, dan Pesan Masuk) */}
+      {(hasAppAccess || hasMessageAccess) && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display font-bold text-base text-navy flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              Statistik Layanan & Operasional Terpadu
+            </h2>
+            <span className="text-xs text-muted">Sinkronisasi data real-time yayasan</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Kartu PPDB */}
+            {hasAppAccess && (
+              <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Penerimaan Siswa (PPDB)</span>
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <GraduationCap size={18} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-display font-bold text-3xl text-navy">
+                      {adminSummary?.total_registrations ?? 0}
+                    </span>
+                    <span className="text-xs text-muted">calon murid mendaftar</span>
+                  </div>
+                  <p className="text-xs text-ink-muted">
+                    <strong className="text-amber-700">{adminSummary?.pending_verifications ?? 0}</strong> berkas menunggu verifikasi
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-navy/10">
+                  <Link
+                    to="/admin/pendaftaran-siswa"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-navy transition-colors"
+                  >
+                    <span>Buka Verifikasi Dokumen PPDB</span>
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Kartu Rekrutmen Pendidik */}
+            {hasAppAccess && (
+              <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-navy">Rekrutmen Guru & Staf</span>
+                  <div className="w-9 h-9 rounded-lg bg-navy/10 text-navy flex items-center justify-center">
+                    <Briefcase size={18} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-display font-bold text-3xl text-navy">
+                      {adminSummary?.teacher_applications ?? 0}
+                    </span>
+                    <span className="text-xs text-muted">berkas pelamar masuk</span>
+                  </div>
+                  <p className="text-xs text-ink-muted">
+                    Proses seleksi berkas administrasi dan wawancara pendidik
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-navy/10">
+                  <Link
+                    to="/admin/lamaran-guru"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-navy transition-colors"
+                  >
+                    <span>Buka Seleksi Pelamar Guru</span>
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Kartu Pesan Kontak & Pengaduan */}
+            {hasMessageAccess && (
+              <div className="bg-white p-5 rounded-card border border-navy/10 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Pesan & Pengaduan</span>
+                  <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <Mail size={18} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-display font-bold text-3xl text-navy">
+                      {adminSummary?.new_contact_messages ?? 0}
+                    </span>
+                    <span className="text-xs text-muted">pesan baru belum dibalas</span>
+                  </div>
+                  <p className="text-xs text-ink-muted">
+                    Pertanyaan calon orang tua murid dan aspirasi masyarakat
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-navy/10">
+                  <Link
+                    to="/admin/pesan-kontak"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-navy transition-colors"
+                  >
+                    <span>Buka Kotak Masuk Pesan</span>
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Widget Daftar Tugas & Tindak Lanjut (Action Items) */}
+      <div className="bg-white p-5 md:p-6 rounded-card border border-navy/10 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display font-bold text-base text-navy flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-primary" />
+              Daftar Tugas & Tindak Lanjut Operasional
+            </h2>
+            <p className="text-xs text-muted">Item pekerjaan yang memerlukan perhatian dan tindakan Anda</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-navy/5 text-navy">
+            Prioritas Kerja
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+          {/* Task 1: Revisi Konten */}
+          {stats.revision > 0 ? (
+            <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/40 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-rose-900 truncate">Revisi Konten Diperlukan</p>
+                  <p className="text-[11px] text-rose-800 leading-relaxed">
+                    Terdapat {stats.revision} naskah yang dikembalikan oleh Admin dengan catatan perbaikan.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/staff/publikasi?status=revision"
+                className="shrink-0 text-xs font-semibold text-rose-700 bg-white border border-rose-300 px-2.5 py-1 rounded hover:bg-rose-50 transition-colors"
+              >
+                Perbaiki
+              </Link>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-lg border border-emerald-200 bg-emerald-50/40 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <p className="text-xs font-medium text-emerald-900">
+                  Tidak ada catatan revisi tertunda. Seluruh naskah Anda siap tayang!
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Task 2: Verifikasi Berkas PPDB */}
+          {hasAppAccess && (
+            <div className="p-3.5 rounded-lg border border-navy/10 bg-paper/60 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <FileCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-navy truncate">Pemeriksaan Berkas PPDB</p>
+                  <p className="text-[11px] text-muted leading-relaxed">
+                    Periksa kelengkapan KK, akta, dan rapor calon murid baru tahun ajaran aktif.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/admin/pendaftaran-siswa"
+                className="shrink-0 text-xs font-semibold text-primary bg-white border border-navy/15 px-2.5 py-1 rounded hover:bg-navy/5 transition-colors"
+              >
+                Buka
+              </Link>
+            </div>
+          )}
+
+          {/* Task 3: Pantau Antrean Persetujuan Konten */}
+          {stats.pending > 0 && (
+            <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/40 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-amber-900 truncate">Menunggu Persetujuan Admin</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    {stats.pending} konten sedang dalam proses peninjauan sebelum ditayangkan di website publik.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/staff/publikasi?status=pending"
+                className="shrink-0 text-xs font-semibold text-amber-700 bg-white border border-amber-300 px-2.5 py-1 rounded hover:bg-amber-50 transition-colors"
+              >
+                Pantau
+              </Link>
+            </div>
+          )}
+
+          {/* Task 4: Tanggapi Pesan Kontak */}
+          {hasMessageAccess && (
+            <div className="p-3.5 rounded-lg border border-navy/10 bg-paper/60 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <Mail className="w-4 h-4 text-navy mt-0.5 shrink-0" />
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-bold text-navy truncate">Tanggapan Pesan & Pengaduan</p>
+                  <p className="text-[11px] text-muted leading-relaxed">
+                    Beri tanggapan resmi atas pertanyaan dan pengaduan yang dikirim masyarakat.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/admin/pesan-kontak"
+                className="shrink-0 text-xs font-semibold text-navy bg-white border border-navy/15 px-2.5 py-1 rounded hover:bg-navy/5 transition-colors"
+              >
+                Periksa
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
