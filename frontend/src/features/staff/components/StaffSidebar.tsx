@@ -20,7 +20,7 @@ import {
   PanelLeft,
   type LucideIcon,
 } from 'lucide-react';
-import { roleLabel, type useCurrentUser } from '@/features/auth/permissions';
+import { hasPermission, roleLabel, type useCurrentUser } from '@/features/auth/permissions';
 
 interface StaffSidebarProps {
   user: ReturnType<typeof useCurrentUser>['data'];
@@ -35,32 +35,33 @@ interface SidebarItem {
   icon: LucideIcon;
   end?: boolean;
   statusQuery?: string;
+  permission?: string;
 }
 
 const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
   {
     label: 'Dashboard',
-    items: [{ to: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true }],
+    items: [{ to: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard.view' }],
   },
   {
     label: 'Pengelolaan Konten',
     items: [
-      { to: '/staff/berita', label: 'Berita dan Artikel', icon: Newspaper },
-      { to: '/staff/konten', label: 'Konten Website', icon: LayoutTemplate },
-      { to: '/staff/galeri', label: 'Galeri Foto & Video', icon: ImageIcon },
-      { to: '/staff/prestasi', label: 'Prestasi', icon: Trophy },
-      { to: '/staff/faq', label: 'FAQ Website', icon: HelpCircle },
-      { to: '/staff/media', label: 'Media Library', icon: FolderOpen },
+      { to: '/staff/berita', label: 'Berita dan Artikel', icon: Newspaper, permission: 'content.manage' },
+      { to: '/staff/konten', label: 'Konten Website', icon: LayoutTemplate, permission: 'content.manage' },
+      { to: '/staff/galeri', label: 'Galeri Foto & Video', icon: ImageIcon, permission: 'content.manage' },
+      { to: '/staff/prestasi', label: 'Prestasi', icon: Trophy, permission: 'content.manage' },
+      { to: '/staff/faq', label: 'FAQ Website', icon: HelpCircle, permission: 'content.manage' },
+      { to: '/staff/media', label: 'Media Library', icon: FolderOpen, permission: 'content.manage' },
     ],
   },
   {
     label: 'Publikasi',
     items: [
-      { to: '/staff/publikasi', label: 'Semua Konten Saya', icon: Send, end: true, statusQuery: '' },
-      { to: '/staff/publikasi?status=draft', label: 'Draft', icon: FileEdit, statusQuery: 'draft' },
-      { to: '/staff/publikasi?status=pending', label: 'Menunggu Persetujuan', icon: Clock, statusQuery: 'pending' },
-      { to: '/staff/publikasi?status=revision', label: 'Perlu Revisi', icon: AlertTriangle, statusQuery: 'revision' },
-      { to: '/staff/publikasi?status=published', label: 'Dipublikasikan', icon: CheckCircle, statusQuery: 'published' },
+      { to: '/staff/publikasi', label: 'Semua Konten Saya', icon: Send, end: true, statusQuery: '', permission: 'content.manage' },
+      { to: '/staff/publikasi?status=draft', label: 'Draft', icon: FileEdit, statusQuery: 'draft', permission: 'content.manage' },
+      { to: '/staff/publikasi?status=pending', label: 'Menunggu Persetujuan', icon: Clock, statusQuery: 'pending', permission: 'content.manage' },
+      { to: '/staff/publikasi?status=revision', label: 'Perlu Revisi', icon: AlertTriangle, statusQuery: 'revision', permission: 'content.manage' },
+      { to: '/staff/publikasi?status=published', label: 'Dipublikasikan', icon: CheckCircle, statusQuery: 'published', permission: 'content.manage' },
     ],
   },
   {
@@ -88,6 +89,11 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
     (isActive
       ? 'border-[#F4D21F] bg-[#1F366D] text-white shadow-xs'
       : 'border-transparent text-white/85 hover:text-white hover:bg-white/10 font-medium');
+
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.permission || hasPermission(user, item.permission)),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className="flex flex-col h-full bg-navy text-white">
@@ -126,7 +132,7 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         aria-label="Navigasi Staff"
         className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 py-2 pr-2.5 pl-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
       >
-        {NAV_GROUPS.map((group, index) => (
+        {visibleGroups.map((group, index) => (
           <div key={group.label} className="mb-2">
             {/* Heading kategori */}
             <p id={`${navId}-${index}`} className="px-3.5 pt-2 pb-1 text-xs font-bold uppercase tracking-wider text-white/70">
