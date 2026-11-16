@@ -17,6 +17,13 @@ import {
   BookOpen,
   MessageSquare,
   ArrowRight,
+  Users,
+  GraduationCap,
+  CalendarRange,
+  ShieldCheck,
+  Building2,
+  Globe,
+  FileCheck2,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SeoHead } from '@/components/seo/SeoHead';
@@ -51,27 +58,58 @@ interface StatCardProps {
 const TONE = { primary: 'text-primary', warning: 'text-warning', muted: 'text-muted' };
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, note, tone = 'primary', link, icon, accent }) => (
-  <div className={`${PANEL} p-5 flex flex-col gap-1 ${accent ? 'border-l-4 border-l-warning' : ''}`}>
-    <p className="font-bold text-ink flex items-center gap-2">{icon}{label}</p>
-    <p className={`font-display font-semibold text-3xl tabular-nums ${TONE[tone]}`}>{value}</p>
-    <p className={`text-[0.9rem] ${tone === 'warning' ? 'text-warning' : 'text-muted'}`}>{note}</p>
-    {link}
+  <div
+    className={`${PANEL} p-5 flex flex-col justify-between rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ${
+      accent ? 'border-l-4 border-l-warning' : ''
+    }`}
+  >
+    <p className="font-bold text-ink text-sm flex items-center gap-2 mb-1">
+      {icon && (
+        <span
+          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+            tone === 'warning'
+              ? 'bg-amber-100 text-amber-700'
+              : tone === 'primary'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-navy/10 text-navy'
+          }`}
+        >
+          {icon}
+        </span>
+      )}
+      <span>{label}</span>
+    </p>
+    <p className={`font-display font-bold text-3xl md:text-4xl tabular-nums ${TONE[tone]} tracking-tight my-1`}>
+      {value}
+    </p>
+    <p className={`text-xs ${tone === 'warning' ? 'text-warning font-semibold' : 'text-muted'} mb-2`}>{note}</p>
+    <div className="pt-2 mt-auto border-t border-line/60">
+      {link}
+    </div>
   </div>
 );
 
 const StatusPanel: React.FC<{
   id: string; title: string; total: string; type: 'student' | 'teacher'; order: string[]; counts: Record<string, number>;
 }> = ({ id, title, total, type, order, counts }) => (
-  <Panel id={id} className="flex-[1_1_440px]">
-    <div className="flex items-baseline justify-between gap-3 mb-2">
-      <h2 className="font-display font-semibold text-lg text-ink">{title}</h2>
-      <p className="text-muted">{total}</p>
+  <Panel id={id} className="flex-[1_1_440px] rounded-xl border border-line bg-white shadow-2xs">
+    <div className="flex items-baseline justify-between gap-3 mb-3 pb-3 border-b border-line/70">
+      <h2 className="font-display font-semibold text-lg text-ink flex items-center gap-2">
+        {type === 'student' ? <Users className="w-5 h-5 text-primary shrink-0" /> : <GraduationCap className="w-5 h-5 text-indigo-600 shrink-0" />}
+        <span>{title}</span>
+      </h2>
+      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-tint-100 text-muted">
+        {total}
+      </span>
     </div>
-    <ul className="list-none p-0 m-0">
+    <ul className="list-none p-0 m-0 space-y-1">
       {order.map((status) => {
         const n = counts[status] ?? 0;
         return (
-          <li key={status} className="border-t border-line min-h-12 flex items-center justify-between gap-3">
+          <li
+            key={status}
+            className="border-t border-line/60 min-h-12 flex items-center justify-between gap-3 px-2 rounded-lg hover:bg-tint-50/70 transition-colors"
+          >
             <StatusBadge status={status} type={type} />
             <span className={`tabular-nums ${n > 0 ? 'font-bold text-ink' : 'text-muted'}`}>{n}</span>
           </li>
@@ -91,65 +129,199 @@ const Content: React.FC<{ data: DashboardData }> = ({ data }) => {
   const quotaByUnit = new Map(data.quota.map((q) => [q.education_unit_id, q]));
   return (
     <div className="flex flex-col gap-6">
+      {/* 4 Kartu Statistik Ringkas Modern */}
       <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Pendaftar siswa" value={data.totals.students} note="Periode terpilih"
-          link={<a href="#status-siswa" className="inline-block mt-2 py-1 text-primary underline underline-offset-2">Lihat status siswa</a>} />
-        <StatCard label="Pelamar guru" value={data.totals.teachers} note="Semua periode"
-          link={<a href="#status-guru" className="inline-block mt-2 py-1 text-primary underline underline-offset-2">Lihat status guru</a>} />
-        <StatCard label="Dokumen menunggu verifikasi" value={data.documents_pending} note="Perlu tindakan" tone="warning" accent
+        <StatCard
+          label="Pendaftar siswa"
+          value={data.totals.students}
+          note="Periode terpilih"
+          icon={<Users size={16} aria-hidden="true" />}
+          link={<a href="#status-siswa" className="inline-block mt-2 py-1 text-primary underline underline-offset-2 hover:text-navy transition-colors font-medium text-xs">Lihat status siswa</a>}
+        />
+        <StatCard
+          label="Pelamar guru"
+          value={data.totals.teachers}
+          note="Semua periode"
+          icon={<GraduationCap size={16} aria-hidden="true" />}
+          link={<a href="#status-guru" className="inline-block mt-2 py-1 text-primary underline underline-offset-2 hover:text-navy transition-colors font-medium text-xs">Lihat status guru</a>}
+        />
+        <StatCard
+          label="Dokumen menunggu verifikasi"
+          value={data.documents_pending}
+          note="Perlu tindakan"
+          tone="warning"
+          accent
           icon={<AlertTriangle size={16} aria-hidden="true" />}
-          link={<Link to="/admin/pendaftaran-siswa" className="inline-block mt-2 py-1 text-primary underline underline-offset-2">Periksa dokumen</Link>} />
-        <StatCard label="Pesan kontak baru" value={data.unread_contact_messages}
+          link={<Link to="/admin/pendaftaran-siswa" className="inline-block mt-2 py-1 text-primary underline underline-offset-2 hover:text-navy transition-colors font-medium text-xs">Periksa dokumen</Link>}
+        />
+        <StatCard
+          label="Pesan kontak baru"
+          value={data.unread_contact_messages}
           note={data.unread_contact_messages > 0 ? 'Belum dibaca' : 'Tidak ada pesan baru'}
           tone={data.unread_contact_messages > 0 ? 'primary' : 'muted'}
-          link={<Link to="/admin/pesan-kontak" className="inline-block mt-2 py-1 text-primary underline underline-offset-2">Buka pesan masuk</Link>} />
+          icon={<Mail size={16} aria-hidden="true" />}
+          link={<Link to="/admin/pesan-kontak" className="inline-block mt-2 py-1 text-primary underline underline-offset-2 hover:text-navy transition-colors font-medium text-xs">Buka pesan masuk</Link>}
+        />
+      </div>
+
+      {/* Pintasan Aksi & Manajemen Cepat Superadmin */}
+      <div className="bg-white border border-line rounded-xl p-5 shadow-2xs space-y-3.5">
+        <div className="flex items-center justify-between pb-3 border-b border-line/70">
+          <div className="space-y-0.5">
+            <h3 className="font-display font-bold text-base text-navy flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#F4D21F]" />
+              <span>Pusat Kendali &amp; Tindak Lanjut Yayasan</span>
+            </h3>
+            <p className="text-xs text-muted">
+              Pintasan cepat untuk mengelola modul administratif, pendaftaran murid, serta operasional yayasan.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Link
+            to="/admin/pendaftaran-siswa"
+            className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all flex items-start justify-between gap-3 group hover:shadow-xs"
+          >
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary shrink-0" />
+                <span className="font-bold text-xs text-navy group-hover:text-primary transition-colors">
+                  Verifikasi PPDB
+                </span>
+              </div>
+              <p className="text-[11px] text-muted leading-relaxed">
+                Periksa berkas &amp; status penerimaan calon siswa baru.
+              </p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-primary shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          </Link>
+
+          <Link
+            to="/admin/lamaran-guru"
+            className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 transition-all flex items-start justify-between gap-3 group hover:shadow-xs"
+          >
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-indigo-700 shrink-0" />
+                <span className="font-bold text-xs text-navy group-hover:text-indigo-700 transition-colors">
+                  Rekrutmen Pendidik
+                </span>
+              </div>
+              <p className="text-[11px] text-muted leading-relaxed">
+                Tinjau berkas lamaran, seleksi administrasi, &amp; wawancara.
+              </p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-indigo-700 shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          </Link>
+
+          <Link
+            to="/admin/cms"
+            className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 transition-all flex items-start justify-between gap-3 group hover:shadow-xs"
+          >
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="font-bold text-xs text-navy group-hover:text-emerald-700 transition-colors">
+                  CMS &amp; Publikasi Situs
+                </span>
+              </div>
+              <p className="text-[11px] text-muted leading-relaxed">
+                Kelola konten berita, profil yayasan, fasilitas, &amp; galeri.
+              </p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-emerald-700 shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          </Link>
+
+          <Link
+            to="/admin/pengguna"
+            className="p-3.5 rounded-xl border border-navy/20 bg-navy/5 hover:bg-navy/10 transition-all flex items-start justify-between gap-3 group hover:shadow-xs"
+          >
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-navy shrink-0" />
+                <span className="font-bold text-xs text-navy group-hover:text-primary transition-colors">
+                  Pengguna &amp; Hak Akses
+                </span>
+              </div>
+              <p className="text-[11px] text-muted leading-relaxed">
+                Atur akun administrator, staf, dan matriks permission.
+              </p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-navy shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-6 items-start">
-        <Panel className="flex-[7_1_460px]">
-          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <Panel className="flex-[7_1_460px] rounded-xl border border-line bg-white shadow-2xs">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4 pb-3 border-b border-line/70">
             <div>
-              <h2 className="font-display font-semibold text-lg text-ink">Pendaftar baru 7 hari terakhir</h2>
+              <h2 className="font-display font-semibold text-lg text-ink flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary shrink-0" />
+                <span>Pendaftar baru 7 hari terakhir</span>
+              </h2>
               <p className="text-[0.9rem] text-muted">Dihitung dari tanggal pengiriman</p>
             </div>
-            <div className="flex gap-4">
-              <LegendDot color="bg-primary" text="Siswa" />
-              <LegendDot color="bg-line-input" text="Guru" />
+            <div className="flex items-center gap-3 bg-paper px-3 py-1.5 rounded-lg border border-line/50">
+              <LegendDot color="bg-primary rounded-xs" text="Siswa" />
+              <LegendDot color="bg-line-input rounded-xs" text="Guru" />
             </div>
           </div>
           <TrendChart days={data.new_applicants} />
         </Panel>
 
-        <Panel className="flex-[5_1_340px]">
-          <h2 className="font-display font-semibold text-lg text-ink">Unit pendidikan</h2>
+        <Panel className="flex-[5_1_340px] rounded-xl border border-line bg-white shadow-2xs">
+          <div className="flex items-baseline justify-between gap-3 mb-1">
+            <h2 className="font-display font-semibold text-lg text-ink flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary shrink-0" />
+              <span>Unit pendidikan</span>
+            </h2>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-tint-100 text-muted">
+              {data.per_unit.length} Unit
+            </span>
+          </div>
           <p className="text-[0.9rem] text-muted mb-3">Jumlah pendaftar dan kuota siswa. Terisi berarti berstatus Diterima.</p>
-          <ul className="list-none p-0 m-0">
+          <ul className="list-none p-0 m-0 space-y-2">
             {data.per_unit.map((u) => {
               const q = quotaByUnit.get(u.education_unit_id);
               const pct = q && q.quota > 0 ? Math.min(100, (q.filled / q.quota) * 100) : 0;
               return (
-                <li key={u.education_unit_id} className="border-t border-line py-3 flex flex-col gap-1">
-                  <div className="flex flex-wrap justify-between gap-x-3">
-                    <span className="font-bold text-ink">{u.name}</span>
-                    <span className="text-muted">Siswa {u.students} · Guru {u.teachers}</span>
+                <li key={u.education_unit_id} className="border-t border-line/60 pt-3 pb-2 flex flex-col gap-1.5">
+                  <div className="flex flex-wrap justify-between items-center gap-x-3">
+                    <span className="font-bold text-ink text-sm sm:text-base flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-primary" />
+                      {u.name}
+                    </span>
+                    <span className="text-xs font-semibold text-muted bg-tint-100 px-2 py-0.5 rounded">
+                      Siswa {u.students} · Guru {u.teachers}
+                    </span>
                   </div>
                   {q ? (
-                    <>
+                    <div className="space-y-1 mt-1 bg-paper/60 p-2.5 rounded-lg border border-line/40">
                       <div className="flex flex-wrap justify-between gap-x-3 text-[0.9rem]">
-                        <span className="text-muted">Kuota siswa terisi</span>
-                        <span className="text-ink tabular-nums">{q.filled} dari {q.quota}, sisa {Math.max(0, q.remaining)}</span>
+                        <span className="text-muted text-xs">Kuota siswa terisi</span>
+                        <span className="text-ink text-xs font-medium tabular-nums">{q.filled} dari {q.quota}, sisa {Math.max(0, q.remaining)}</span>
                       </div>
-                      <div
-                        role="progressbar"
-                        aria-label={`Kuota ${u.name}`}
-                        aria-valuemin={0}
-                        aria-valuemax={q.quota}
-                        aria-valuenow={Math.min(q.filled, q.quota)}
-                        className="h-2 rounded-control bg-tint-100 overflow-hidden"
-                      >
-                        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                      <div className="flex items-center gap-2">
+                        <div
+                          role="progressbar"
+                          aria-label={`Kuota ${u.name}`}
+                          aria-valuemin={0}
+                          aria-valuemax={q.quota}
+                          aria-valuenow={Math.min(q.filled, q.quota)}
+                          className="h-2.5 flex-1 rounded-full bg-tint-100 overflow-hidden"
+                        >
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-blue-500 rounded-full transition-all duration-300"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-bold text-primary w-9 text-right tabular-nums">
+                          {Math.round(pct)}%
+                        </span>
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <p className="text-[0.9rem] text-muted">Belum ada kuota untuk periode ini.</p>
                   )}
@@ -741,33 +913,61 @@ export const DashboardAdminPage: React.FC = () => {
     <div className="flex flex-col gap-6">
       <SeoHead title={isGuruOnly ? "Dashboard Guru & Pendidik" : "Dashboard Administrator"} />
       
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-semibold text-primary mb-1">
-            {isGuruOnly ? "Dashboard Guru & Pendidik" : "Dashboard Administrator"}
-          </h1>
-          <p className="text-muted max-w-prose text-xs sm:text-sm">
-            {isGuruOnly
-              ? "Ringkasan publikasi konten, artikel berita, galeri kegiatan, dan pesan aspirasi yang berkaitan dengan Anda."
-              : "Angka siswa mengikuti periode yang dipilih. Angka guru mencakup semua periode karena lamaran guru tidak terikat periode. Draft tidak dihitung."}
-          </p>
-        </div>
-        {!isGuruOnly && data?.periods && data.periods.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="dashboard-period" className="font-bold text-ink">Periode</label>
-            <select
-              id="dashboard-period"
-              className="w-[22rem] max-w-full min-h-12 px-3 rounded-control border-[1.5px] border-line-input bg-white text-ink"
-              value={periodId ?? data.period?.id ?? ''}
-              onChange={(e) => setPeriodId(Number(e.target.value))}
-            >
-              {data.periods.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}{p.is_active ? '' : ' (nonaktif)'}</option>
-              ))}
-            </select>
+      {!isGuruOnly ? (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-navy via-[#0C3259] to-primary text-white p-6 md:p-8 shadow-md border border-navy/20">
+          {/* Ambient Glow Effects */}
+          <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-star/15 rounded-full pointer-events-none blur-3xl" />
+          <div className="absolute right-48 -top-12 w-48 h-48 bg-blue-400/10 rounded-full pointer-events-none blur-2xl" />
+
+          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-star/20 text-star text-xs font-bold border border-star/30 backdrop-blur-xs">
+                <ShieldCheck size={13} className="text-star shrink-0" />
+                <span>Panel Utama Administrator Yayasan Padindi</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-display font-bold text-white tracking-tight">
+                Dashboard Administrator
+              </h1>
+              <p className="text-white/80 max-w-2xl text-xs sm:text-sm leading-relaxed">
+                Angka siswa mengikuti periode yang dipilih. Angka guru mencakup semua periode karena lamaran guru tidak terikat periode. Draft tidak dihitung.
+              </p>
+            </div>
+
+            {/* Periode Selector */}
+            {data?.periods && data.periods.length > 0 && (
+              <div className="relative z-10 bg-white/10 backdrop-blur-md border border-white/20 p-3.5 rounded-xl flex flex-col gap-1.5 shrink-0 min-w-[240px] sm:min-w-[280px]">
+                <label htmlFor="dashboard-period" className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <CalendarRange className="w-3.5 h-3.5 text-star" />
+                  <span>Periode</span>
+                </label>
+                <select
+                  id="dashboard-period"
+                  className="w-full min-h-11 px-3 rounded-lg border border-white/20 bg-white text-navy font-semibold text-xs sm:text-sm shadow-xs focus:ring-2 focus:ring-star focus:outline-none"
+                  value={periodId ?? data.period?.id ?? ''}
+                  onChange={(e) => setPeriodId(Number(e.target.value))}
+                >
+                  {data.periods.map((p) => (
+                    <option key={p.id} value={p.id} className="text-ink font-normal">
+                      {p.name}{p.is_active ? '' : ' (nonaktif)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-semibold text-primary mb-1">
+              Dashboard Guru & Pendidik
+            </h1>
+            <p className="text-muted max-w-prose text-xs sm:text-sm">
+              Ringkasan publikasi konten, artikel berita, galeri kegiatan, dan pesan aspirasi yang berkaitan dengan Anda.
+            </p>
+          </div>
+        </div>
+      )}
 
       {isError ? (
         <div role="alert" className="bg-white border border-line border-l-4 border-l-danger rounded-control p-4 text-danger flex flex-wrap items-center gap-3">
