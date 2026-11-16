@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -19,9 +19,9 @@ import {
   History,
   User,
   KeyRound,
-  LogOut,
   Globe,
   PanelLeft,
+  ChevronUp,
   type LucideIcon,
 } from 'lucide-react';
 import { hasPermission, roleLabel, type useCurrentUser } from '@/features/auth/permissions';
@@ -82,24 +82,38 @@ const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
       { to: '/admin/log-aktivitas', label: 'Log Aktivitas Akun', icon: History, permission: 'logs.view' },
     ],
   },
-  {
-    label: 'Pengaturan Akun',
-    items: [
-      { to: '/staff/profil', label: 'Profil Saya', icon: User },
-      { to: '/staff/ubah-password', label: 'Ubah Password', icon: KeyRound },
-    ],
-  },
 ];
 
 export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   user,
   onLinkClick,
-  onLogout,
+  onLogout: _onLogout,
   onToggleCollapse,
 }) => {
   const navId = useId();
   const { pathname, search } = useLocation();
   const currentStatus = new URLSearchParams(search).get('status') ?? '';
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [profileMenuOpen]);
 
   const buildLinkClass = (isActive: boolean) =>
     `flex items-center gap-3 min-h-[44px] md:min-h-[40px] px-3.5 rounded-r-lg border-l-4 text-sm font-semibold transition-colors ` +
@@ -180,57 +194,112 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
                   </li>
                 );
               })}
-
-              {group.label === 'Pengaturan Akun' && onLogout && (
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onLinkClick?.();
-                      onLogout();
-                    }}
-                    className={`${buildLinkClass(false)} w-full text-left`}
-                  >
-                    <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">Keluar (Logout)</span>
-                  </button>
-                </li>
-              )}
             </ul>
           </div>
         ))}
       </nav>
 
-      {/* Footer Sidebar: Profil Akun ala ChatGPT + Role + Tautan Lihat Situs */}
-      <div data-testid="sidebar-user" className="shrink-0 border-t border-white/20 p-3.5 flex flex-col gap-2">
-        <div className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-          <div className="w-9 h-9 rounded-full bg-white/20 text-[#F4D21F] font-bold text-sm flex items-center justify-center shrink-0 border border-white/20">
-            {(user?.name || 'S').charAt(0).toUpperCase()}
+      {/* Footer Sidebar: Profil Akun ala ChatGPT + Menu Popover Profil & Ubah Password */}
+      <div
+        ref={profileMenuRef}
+        data-testid="sidebar-user"
+        className="relative shrink-0 border-t border-white/20 p-3 flex flex-col gap-2"
+      >
+        {/* Popover Menu: Profil Saya & Ubah Password */}
+        {profileMenuOpen && (
+          <div
+            className="absolute bottom-full left-3 right-3 mb-2 bg-[#12224A] border border-white/20 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md"
+            role="menu"
+            aria-label="Menu Pengaturan Akun"
+          >
+            <div className="px-3 py-2 border-b border-white/10 mb-1">
+              <p className="text-xs font-bold text-white truncate">{user?.name || 'Ahmad Fauzi, S.Kom'}</p>
+              <p className="text-[11px] text-white/60 truncate">{user?.email || 'staff@padindi.id'}</p>
+            </div>
+            <Link
+              to="/staff/profil"
+              role="menuitem"
+              onClick={() => {
+                setProfileMenuOpen(false);
+                onLinkClick?.();
+              }}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                pathname === '/staff/profil'
+                  ? 'bg-primary text-white font-semibold shadow-xs'
+                  : 'text-white/85 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <User className="w-4 h-4 text-[#F4D21F] shrink-0" aria-hidden="true" />
+              <span>Profil Saya</span>
+            </Link>
+            <Link
+              to="/staff/ubah-password"
+              role="menuitem"
+              onClick={() => {
+                setProfileMenuOpen(false);
+                onLinkClick?.();
+              }}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                pathname === '/staff/ubah-password'
+                  ? 'bg-primary text-white font-semibold shadow-xs'
+                  : 'text-white/85 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <KeyRound className="w-4 h-4 text-[#F4D21F] shrink-0" aria-hidden="true" />
+              <span>Ubah Password</span>
+            </Link>
           </div>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="font-bold text-white text-sm truncate" title={user?.name || 'Staff Pengajar Padindi'}>
-              {user?.name || 'Staff Pengajar Padindi'}
-            </p>
-            <p className="text-xs text-white/70 truncate mt-0.5">
-              {user?.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Guru / Staf Yayasan'}
-            </p>
+        )}
+
+        {/* Tombol Profil Akun Pengguna yang Membuka Menu Profil & Ubah Password */}
+        <button
+          type="button"
+          onClick={() => setProfileMenuOpen((prev) => !prev)}
+          aria-expanded={profileMenuOpen}
+          aria-haspopup="menu"
+          title="Buka menu profil dan ubah password"
+          className={`w-full flex items-center justify-between gap-3 p-1.5 rounded-lg transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            profileMenuOpen ? 'bg-white/15' : 'hover:bg-white/10'
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-full bg-white/20 text-[#F4D21F] font-bold text-sm flex items-center justify-center shrink-0 border border-white/20 shadow-2xs">
+              {(user?.name || 'S').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="font-bold text-white text-sm truncate" title={user?.name || 'Staf Tata Usaha'}>
+                {user?.name || 'Staf Tata Usaha'}
+              </p>
+              <p className="text-xs text-white/70 truncate mt-0.5">
+                {user?.roles?.length ? user.roles.map(roleLabel).join(', ') : 'Staf Tata Usaha'}
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center justify-between gap-2 px-1.5">
+          <ChevronUp
+            className={`w-4 h-4 text-white/70 transition-transform duration-200 shrink-0 ${
+              profileMenuOpen ? 'rotate-180' : ''
+            }`}
+            aria-hidden="true"
+          />
+        </button>
+
+        <div className="flex items-center justify-between gap-2 px-1.5 pt-0.5 border-t border-white/10">
           <Link
             to="/"
-            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+            className="inline-flex items-center gap-2 min-h-[34px] text-xs text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded"
           >
-            <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
+            <Globe className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
             <span>Lihat situs</span>
           </Link>
-          <Link
-            to="/admin/dashboard"
-            className="text-xs font-semibold text-[#F4D21F]/90 hover:text-[#F4D21F] transition-colors px-2 py-1 rounded"
-            title="Buka Admin Panel (jika memiliki hak akses)"
-          >
-            Admin
-          </Link>
+          {Boolean(user?.roles?.includes('super_admin') || hasPermission(user, 'users.manage')) && (
+            <Link
+              to="/admin/dashboard"
+              className="text-xs font-semibold text-[#F4D21F]/90 hover:text-[#F4D21F] transition-colors px-2 py-1 rounded"
+              title="Buka Admin Panel (jika memiliki hak akses)"
+            >
+              Admin
+            </Link>
+          )}
         </div>
       </div>
     </div>
