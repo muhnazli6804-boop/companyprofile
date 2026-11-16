@@ -7,7 +7,7 @@ export const RequireStaff: React.FC = () => {
   const { data: user, isLoading, isError } = useCurrentUser();
 
   if (isLoading) {
-    return <LoadingScreen message="Memeriksa akses portal Staff & Guru..." minHeight="min-h-screen" />;
+    return <LoadingScreen message="Memeriksa akses portal Staff..." minHeight="min-h-screen" />;
   }
 
   // Jika belum login atau token tidak valid, arahkan ke halaman masuk staff
@@ -18,6 +18,12 @@ export const RequireStaff: React.FC = () => {
   // Jika akun adalah pendaftar umum (bukan admin/staff internal), arahkan ke akun pendaftaran
   if (user.user_type !== 'admin') {
     return <Navigate to="/akun" replace />;
+  }
+
+  // Role Guru memiliki area kerja tersendiri di Dashboard Guru (/admin/dashboard), terpisah dari portal Staff
+  const isGuruOnly = Boolean(user.roles?.includes('guru') && !user.roles?.includes('staff') && !user.roles?.includes('super_admin'));
+  if (isGuruOnly) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return <Outlet />;

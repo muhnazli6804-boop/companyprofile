@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   User,
   Mail,
@@ -10,29 +11,66 @@ import {
   KeyRound,
   Camera,
   CheckCircle2,
+  AlertCircle,
   X,
   Save,
 } from 'lucide-react';
 import { useCurrentUser, roleLabel } from '@/features/auth/permissions';
+import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 
 export const StaffProfilePage: React.FC = () => {
+  const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
 
-  const [name, setName] = useState(user?.name || 'Siti Rahmawati, S.Pd');
-  const [email] = useState(user?.email || 'guru@padindi.id');
-  const [phone, setPhone] = useState(user?.phone || '081234567891');
-  const [position, setPosition] = useState('Guru Wali Kelas & Pengampu IT');
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [position, setPosition] = useState('Tenaga Pendidik / Staf Operasional');
   const [schoolUnit, setSchoolUnit] = useState('SMP Padindi');
-  const [avatar, setAvatar] = useState('/images/avatar-default.png');
   const [bio, setBio] = useState('Berdedikasi dalam pendidikan saintifik dan pembentukan karakter generasi berakhlak mulia di Yayasan Padindi.');
 
   const [toast, setToast] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      setPhone(user.phone || '');
+    }
+  }, [user]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setToast('Informasi profil berhasil diperbarui.');
-    setTimeout(() => setToast(null), 4000);
+    if (!name.trim()) {
+      setErrorMsg('Nama lengkap tidak boleh kosong.');
+      return;
+    }
+
+    setSaving(true);
+    setErrorMsg(null);
+    setToast(null);
+
+    try {
+      const res = await apiClient.put<{ message: string }>('/auth/profile', {
+        name: name.trim(),
+        phone: phone ? phone.trim() : null,
+      });
+
+      setToast(res.data?.message || 'Informasi profil berhasil diperbarui.');
+      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      setTimeout(() => setToast(null), 5000);
+    } catch (err: any) {
+      const msg = err.response?.data?.errors?.name?.[0] ||
+        err.response?.data?.errors?.phone?.[0] ||
+        err.response?.data?.message ||
+        'Gagal memperbarui profil. Silakan coba beberapa saat lagi.';
+      setErrorMsg(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -62,6 +100,17 @@ export const StaffProfilePage: React.FC = () => {
             <span>{toast}</span>
           </div>
           <button onClick={() => setToast(null)}><X size={14} /></button>
+        </div>
+      )}
+
+      {/* Error Alert */}
+      {errorMsg && (
+        <div className="bg-rose-50 text-rose-800 p-3 rounded-card border border-rose-200 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-rose-600" />
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg(null)}><X size={14} /></button>
         </div>
       )}
 
@@ -203,7 +252,7 @@ export const StaffProfilePage: React.FC = () => {
             </div>
 
             <div className="pt-3 border-t border-navy/10 flex justify-end">
-              <Button variant="primary" size="sm" type="submit" className="flex items-center gap-1.5">
+              <Button variant="primary" size="sm" type="submit" isLoading={saving} className="flex items-center gap-1.5">
                 <Save size={14} />
                 <span>Simpan Perubahan Profil</span>
               </Button>

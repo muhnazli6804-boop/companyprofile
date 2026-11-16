@@ -59,3 +59,14 @@ test('idempoten: dijalankan dua kali tidak menggandakan baris', function () {
         ->and(Role::where('name', 'super_admin')->first()->permissions()->count())->toBe(15)
         ->and(Role::where('name', 'admin_content')->first()->permissions()->count())->toBe(4);
 });
+
+test('role staff tidak memegang izin administratif sistem users.manage dan settings.manage', function () {
+    seedPermissions();
+
+    $staffPermissions = Role::where('name', 'staff')->first()->permissions()->pluck('name')->all();
+
+    expect($staffPermissions)->not->toContain('users.manage')
+        ->and($staffPermissions)->not->toContain('settings.manage')
+        ->and($staffPermissions)->toContain('dashboard.view')
+        ->and($staffPermissions)->toContain('content.manage');
+});

@@ -41,8 +41,8 @@ class PermissionSeeder extends Seeder
         'staff' => [
             'dashboard.view', 'applications.view', 'applications.view_sensitive', 'applications.verify',
             'applications.export', 'periods.manage', 'requirements.manage', 'vacancies.manage',
-            'units.manage', 'content.manage', 'messages.manage', 'users.manage',
-            'settings.manage', 'logs.view', 'finance.view',
+            'units.manage', 'content.manage', 'messages.manage',
+            'logs.view', 'finance.view',
         ],
     ];
 

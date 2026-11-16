@@ -24,11 +24,11 @@ class AdminUserSeeder extends Seeder
         );
 
         $superAdminRole = Role::where('name', 'super_admin')->first();
-        if ($superAdminRole && ! $admin->roles()->where('roles.id', $superAdminRole->id)->exists()) {
-            $admin->roles()->attach($superAdminRole->id);
+        if ($superAdminRole) {
+            $admin->roles()->sync([$superAdminRole->id]);
         }
 
-        // Akun Demo Guru
+        // Akun Demo Guru (Hanya role Guru - terpisah dari Staf)
         $guru = User::firstOrCreate(
             ['email' => 'guru@padindi.id'],
             [
@@ -41,11 +41,11 @@ class AdminUserSeeder extends Seeder
             ]
         );
         $guruRole = Role::where('name', 'guru')->first();
-        if ($guruRole && ! $guru->roles()->where('roles.id', $guruRole->id)->exists()) {
-            $guru->roles()->attach($guruRole->id);
+        if ($guruRole) {
+            $guru->roles()->sync([$guruRole->id]);
         }
 
-        // Akun Demo Staf
+        // Akun Demo Staf (Hanya role Staf Tata Usaha - terpisah dari Guru)
         $staff = User::firstOrCreate(
             ['email' => 'staff@padindi.id'],
             [
@@ -58,8 +58,8 @@ class AdminUserSeeder extends Seeder
             ]
         );
         $staffRole = Role::where('name', 'staff')->first();
-        if ($staffRole && ! $staff->roles()->where('roles.id', $staffRole->id)->exists()) {
-            $staff->roles()->attach($staffRole->id);
+        if ($staffRole) {
+            $staff->roles()->sync([$staffRole->id]);
         }
     }
 }

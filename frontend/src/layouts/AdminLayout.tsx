@@ -327,13 +327,24 @@ export const AdminLayout: React.FC = () => {
               )}
             </div>
           </div>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy px-1.5"
-          >
-            <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
-            <span>Lihat situs</span>
-          </Link>
+          <div className="flex items-center justify-between gap-2 px-1.5">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2.5 min-h-[38px] text-sm text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+            >
+              <Globe className="h-4.5 w-4.5 shrink-0 text-white/70" aria-hidden="true" />
+              <span>Lihat situs</span>
+            </Link>
+            {Boolean(user?.roles?.includes('staff') || user?.roles?.includes('super_admin')) && (
+              <Link
+                to="/staff/dashboard"
+                className="text-xs font-semibold text-[#F4D21F]/90 hover:text-[#F4D21F] transition-colors px-2 py-1 rounded"
+                title="Buka Portal Staff"
+              >
+                Portal Staff
+              </Link>
+            )}
+          </div>
         </div>
       </aside>
 

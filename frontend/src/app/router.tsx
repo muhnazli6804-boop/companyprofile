@@ -250,7 +250,7 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // 4. Staff & Guru Portal Routes (Protected)
+  // 4. Staff Portal Routes (Protected) — Terpisah dari Role Guru & Siswa
   {
     path: 'staff',
     element: <RequireStaff />,
@@ -259,16 +259,26 @@ export const router = createBrowserRouter([
         element: <StaffLayout />,
         children: [
           { index: true, element: <Navigate to="dashboard" replace /> },
-          { path: 'dashboard', element: <SuspenseWrapper><StaffDashboardPage /></SuspenseWrapper> },
-          { path: 'berita', element: <SuspenseWrapper><StaffNewsPage /></SuspenseWrapper> },
-          { path: 'berita/tambah', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
-          { path: 'berita/edit/:id', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
-          { path: 'konten', element: <SuspenseWrapper><StaffWebsiteContentPage /></SuspenseWrapper> },
-          { path: 'galeri', element: <SuspenseWrapper><StaffGalleryPage /></SuspenseWrapper> },
-          { path: 'prestasi', element: <SuspenseWrapper><StaffAchievementsPage /></SuspenseWrapper> },
-          { path: 'faq', element: <SuspenseWrapper><StaffFaqPage /></SuspenseWrapper> },
-          { path: 'media', element: <SuspenseWrapper><StaffMediaLibraryPage /></SuspenseWrapper> },
-          { path: 'publikasi', element: <SuspenseWrapper><StaffPublicationsPage /></SuspenseWrapper> },
+          {
+            element: <RequirePermission permission="dashboard.view" />,
+            children: [
+              { path: 'dashboard', element: <SuspenseWrapper><StaffDashboardPage /></SuspenseWrapper> },
+            ],
+          },
+          {
+            element: <RequirePermission permission="content.manage" />,
+            children: [
+              { path: 'berita', element: <SuspenseWrapper><StaffNewsPage /></SuspenseWrapper> },
+              { path: 'berita/tambah', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
+              { path: 'berita/edit/:id', element: <SuspenseWrapper><StaffNewsFormPage /></SuspenseWrapper> },
+              { path: 'konten', element: <SuspenseWrapper><StaffWebsiteContentPage /></SuspenseWrapper> },
+              { path: 'galeri', element: <SuspenseWrapper><StaffGalleryPage /></SuspenseWrapper> },
+              { path: 'prestasi', element: <SuspenseWrapper><StaffAchievementsPage /></SuspenseWrapper> },
+              { path: 'faq', element: <SuspenseWrapper><StaffFaqPage /></SuspenseWrapper> },
+              { path: 'media', element: <SuspenseWrapper><StaffMediaLibraryPage /></SuspenseWrapper> },
+              { path: 'publikasi', element: <SuspenseWrapper><StaffPublicationsPage /></SuspenseWrapper> },
+            ],
+          },
           { path: 'profil', element: <SuspenseWrapper><StaffProfilePage /></SuspenseWrapper> },
           { path: 'ubah-password', element: <SuspenseWrapper><StaffChangePasswordPage /></SuspenseWrapper> },
         ],

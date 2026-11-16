@@ -33,6 +33,8 @@ export const ROLES: Role[] = [
   { id: 1, name: 'super_admin', label: 'Super Admin', description: null, users_count: 1, permissions: Object.values(PERMISSIONS) },
   { id: 2, name: 'admin_registration', label: 'Admin Pendaftaran', description: null, users_count: 2, permissions: [PERMISSIONS.dashboard] },
   { id: 3, name: 'admin_content', label: 'Admin Konten', description: null, users_count: 1, permissions: [PERMISSIONS.dashboard, PERMISSIONS.content] },
+  { id: 4, name: 'guru', label: 'Guru / Tenaga Pengajar', description: null, users_count: 1, permissions: [PERMISSIONS.dashboard] },
+  { id: 5, name: 'staff', label: 'Staf Tata Usaha', description: null, users_count: 1, permissions: [PERMISSIONS.dashboard] },
 ];
 
 const user = (over: Partial<AdminUser>): AdminUser => ({

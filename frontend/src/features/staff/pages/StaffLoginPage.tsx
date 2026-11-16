@@ -42,16 +42,22 @@ export const StaffLoginPage: React.FC = () => {
 
       if (res.data.data?.user_type === 'admin') {
         localStorage.removeItem('auth_token');
+        let destination = '/staff/dashboard';
         try {
           const meRes = await apiClient.get<ApiResponse<User>>('/auth/me');
           if (meRes.data?.data) {
             queryClient.setQueryData(['currentUser'], meRes.data.data);
+            const userRoles = meRes.data.data.roles || [];
+            // Akun guru memiliki dashboard tersendiri di /admin/dashboard
+            if (userRoles.includes('guru') && !userRoles.includes('staff') && !userRoles.includes('super_admin')) {
+              destination = '/admin/dashboard';
+            }
           }
         } catch {
           // fallback
         }
         await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-        navigate('/admin/dashboard', { replace: true });
+        navigate(destination, { replace: true });
         return;
       }
 
@@ -61,7 +67,7 @@ export const StaffLoginPage: React.FC = () => {
         localStorage.setItem('auth_token', token);
       }
       await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      setServerError('Akun ini terdaftar sebagai pendaftar murid/guru umum. Halaman ini khusus untuk Akun Guru & Staf Tata Usaha.');
+      setServerError('Akun ini terdaftar sebagai pendaftar murid/guru umum. Halaman ini khusus untuk Akun Staf Tata Usaha.');
     } catch (err: unknown) {
       const errObj = err as {
         response?: {
@@ -97,14 +103,14 @@ export const StaffLoginPage: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto my-12 p-6 md:p-8 bg-white border border-line rounded-panel shadow-sm">
-      <SeoHead title="Masuk Portal Staff & Guru — Yayasan Padindi" />
+      <SeoHead title="Masuk Portal Staf — Yayasan Padindi" />
 
       <div className="text-center mb-8">
         <h1 className="font-display font-semibold text-2xl md:text-3xl text-primary mb-2">
-          Masuk ke Akun
+          Masuk Portal Staf
         </h1>
         <p className="font-sans text-sm text-muted">
-          Masuk sebagai Guru atau Staf Tata Usaha Yayasan Padindi.
+          Portal operasional khusus Staf Tata Usaha Yayasan Padindi.
         </p>
       </div>
 
@@ -177,7 +183,7 @@ export const StaffLoginPage: React.FC = () => {
         <div>
           <p className="font-semibold text-primary">Pemberitahuan Akun</p>
           <p className="mt-0.5">
-            Akun Guru dan Staf didaftarkan oleh Administrator Yayasan dan tidak dapat melakukan registrasi mandiri. Silakan hubungi Tata Usaha jika belum memiliki akses.
+            Akun Staf didaftarkan oleh Administrator Yayasan dan tidak dapat melakukan registrasi mandiri. Silakan hubungi Administrator jika belum memiliki akses.
           </p>
         </div>
       </div>
@@ -190,31 +196,31 @@ export const StaffLoginPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => fillDemo('guru@padindi.id')}
-            className="px-3 py-2 text-xs rounded-control bg-tint-50 hover:bg-tint-100 text-ink border border-line text-left transition"
-          >
-            <div className="font-bold text-primary">Akun Guru</div>
-            <div className="text-[11px] text-muted">guru@padindi.id</div>
-          </button>
-          <button
-            type="button"
             onClick={() => fillDemo('staff@padindi.id')}
             className="px-3 py-2 text-xs rounded-control bg-tint-50 hover:bg-tint-100 text-ink border border-line text-left transition"
           >
             <div className="font-bold text-primary">Akun Staf</div>
-            <div className="text-[11px] text-muted">staff@padindi.id</div>
+            <div className="text-[11px] text-muted">staff@padindi.id (Portal Staf)</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => fillDemo('guru@padindi.id')}
+            className="px-3 py-2 text-xs rounded-control bg-tint-50 hover:bg-tint-100 text-ink border border-line text-left transition"
+          >
+            <div className="font-bold text-primary">Akun Guru</div>
+            <div className="text-[11px] text-muted">guru@padindi.id (Dashboard Guru)</div>
           </button>
         </div>
       </div>
 
       <div className="mt-6 pt-5 border-t border-line text-center">
         <p className="font-sans text-sm text-muted">
-          Bukan staf atau guru?{' '}
+          Bukan staf yayasan?{' '}
           <Link
             to="/masuk"
             className="font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
           >
-            Masuk ke Portal Pendaftaran Siswa
+            Masuk ke Portal Umum / Pendaftaran
           </Link>
         </p>
       </div>

@@ -25,11 +25,41 @@ export const PromoteUserModal: React.FC<PromoteUserModalProps> = ({ user, roles,
   const {
     register,
     handleSubmit,
+    setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { roles: [] } });
 
+  const selectedRoles = watch('roles') || [];
+  const isGuruSelected = selectedRoles.includes('guru');
+  const isStaffSelected = selectedRoles.includes('staff');
+
+  const isRoleDisabled = (role: Role) => {
+    if (isGuruSelected && role.name !== 'guru') return true;
+    if (isStaffSelected && role.name === 'guru') return true;
+    return false;
+  };
+
+  const getRoleTitle = (role: Role) => {
+    if (isGuruSelected && role.name !== 'guru') {
+      return 'Role Guru adalah peran pengajar mandiri dan tidak dapat digabung dengan role lain.';
+    }
+    if (isStaffSelected && role.name === 'guru') {
+      return 'Role Guru tidak dapat dipilih bersamaan dengan role Staf Tata Usaha.';
+    }
+    return undefined;
+  };
+
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
+    if (values.roles.includes('guru') && values.roles.includes('staff')) {
+      setError('roles', { message: 'Akun tidak boleh memiliki role Guru dan Staf secara bersamaan.' });
+      return;
+    }
+    if (values.roles.includes('guru') && values.roles.length > 1) {
+      setError('roles', { message: 'Role Guru adalah peran mandiri dan tidak dapat digabung dengan role lain.' });
+      return;
+    }
     try {
       onPromoted(await promote.mutateAsync({ id: user.id, roles: values.roles }));
     } catch (err) {
@@ -54,12 +84,25 @@ export const PromoteUserModal: React.FC<PromoteUserModalProps> = ({ user, roles,
           <legend className="font-bold text-ink mb-1">Role</legend>
           <div className="flex flex-col">
             {roles.map((role) => (
-              <label key={role.id} className="flex items-center gap-3 min-h-[44px] text-ink">
-                <input type="checkbox" value={role.name} className="h-5 w-5 accent-primary" {...register('roles')} />
-                {role.label}
+              <label
+                key={role.id}
+                title={getRoleTitle(role)}
+                className={`flex items-center gap-3 min-h-[44px] text-ink ${isRoleDisabled(role) ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <input
+                  type="checkbox"
+                  value={role.name}
+                  className="h-5 w-5 accent-primary"
+                  disabled={isRoleDisabled(role)}
+                  {...register('roles')}
+                />
+                <span>{role.label}</span>
               </label>
             ))}
           </div>
+          <p className="text-xs text-muted mt-1.5">
+            * Peran Guru dan Staf Tata Usaha terpisah. Satu akun tidak dapat memiliki kedua role tersebut secara bersamaan.
+          </p>
           {errors.roles && (
             <p id="promote-roles-error" role="alert" className="text-sm text-danger mt-1">
               {errors.roles.message}

@@ -43,16 +43,22 @@ export const LoginPage: React.FC = () => {
       if (res.data.data?.user_type === 'admin') {
         // Admin hanya memakai cookie sesi: buang token Bearer basi, tunggu /auth/me sebelum pindah.
         localStorage.removeItem('auth_token');
+        let destination = '/admin/dashboard';
         try {
           const meRes = await apiClient.get<ApiResponse<User>>('/auth/me');
           if (meRes.data?.data) {
             queryClient.setQueryData(['currentUser'], meRes.data.data);
+            const userRoles = meRes.data.data.roles || [];
+            // Role Staf diarahkan langsung ke Dashboard Staff, role Guru & Superadmin ke /admin/dashboard
+            if (userRoles.includes('staff') && !userRoles.includes('super_admin')) {
+              destination = '/staff/dashboard';
+            }
           }
         } catch {
           // fallback jika fetch me gagal
         }
         await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-        navigate('/admin/dashboard', { replace: true });
+        navigate(destination, { replace: true });
         return;
       }
 

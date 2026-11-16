@@ -28,4 +28,22 @@ class PromoteUserRequest extends FormRequest
             'roles.*.exists' => 'Role yang dipilih tidak valid.',
         ];
     }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $roleNames = $this->input('roles', []);
+            if (! is_array($roleNames) || empty($roleNames)) {
+                return;
+            }
+
+            if (in_array('guru', $roleNames, true) && in_array('staff', $roleNames, true)) {
+                $validator->errors()->add('roles', 'Akun tidak boleh memiliki role Guru dan Staf secara bersamaan. Role guru dan staf harus terpisah.');
+            }
+
+            if (in_array('guru', $roleNames, true) && count($roleNames) > 1) {
+                $validator->errors()->add('roles', 'Role Guru adalah peran pengajar mandiri dan tidak dapat digabung dengan role lain pada satu akun.');
+            }
+        });
+    }
 }
