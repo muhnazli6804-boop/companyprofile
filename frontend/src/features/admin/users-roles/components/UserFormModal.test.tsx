@@ -84,6 +84,31 @@ describe('UserFormModal — tambah admin', () => {
     expect(screen.getByRole('checkbox', { name: 'Super Admin' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'Admin Konten' })).toBeEnabled();
   });
+
+  it('memisahkan role Guru dan Staf: jika Guru dicentang, Staf nonaktif', async () => {
+    open();
+    const user = userEvent.setup();
+
+    const guruBox = screen.getByRole('checkbox', { name: 'Guru / Tenaga Pengajar' });
+    const staffBox = screen.getByRole('checkbox', { name: 'Staf Tata Usaha' });
+
+    expect(guruBox).toBeEnabled();
+    expect(staffBox).toBeEnabled();
+
+    await user.click(guruBox);
+    expect(guruBox).toBeChecked();
+    expect(staffBox).toBeDisabled();
+
+    // Lepas centang Guru, Staf aktif kembali
+    await user.click(guruBox);
+    expect(guruBox).not.toBeChecked();
+    expect(staffBox).toBeEnabled();
+
+    // Centang Staf, Guru menjadi nonaktif
+    await user.click(staffBox);
+    expect(staffBox).toBeChecked();
+    expect(guruBox).toBeDisabled();
+  });
 });
 
 describe('UserFormModal — ubah admin', () => {

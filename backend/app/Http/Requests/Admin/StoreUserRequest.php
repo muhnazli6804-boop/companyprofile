@@ -44,6 +44,26 @@ class StoreUserRequest extends FormRequest
         ];
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $roleIds = $this->input('roles', []);
+            if (! is_array($roleIds) || empty($roleIds)) {
+                return;
+            }
+
+            $roleNames = \App\Models\Role::whereIn('id', $roleIds)->pluck('name')->all();
+
+            if (in_array('guru', $roleNames, true) && in_array('staff', $roleNames, true)) {
+                $validator->errors()->add('roles', 'Akun tidak boleh memiliki role Guru dan Staf secara bersamaan. Role guru dan staf harus terpisah.');
+            }
+
+            if (in_array('guru', $roleNames, true) && count($roleNames) > 1) {
+                $validator->errors()->add('roles', 'Role Guru adalah peran pengajar mandiri dan tidak dapat digabung dengan role lain pada satu akun.');
+            }
+        });
+    }
+
     /** Unik tanpa membedakan huruf besar dan mengabaikan akun yang sudah dihapus (sejalan dengan indeks lower(email)). */
     public static function emailAvailable(int|string|null $ignoreId = null): Closure
     {

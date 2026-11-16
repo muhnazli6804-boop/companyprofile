@@ -250,7 +250,7 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // 4. Staff & Guru Portal Routes (Protected)
+  // 4. Staff Portal Routes (Protected) — Terpisah dari Role Guru & Siswa
   {
     path: 'staff',
     element: <RequireStaff />,

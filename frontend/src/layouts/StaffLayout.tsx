@@ -100,7 +100,7 @@ export const StaffLayout: React.FC = () => {
         />
       )}
 
-      {/* Sidebar Portal Staff & Guru (disamakan dengan AdminLayout Superadmin) */}
+      {/* Sidebar Portal Staff (disamakan dengan AdminLayout Superadmin) */}
       <aside
         id="staff-sidebar"
         inert={(!isDesktop && !mobileDrawerOpen) || (isDesktop && isCollapsed)}

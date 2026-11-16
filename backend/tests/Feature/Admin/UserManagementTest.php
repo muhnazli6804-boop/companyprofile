@@ -624,3 +624,50 @@ test('setelah promote akun ditolak di area pendaftar dan bisa memakai endpoint a
     expect($this->getJson('/api/v1/admin/dashboard')->getStatusCode())->not->toBe(403);
     $this->getJson('/api/v1/admin/users')->assertForbidden();
 });
+
+test('tidak boleh menggabungkan role guru dan staff pada satu akun saat create atau update', function () {
+    $guruId = umRoleId('guru');
+    $staffId = umRoleId('staff');
+
+    // Coba buat admin dengan role guru DAN staff sekaligus
+    $this->postJson('/api/v1/admin/users', [
+        'name' => 'Guru Staf Campur',
+        'email' => 'campur@contoh.test',
+        'roles' => [$guruId, $staffId],
+    ])->assertStatus(422)->assertJsonValidationErrors('roles');
+
+    // Coba buat admin dengan role guru + role lain (guru peran mandiri)
+    $this->postJson('/api/v1/admin/users', [
+        'name' => 'Guru Campur Konten',
+        'email' => 'gurukonten@contoh.test',
+        'roles' => [$guruId, umRoleId('admin_content')],
+    ])->assertStatus(422)->assertJsonValidationErrors('roles');
+
+    // Berhasil jika hanya role guru tunggal
+    $resGuru = $this->postJson('/api/v1/admin/users', [
+        'name' => 'Guru Murni',
+        'email' => 'gurumurni@contoh.test',
+        'roles' => [$guruId],
+    ])->assertCreated();
+    expect($resGuru->json('data.roles.0.name'))->toBe('guru');
+
+    // Update tidak boleh menggabungkan guru dan staff
+    $user = User::findOrFail($resGuru->json('data.id'));
+    $this->putJson("/api/v1/admin/users/{$user->id}", [
+        'name' => 'Guru Diubah Campur',
+        'email' => 'gurumurni@contoh.test',
+        'roles' => [$guruId, $staffId],
+    ])->assertStatus(422)->assertJsonValidationErrors('roles');
+});
+
+test('tidak boleh mempromosikan pendaftar dengan role guru dan staff bersamaan', function () {
+    $target = umApplicant();
+
+    umPromote($target, ['guru', 'staff'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('roles');
+
+    umPromote($target, ['guru', 'admin_content'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('roles');
+});

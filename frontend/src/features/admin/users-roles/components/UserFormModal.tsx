@@ -40,6 +40,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, user, role
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -51,8 +52,41 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, user, role
     },
   });
 
+  const selectedRoleIds = watch('roles') || [];
+  const guruRoleId = roles.find((r) => r.name === 'guru')?.id.toString();
+  const staffRoleId = roles.find((r) => r.name === 'staff')?.id.toString();
+  const isGuruSelected = Boolean(guruRoleId && selectedRoleIds.includes(guruRoleId));
+  const isStaffSelected = Boolean(staffRoleId && selectedRoleIds.includes(staffRoleId));
+
+  const isRoleDisabled = (role: Role) => {
+    if (role.name === 'super_admin' && !canGrantSuperAdmin) return true;
+    const rId = role.id.toString();
+    if (isGuruSelected && rId !== guruRoleId) return true;
+    if (isStaffSelected && rId === guruRoleId) return true;
+    return false;
+  };
+
+  const getRoleTitle = (role: Role) => {
+    const rId = role.id.toString();
+    if (isGuruSelected && rId !== guruRoleId) {
+      return 'Role Guru adalah peran pengajar mandiri dan tidak dapat digabung dengan role lain.';
+    }
+    if (isStaffSelected && rId === guruRoleId) {
+      return 'Role Guru tidak dapat dipilih bersamaan dengan role Staf Tata Usaha.';
+    }
+    return undefined;
+  };
+
   const onSubmit = async (values: FormValues) => {
     setFormError(null);
+    if (guruRoleId && staffRoleId && values.roles.includes(guruRoleId) && values.roles.includes(staffRoleId)) {
+      setError('roles', { message: 'Akun tidak boleh memiliki role Guru dan Staf secara bersamaan.' });
+      return;
+    }
+    if (guruRoleId && values.roles.includes(guruRoleId) && values.roles.length > 1) {
+      setError('roles', { message: 'Role Guru adalah peran mandiri dan tidak dapat digabung dengan role lain.' });
+      return;
+    }
     const payload = { ...values, phone: values.phone || null, roles: values.roles.map(Number).sort((a, b) => a - b) };
     try {
       const saved = user ? await update.mutateAsync({ id: user.id, payload }) : await create.mutateAsync(payload);
@@ -83,18 +117,25 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, user, role
           <legend className="font-bold text-ink mb-1">Role</legend>
           <div className="flex flex-col">
             {roles.map((role) => (
-              <label key={role.id} className="flex items-center gap-3 min-h-[44px] text-ink">
+              <label
+                key={role.id}
+                title={getRoleTitle(role)}
+                className={`flex items-center gap-3 min-h-[44px] text-ink ${isRoleDisabled(role) ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
                 <input
                   type="checkbox"
                   value={role.id}
                   className="h-5 w-5 accent-primary"
-                  disabled={role.name === 'super_admin' && !canGrantSuperAdmin}
+                  disabled={isRoleDisabled(role)}
                   {...register('roles')}
                 />
-                {role.label}
+                <span>{role.label}</span>
               </label>
             ))}
           </div>
+          <p className="text-xs text-muted mt-1.5">
+            * Peran Guru dan Staf Tata Usaha terpisah. Satu akun tidak dapat memiliki kedua role tersebut secara bersamaan.
+          </p>
           {errors.roles && (
             <p id="roles-error" role="alert" className="text-sm text-danger mt-1">
               {errors.roles.message}
