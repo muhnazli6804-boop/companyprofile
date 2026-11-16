@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Save,
 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 
 export const StaffChangePasswordPage: React.FC = () => {
@@ -31,7 +32,7 @@ export const StaffChangePasswordPage: React.FC = () => {
   const hasLetter = /[a-zA-Z]/.test(newPassword);
   const isMatch = newPassword && newPassword === confirmPassword;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
@@ -54,13 +55,26 @@ export const StaffChangePasswordPage: React.FC = () => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await apiClient.put('/auth/password', {
+        current_password: currentPassword,
+        password: newPassword,
+        password_confirmation: confirmPassword,
+      });
       setSuccess(true);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    }, 600);
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.errors?.current_password?.[0] ||
+        err.response?.data?.errors?.password?.[0] ||
+        err.response?.data?.message ||
+        'Gagal memperbarui kata sandi. Pastikan kata sandi saat ini benar.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
