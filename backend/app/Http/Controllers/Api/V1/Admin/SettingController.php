@@ -48,6 +48,12 @@ class SettingController extends Controller
                 $group = 'registration';
             } elseif (str_starts_with($key, 'security_')) {
                 $group = 'security';
+            } elseif (str_starts_with($key, 'finance_')) {
+                // Form pengaturan mengirim semua kunci; yang tanpa finance.view cukup dilewati.
+                if (! $request->user()->can('finance.view')) {
+                    continue;
+                }
+                $group = 'finance';
             }
 
             Setting::updateOrCreate(

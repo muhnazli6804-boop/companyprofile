@@ -79,6 +79,10 @@ class SettingSeeder extends Seeder
                 'value' => '[Contoh] Pelamar guru akan dihubungi oleh tim rekrutmen Yayasan Padindi melalui nomor telepon/WhatsApp untuk jadwal wawancara daring.',
                 'group_name' => 'registration',
             ],
+            ['key' => 'finance_dashboard_enabled', 'value' => 'false', 'group_name' => 'finance'],
+            ['key' => 'finance_dashboard_provider', 'value' => 'looker_studio', 'group_name' => 'finance'],
+            ['key' => 'finance_dashboard_title', 'value' => 'Dashboard Keuangan Yayasan', 'group_name' => 'finance'],
+            ['key' => 'finance_dashboard_url', 'value' => '', 'group_name' => 'finance'],
         ];
 
         foreach ($settings as $setting) {
