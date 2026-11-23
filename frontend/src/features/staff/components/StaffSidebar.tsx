@@ -50,8 +50,8 @@ const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
   {
     label: 'Layanan Pendaftaran',
     items: [
-      { to: '/admin/pendaftaran-siswa', label: 'Pendaftaran Siswa (PPDB)', icon: GraduationCap, permission: 'applications.view' },
-      { to: '/admin/lamaran-guru', label: 'Rekrutmen Tenaga Pendidik', icon: Briefcase, permission: 'applications.view' },
+      { to: '/staff/pendaftaran-siswa', label: 'Pendaftaran Siswa (PPDB)', icon: GraduationCap, permission: 'applications.view' },
+      { to: '/staff/lamaran-guru', label: 'Rekrutmen Tenaga Pendidik', icon: Briefcase, permission: 'applications.view' },
     ],
   },
   {
@@ -78,8 +78,8 @@ const NAV_GROUPS: { label: string; items: SidebarItem[] }[] = [
   {
     label: 'Komunikasi & Riwayat',
     items: [
-      { to: '/admin/pesan-kontak', label: 'Pesan & Pengaduan', icon: Mail, permission: 'messages.manage' },
-      { to: '/admin/log-aktivitas', label: 'Log Aktivitas Akun', icon: History, permission: 'logs.view' },
+      { to: '/staff/pesan-kontak', label: 'Pesan & Pengaduan', icon: Mail, permission: 'messages.manage' },
+      { to: '/staff/log-aktivitas', label: 'Log Aktivitas Akun', icon: History, permission: 'logs.view' },
     ],
   },
 ];

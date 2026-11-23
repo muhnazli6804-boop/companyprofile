@@ -41,6 +41,8 @@ class AppServiceProvider extends ServiceProvider
             return str_contains($ability, '.') ? $user->hasPermission($ability) : null;
         });
 
+
+
         // Named rate limiters per Rancangan-API-Padindi.md section 1.6
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());

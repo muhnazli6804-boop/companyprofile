@@ -43,6 +43,9 @@ export const StaffGalleryPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    staffStore.syncWithBackend();
+    const unsub = staffStore.subscribe(loadData);
+    return unsub;
   }, []);
 
   const filteredItems = galleries.filter((g) => {

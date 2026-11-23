@@ -44,6 +44,9 @@ export const StaffNewsPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    staffStore.syncWithBackend();
+    const unsub = staffStore.subscribe(loadData);
+    return unsub;
   }, []);
 
   const categories = useMemo(() => {

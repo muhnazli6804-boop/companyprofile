@@ -40,6 +40,9 @@ export const StaffFaqPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    staffStore.syncWithBackend();
+    const unsub = staffStore.subscribe(loadData);
+    return unsub;
   }, []);
 
   const filteredFaqs = faqs.filter((f) => {

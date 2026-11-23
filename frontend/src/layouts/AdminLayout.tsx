@@ -160,6 +160,26 @@ export const AdminLayout: React.FC = () => {
 
   const { data: user } = useCurrentUser();
   const isGuru = Boolean(user?.roles?.includes('guru') && !user?.roles?.includes('super_admin'));
+  const isStaffOnly = Boolean(user?.roles?.includes('staff') && !user?.roles?.includes('super_admin'));
+
+  // Jika akun adalah role Staf internal, arahkan ke rute portal staff (/staff/*) agar sidebar staf tetap konsisten
+  useEffect(() => {
+    if (isStaffOnly) {
+      if (pathname === '/admin/dashboard' || pathname === '/admin' || pathname === '/admin/') {
+        navigate('/staff/dashboard', { replace: true });
+      } else if (pathname.startsWith('/admin/pendaftaran-siswa')) {
+        navigate(pathname.replace('/admin/pendaftaran-siswa', '/staff/pendaftaran-siswa'), { replace: true });
+      } else if (pathname.startsWith('/admin/lamaran-guru')) {
+        navigate(pathname.replace('/admin/lamaran-guru', '/staff/lamaran-guru'), { replace: true });
+      } else if (pathname.startsWith('/admin/pesan-kontak')) {
+        navigate('/staff/pesan-kontak', { replace: true });
+      } else if (pathname.startsWith('/admin/log-aktivitas')) {
+        navigate('/staff/log-aktivitas', { replace: true });
+      } else if (pathname.startsWith('/admin/cms')) {
+        navigate('/staff/konten', { replace: true });
+      }
+    }
+  }, [isStaffOnly, pathname, navigate]);
   const activeMenuTitle = getActiveMenuTitle(pathname, isGuru);
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,

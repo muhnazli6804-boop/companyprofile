@@ -72,6 +72,10 @@ export const StaffLayout: React.FC = () => {
 
   // Tentukan judul halaman berdasarkan rute
   const getPageTitle = () => {
+    if (pathname.includes('/staff/pendaftaran-siswa')) return 'Pendaftaran Siswa (PPDB)';
+    if (pathname.includes('/staff/lamaran-guru')) return 'Rekrutmen Tenaga Pendidik';
+    if (pathname.includes('/staff/pesan-kontak')) return 'Pesan & Pengaduan';
+    if (pathname.includes('/staff/log-aktivitas')) return 'Log Aktivitas Akun';
     if (pathname.includes('/staff/berita')) return 'Manajemen Berita & Artikel';
     if (pathname.includes('/staff/konten')) return 'Manajemen Konten Website';
     if (pathname.includes('/staff/galeri')) return 'Galeri Dokumentasi';

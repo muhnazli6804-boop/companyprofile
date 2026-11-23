@@ -5,6 +5,8 @@
  * filter, pencarian, status workflow, dan notifikasi berjalan lancar.
  */
 
+import { apiClient } from '@/lib/api-client';
+
 export type PublicationStatus = 'draft' | 'pending' | 'revision' | 'published' | 'rejected';
 
 export interface StaffNewsItem {
@@ -611,6 +613,26 @@ const STORAGE_KEYS = {
 };
 
 class StaffContentStore {
+  private listeners: Set<() => void> = new Set();
+  private isSyncing = false;
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify(): void {
+    this.listeners.forEach((l) => {
+      try {
+        l();
+      } catch (err) {
+        console.error('Error in staffStore listener', err);
+      }
+    });
+  }
+
   private getStorage<T>(key: string, initial: T): T {
     try {
       const data = localStorage.getItem(key);
@@ -626,6 +648,151 @@ class StaffContentStore {
       localStorage.setItem(key, JSON.stringify(val));
     } catch (e) {
       console.warn(`Failed to save ${key} to localStorage`, e);
+    }
+  }
+
+  // --- SINKRONISASI LENGKAP DENGAN BACKEND API ---
+  async syncWithBackend(): Promise<void> {
+    if (this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      await Promise.allSettled([
+        this.syncNewsFromBackend(),
+        this.syncGalleriesFromBackend(),
+        this.syncSettingsFromBackend(),
+      ]);
+    } finally {
+      this.isSyncing = false;
+      this.notify();
+    }
+  }
+
+  async syncNewsFromBackend(): Promise<void> {
+    try {
+      const res = await apiClient.get<any>('/admin/posts?per_page=100');
+      const posts: any[] = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+
+      if (posts.length > 0) {
+        const remoteNews: StaffNewsItem[] = posts.map((p) => ({
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+          category: p.category?.name || 'Pengumuman',
+          thumbnail: p.cover_path || '/images/news/ppdb-cover.jpg',
+          excerpt: p.excerpt || '',
+          content: p.content || '',
+          tags: ['Yayasan Padindi'],
+          author: p.author?.name || 'Staf Yayasan',
+          authorId: p.author_id,
+          createdAt: p.created_at || new Date().toISOString(),
+          publishedAt: p.published_at || null,
+          status: (p.status as PublicationStatus) || 'draft',
+          metaTitle: p.meta_title || p.title,
+          metaDescription: p.meta_description || p.excerpt || '',
+          views: 0,
+        }));
+
+        this.setStorage(STORAGE_KEYS.NEWS, remoteNews);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat berita dari backend API:', err);
+    }
+  }
+
+  async syncGalleriesFromBackend(): Promise<void> {
+    try {
+      const res = await apiClient.get<any>('/admin/galleries');
+      const galleries: any[] = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+
+      if (galleries.length > 0) {
+        const remoteGalleries: GalleryItem[] = galleries.map((g) => ({
+          id: g.id,
+          title: g.title,
+          slug: g.slug,
+          category: 'Kegiatan Sekolah',
+          type: 'image',
+          mediaUrl: g.cover_path || (g.items && g.items[0]?.path) || '/images/gallery/classroom-sd.jpg',
+          thumbnailUrl: g.cover_path || (g.items && g.items[0]?.path) || '/images/gallery/classroom-sd.jpg',
+          eventDate: g.event_date || new Date().toISOString().split('T')[0],
+          description: g.description || '',
+          status: g.is_published ? 'published' : 'draft',
+          author: 'Staf Yayasan',
+        }));
+
+        this.setStorage(STORAGE_KEYS.GALLERY, remoteGalleries);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat galeri dari backend API:', err);
+    }
+  }
+
+  async syncSettingsFromBackend(): Promise<void> {
+    try {
+      const res = await apiClient.get<any>('/public/settings');
+      const data = res.data?.data || res.data || {};
+
+      // 1. FAQ
+      if (data.site_faqs) {
+        try {
+          const parsed = typeof data.site_faqs === 'string' ? JSON.parse(data.site_faqs) : data.site_faqs;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const mappedFaqs: FaqItem[] = parsed.map((item: any, idx: number) => ({
+              id: item.id || idx + 1,
+              question: item.question || '',
+              answer: item.answer || '',
+              category: item.category || 'Umum',
+              order: item.sort_order || item.order || idx + 1,
+              status: (item.status as PublicationStatus) || 'published',
+              author: item.author || 'Staf Yayasan',
+              updatedAt: item.updatedAt || new Date().toISOString(),
+            }));
+            this.setStorage(STORAGE_KEYS.FAQS, mappedFaqs);
+          }
+        } catch {}
+      }
+
+      // 2. Prestasi
+      if (data.site_achievements) {
+        try {
+          const parsed = typeof data.site_achievements === 'string' ? JSON.parse(data.site_achievements) : data.site_achievements;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const mappedAch: AchievementItem[] = parsed.map((item: any, idx: number) => ({
+              id: item.id || idx + 1,
+              title: item.title || '',
+              category: item.category || 'Akademik',
+              level: item.level || 'Kota',
+              rank: item.rank || 'Juara 1',
+              recipient: item.recipient || 'Siswa Padindi',
+              date: item.date || item.year || new Date().toISOString().split('T')[0],
+              description: item.description || '',
+              photoUrl: item.photoUrl || item.image_path || '/images/gallery/classroom-sd.jpg',
+              status: (item.status as PublicationStatus) || 'published',
+              author: item.author || 'Staf Yayasan',
+            }));
+            this.setStorage(STORAGE_KEYS.ACHIEVEMENTS, mappedAch);
+          }
+        } catch {}
+      }
+
+      // 3. Konten Website
+      if (data.site_website_content) {
+        try {
+          const parsed = typeof data.site_website_content === 'string' ? JSON.parse(data.site_website_content) : data.site_website_content;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.setStorage(STORAGE_KEYS.WEBSITE_CONTENT, parsed);
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('Gagal memuat pengaturan konten dari backend API:', err);
     }
   }
 
@@ -681,6 +848,42 @@ class StaffContentStore {
     }
 
     this.setStorage(STORAGE_KEYS.NEWS, list);
+    this.notify();
+
+    // Kirim sinkronisasi ke backend API
+    const apiPayload = {
+      title: result.title,
+      slug: result.slug,
+      excerpt: result.excerpt,
+      content: result.content,
+      cover_path: result.thumbnail,
+      status: result.status === 'published' ? 'published' : (result.status === 'archived' ? 'archived' : 'draft'),
+      meta_title: result.metaTitle,
+      meta_description: result.metaDescription,
+      published_at: result.publishedAt,
+    };
+
+    if (existingIndex >= 0 && item.id && item.id < 100000) {
+      apiClient.put(`/admin/posts/${item.id}`, apiPayload).catch((err) => {
+        console.warn('Gagal sinkronisasi update berita ke backend:', err);
+      });
+    } else {
+      apiClient.post<any>('/admin/posts', apiPayload).then((res) => {
+        const remoteId = res.data?.data?.id || res.data?.id;
+        if (remoteId && remoteId !== result.id) {
+          const currentList = this.getNews();
+          const target = currentList.find((n) => n.id === result.id);
+          if (target) {
+            target.id = remoteId;
+            this.setStorage(STORAGE_KEYS.NEWS, currentList);
+            this.notify();
+          }
+        }
+      }).catch((err) => {
+        console.warn('Gagal sinkronisasi tambah berita ke backend:', err);
+      });
+    }
+
     return result;
   }
 
@@ -691,6 +894,12 @@ class StaffContentStore {
     const filtered = list.filter((n) => n.id !== id);
     this.setStorage(STORAGE_KEYS.NEWS, filtered);
     this.logActivity('Menghapus artikel berita', target.title, 'draft');
+    this.notify();
+
+    apiClient.delete(`/admin/posts/${id}`).catch((err) => {
+      console.warn('Gagal menghapus berita di backend:', err);
+    });
+
     return true;
   }
 
@@ -705,6 +914,16 @@ class StaffContentStore {
     }
     this.setStorage(STORAGE_KEYS.NEWS, list);
     this.logActivity(`Mengubah status publikasi ke "${status}"`, list[index].title, status);
+    this.notify();
+
+    if (status === 'published') {
+      apiClient.patch(`/admin/posts/${id}/publish`).catch(() => {});
+    } else if (status === 'draft') {
+      apiClient.patch(`/admin/posts/${id}/unpublish`).catch(() => {});
+    } else if (status === 'archived') {
+      apiClient.patch(`/admin/posts/${id}/archive`).catch(() => {});
+    }
+
     return list[index];
   }
 
@@ -744,6 +963,14 @@ class StaffContentStore {
     }
 
     this.setStorage(STORAGE_KEYS.WEBSITE_CONTENT, list);
+    this.notify();
+
+    apiClient.put('/admin/settings', {
+      settings: {
+        site_website_content: JSON.stringify(list),
+      },
+    }).catch(() => {});
+
     return result;
   }
 
@@ -751,8 +978,17 @@ class StaffContentStore {
     const list = this.getWebsiteContent();
     const target = list.find((c) => c.id === id);
     if (!target) return false;
-    this.setStorage(STORAGE_KEYS.WEBSITE_CONTENT, list.filter((c) => c.id !== id));
+    const updated = list.filter((c) => c.id !== id);
+    this.setStorage(STORAGE_KEYS.WEBSITE_CONTENT, updated);
     this.logActivity('Menghapus konten website', target.title, 'draft');
+    this.notify();
+
+    apiClient.put('/admin/settings', {
+      settings: {
+        site_website_content: JSON.stringify(updated),
+      },
+    }).catch(() => {});
+
     return true;
   }
 
@@ -789,6 +1025,14 @@ class StaffContentStore {
 
     this.setStorage(STORAGE_KEYS.ACHIEVEMENTS, list);
     this.logActivity('Menyimpan data prestasi', result.title, result.status);
+    this.notify();
+
+    apiClient.put('/admin/settings', {
+      settings: {
+        site_achievements: JSON.stringify(list),
+      },
+    }).catch(() => {});
+
     return result;
   }
 
@@ -796,8 +1040,17 @@ class StaffContentStore {
     const list = this.getAchievements();
     const target = list.find((a) => a.id === id);
     if (!target) return false;
-    this.setStorage(STORAGE_KEYS.ACHIEVEMENTS, list.filter((a) => a.id !== id));
+    const updated = list.filter((a) => a.id !== id);
+    this.setStorage(STORAGE_KEYS.ACHIEVEMENTS, updated);
     this.logActivity('Menghapus data prestasi', target.title, 'draft');
+    this.notify();
+
+    apiClient.put('/admin/settings', {
+      settings: {
+        site_achievements: JSON.stringify(updated),
+      },
+    }).catch(() => {});
+
     return true;
   }
 
@@ -834,6 +1087,34 @@ class StaffContentStore {
 
     this.setStorage(STORAGE_KEYS.GALLERY, list);
     this.logActivity('Menyimpan item galeri', result.title, result.status);
+    this.notify();
+
+    const apiPayload = {
+      title: result.title,
+      slug: result.slug,
+      description: result.description,
+      cover_path: result.mediaUrl || result.thumbnailUrl,
+      event_date: result.eventDate,
+      is_published: result.status === 'published',
+    };
+
+    if (existingIndex >= 0 && item.id && item.id < 100000) {
+      apiClient.put(`/admin/galleries/${item.id}`, apiPayload).catch(() => {});
+    } else {
+      apiClient.post<any>('/admin/galleries', apiPayload).then((res) => {
+        const remoteId = res.data?.data?.id || res.data?.id;
+        if (remoteId && remoteId !== result.id) {
+          const currentList = this.getGallery();
+          const target = currentList.find((g) => g.id === result.id);
+          if (target) {
+            target.id = remoteId;
+            this.setStorage(STORAGE_KEYS.GALLERY, currentList);
+            this.notify();
+          }
+        }
+      }).catch(() => {});
+    }
+
     return result;
   }
 
@@ -841,8 +1122,13 @@ class StaffContentStore {
     const list = this.getGallery();
     const target = list.find((g) => g.id === id);
     if (!target) return false;
-    this.setStorage(STORAGE_KEYS.GALLERY, list.filter((g) => g.id !== id));
+    const updated = list.filter((g) => g.id !== id);
+    this.setStorage(STORAGE_KEYS.GALLERY, updated);
     this.logActivity('Menghapus item galeri', target.title, 'draft');
+    this.notify();
+
+    apiClient.delete(`/admin/galleries/${id}`).catch(() => {});
+
     return true;
   }
 
@@ -876,6 +1162,14 @@ class StaffContentStore {
 
     this.setStorage(STORAGE_KEYS.FAQS, list);
     this.logActivity('Menyimpan pertanyaan FAQ', result.question, result.status);
+    this.notify();
+
+    apiClient.put('/admin/settings', {
+      settings: {
+        site_faqs: JSON.stringify(list),
+      },
+    }).catch(() => {});
+
     return result;
   }
 
@@ -883,8 +1177,17 @@ class StaffContentStore {
     const list = this.getFaqs();
     const target = list.find((f) => f.id === id);
     if (!target) return false;
-    this.setStorage(STORAGE_KEYS.FAQS, list.filter((f) => f.id !== id));
+    const updated = list.filter((f) => f.id !== id);
+    this.setStorage(STORAGE_KEYS.FAQS, updated);
     this.logActivity('Menghapus pertanyaan FAQ', target.question, 'draft');
+    this.notify();
+
+    apiClient.put('/admin/settings', {
+      settings: {
+        site_faqs: JSON.stringify(updated),
+      },
+    }).catch(() => {});
+
     return true;
   }
 
@@ -909,7 +1212,36 @@ class StaffContentStore {
     list.unshift(newItem);
     this.setStorage(STORAGE_KEYS.MEDIA, list);
     this.logActivity('Mengunggah media baru', newItem.filename, 'published');
+    this.notify();
     return newItem;
+  }
+
+  async uploadMediaFile(file: File): Promise<MediaFileItem | null> {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await apiClient.post<any>('/admin/uploads/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const url = res.data?.data?.url || res.data?.url;
+      if (url) {
+        const item = this.uploadMedia({
+          filename: file.name,
+          url,
+          type: 'image',
+          size: `${Math.round(file.size / 1024)} KB`,
+          uploadedBy: 'Staf Yayasan',
+        });
+        return item;
+      }
+    } catch (err) {
+      console.warn('Gagal mengunggah media langsung ke backend API:', err);
+    }
+    return null;
   }
 
   renameMedia(id: number, newFilename: string): boolean {
@@ -918,6 +1250,7 @@ class StaffContentStore {
     if (!target) return false;
     target.filename = newFilename;
     this.setStorage(STORAGE_KEYS.MEDIA, list);
+    this.notify();
     return true;
   }
 
@@ -927,6 +1260,7 @@ class StaffContentStore {
     if (!target) return false;
     this.setStorage(STORAGE_KEYS.MEDIA, list.filter((m) => m.id !== id));
     this.logActivity('Menghapus media', target.filename, 'draft');
+    this.notify();
     return true;
   }
 
@@ -945,6 +1279,7 @@ class StaffContentStore {
       isRead: false,
     });
     this.setStorage(STORAGE_KEYS.NOTIFICATIONS, list);
+    this.notify();
   }
 
   markNotificationAsRead(id: number): void {
@@ -953,12 +1288,14 @@ class StaffContentStore {
     if (item) {
       item.isRead = true;
       this.setStorage(STORAGE_KEYS.NOTIFICATIONS, list);
+      this.notify();
     }
   }
 
   markAllNotificationsAsRead(): void {
     const list = this.getNotifications().map((n) => ({ ...n, isRead: true }));
     this.setStorage(STORAGE_KEYS.NOTIFICATIONS, list);
+    this.notify();
   }
 
   // --- AKTIVITAS TERBARU ---
@@ -978,6 +1315,7 @@ class StaffContentStore {
       status,
     });
     this.setStorage(STORAGE_KEYS.ACTIVITIES, list.slice(0, 15)); // Simpan 15 aktivitas terakhir
+    this.notify();
   }
 
   // --- STATISTIK KONTEN ---
