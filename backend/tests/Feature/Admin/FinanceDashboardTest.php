@@ -58,6 +58,91 @@ class FinanceDashboardTest extends TestCase
         $this->getJson('/api/v1/admin/finance-dashboard')->assertOk()->assertJsonPath('data.url', null);
     }
 
+    public function test_accepts_datastudio_host(): void
+    {
+        $url = 'https://datastudio.google.com/embed/reporting/71e72570-2c98-4d99-8b73-37d81e89d975/page/p_u56p73jk9d';
+        $this->set('finance_dashboard_enabled', 'true');
+        $this->set('finance_dashboard_url', $url);
+        Sanctum::actingAs($this->admin('super_admin'));
+
+        $this->getJson('/api/v1/admin/finance-dashboard')->assertOk()->assertJsonPath('data.url', $url);
+    }
+
+    public function test_rejects_url_outside_embed_path(): void
+    {
+        $this->set('finance_dashboard_enabled', 'true');
+        $this->set('finance_dashboard_url', 'https://lookerstudio.google.com/reporting/abc');
+        Sanctum::actingAs($this->admin('super_admin'));
+
+        $this->getJson('/api/v1/admin/finance-dashboard')->assertOk()->assertJsonPath('data.url', null);
+    }
+
+    private const GOOD = 'https://datastudio.google.com/embed/reporting/71e72570-2c98-4d99-8b73-37d81e89d975/page/p_u56p73jk9d';
+
+    private function payload(array $over = []): array
+    {
+        return array_merge(['enabled' => true, 'title' => 'Dashboard Keuangan', 'url' => self::GOOD], $over);
+    }
+
+    public function test_super_admin_can_save_and_read_config(): void
+    {
+        Sanctum::actingAs($this->admin('super_admin'));
+
+        $this->putJson('/api/v1/admin/finance-dashboard', $this->payload())->assertOk();
+        $this->getJson('/api/v1/admin/finance-dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.url', self::GOOD)
+            ->assertJsonPath('data.config.url', self::GOOD);
+    }
+
+    public function test_finance_viewer_who_is_not_super_admin_cannot_write_but_can_read_without_config(): void
+    {
+        $this->seed(RoleSeeder::class);
+        $this->seed(PermissionSeeder::class);
+        $this->set('finance_dashboard_enabled', 'true');
+        $this->set('finance_dashboard_url', self::GOOD);
+        $u = $this->admin('staff'); // staff memegang finance.view tetapi bukan super_admin
+        Sanctum::actingAs($u);
+
+        $this->putJson('/api/v1/admin/finance-dashboard', $this->payload(['title' => 'X']))->assertForbidden();
+        $this->assertSame('Dashboard Keuangan', Setting::where('key', 'finance_dashboard_title')->value('value') ?? 'Dashboard Keuangan');
+        $this->getJson('/api/v1/admin/finance-dashboard')
+            ->assertOk()->assertJsonPath('data.url', self::GOOD)->assertJsonPath('data.config', null);
+    }
+
+    public function test_content_admin_cannot_read_or_write_finance(): void
+    {
+        $this->set('finance_dashboard_enabled', 'true');
+        $this->set('finance_dashboard_url', self::GOOD);
+        Sanctum::actingAs($this->admin('admin_content'));
+
+        $this->getJson('/api/v1/admin/finance-dashboard')->assertForbidden();
+        $this->putJson('/api/v1/admin/finance-dashboard', $this->payload())->assertForbidden();
+    }
+
+    public function test_write_rejects_invalid_embed_url(): void
+    {
+        Sanctum::actingAs($this->admin('super_admin'));
+
+        foreach (['<iframe src="'.self::GOOD.'"></iframe>', 'http://lookerstudio.google.com/embed/reporting/abc', 'https://evil.example.com/embed/reporting/abc', 'https://lookerstudio.google.com/reporting/abc'] as $bad) {
+            $this->putJson('/api/v1/admin/finance-dashboard', $this->payload(['url' => $bad]))
+                ->assertStatus(422)->assertJsonValidationErrors('url');
+        }
+    }
+
+    public function test_general_settings_endpoint_cannot_write_or_expose_finance_keys(): void
+    {
+        $this->set('finance_dashboard_url', self::GOOD);
+        $super = $this->admin('super_admin');
+        Sanctum::actingAs($super);
+
+        $this->putJson('/api/v1/admin/settings', ['settings' => ['finance_dashboard_url' => 'https://lookerstudio.google.com/embed/reporting/zzz']])
+            ->assertStatus(422);
+        $this->assertSame(self::GOOD, Setting::where('key', 'finance_dashboard_url')->value('value'));
+
+        $this->getJson('/api/v1/admin/settings')->assertOk()->assertJsonMissingPath('data.flat.finance_dashboard_url');
+    }
+
     public function test_public_settings_hide_finance(): void
     {
         $this->set('finance_dashboard_url', 'https://lookerstudio.google.com/embed/reporting/abc');
