@@ -55,10 +55,17 @@ export const StaffDashboardPage: React.FC = () => {
   });
 
   useEffect(() => {
-    setStats(staffStore.getStats());
-    setRecentNews(staffStore.getNews().slice(0, 5));
-    setRecentContent(staffStore.getWebsiteContent().slice(0, 5));
-    setActivities(staffStore.getRecentActivities().slice(0, 6));
+    const updateDashboardData = () => {
+      setStats(staffStore.getStats());
+      setRecentNews(staffStore.getNews().slice(0, 5));
+      setRecentContent(staffStore.getWebsiteContent().slice(0, 5));
+      setActivities(staffStore.getRecentActivities().slice(0, 6));
+    };
+
+    updateDashboardData();
+    staffStore.syncWithBackend();
+    const unsub = staffStore.subscribe(updateDashboardData);
+    return unsub;
   }, []);
 
   const getStatusBadge = (status: string) => {

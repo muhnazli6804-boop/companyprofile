@@ -45,6 +45,9 @@ export const StaffWebsiteContentPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    staffStore.syncWithBackend();
+    const unsub = staffStore.subscribe(loadData);
+    return unsub;
   }, []);
 
   const currentTabItems = contentList.filter((c) => c.section === activeTab);

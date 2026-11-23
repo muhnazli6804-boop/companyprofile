@@ -477,6 +477,22 @@ export const CmsPage: React.FC = () => {
         }
       }
       if (f.about_description) setAboutDescription(f.about_description);
+      if (f.site_achievements) {
+        try {
+          const parsedAchievements = JSON.parse(f.site_achievements);
+          if (Array.isArray(parsedAchievements) && parsedAchievements.length > 0) {
+            setAchievements(parsedAchievements);
+          }
+        } catch {}
+      }
+      if (f.site_faqs) {
+        try {
+          const parsedFaqs = JSON.parse(f.site_faqs);
+          if (Array.isArray(parsedFaqs) && parsedFaqs.length > 0) {
+            setFaqs(parsedFaqs);
+          }
+        } catch {}
+      }
       setIdentityInfo((prev) => ({
         ...prev,
         site_name: f.site_name || prev.site_name,

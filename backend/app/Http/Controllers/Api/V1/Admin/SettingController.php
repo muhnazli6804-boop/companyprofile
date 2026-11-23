@@ -36,8 +36,23 @@ class SettingController extends Controller
         ]);
 
         $settings = $request->input('settings');
+        $user = $request->user();
+        $isSettingsAdmin = $user && ($user->hasRole('super_admin') || $user->hasPermission('settings.manage'));
+        $isContentStaff = $user && $user->hasPermission('content.manage');
 
         foreach ($settings as $key => $value) {
+            // Jika bukan admin pengaturan sistem, batasi hanya untuk konten CMS
+            if (! $isSettingsAdmin && $isContentStaff) {
+                $allowedContentKeys = [
+                    'site_faqs', 'site_achievements', 'site_website_content', 'site_media_library',
+                    'vision', 'mission', 'about_description',
+                ];
+                $isAllowed = in_array($key, $allowedContentKeys) || str_starts_with($key, 'about_');
+                if (! $isAllowed) {
+                    continue;
+                }
+            }
+
             // Determine group based on key prefix
             $group = 'general';
             if (str_starts_with($key, 'contact_')) {
@@ -108,6 +123,28 @@ class SettingController extends Controller
         ]);
     }
 
+    public function listImages(): JsonResponse
+    {
+        $files = Storage::disk('public')->files('uploads');
+        $media = [];
+
+        foreach ($files as $file) {
+            $media[] = [
+                'name' => basename($file),
+                'url' => Storage::disk('public')->url($file),
+                'path' => $file,
+                'size' => round(Storage::disk('public')->size($file) / 1024, 1).' KB',
+                'last_modified' => date('Y-m-d H:i:s', Storage::disk('public')->lastModified($file)),
+            ];
+        }
+
+        usort($media, fn ($a, $b) => strcmp($b['last_modified'], $a['last_modified']));
+
+        return response()->json([
+            'data' => $media,
+        ]);
+    }
+
     public function uploadImage(Request $request): JsonResponse
     {
         $request->validate([
@@ -122,6 +159,23 @@ class SettingController extends Controller
                 'url' => Storage::disk('public')->url($path),
                 'path' => $path,
             ],
+        ]);
+    }
+
+    public function deleteImage(Request $request): JsonResponse
+    {
+        $request->validate([
+            'path' => ['required', 'string'],
+        ]);
+
+        $path = $request->input('path');
+        // Keamanan: pastikan path berada di dalam direktori uploads/ dan tidak mengandung traversal
+        if (str_starts_with($path, 'uploads/') && ! str_contains($path, '..') && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+
+        return response()->json([
+            'message' => 'Berkas media berhasil dihapus.',
         ]);
     }
 }

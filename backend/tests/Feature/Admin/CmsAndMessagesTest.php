@@ -189,4 +189,53 @@ class CmsAndMessagesTest extends TestCase
         $this->assertContains($msgForB->id, $adminIds);
         $this->assertContains($msgGeneral->id, $adminIds);
     }
+
+    public function test_staff_can_manage_cms_content_and_media_library(): void
+    {
+        $staffRole = \App\Models\Role::where('name', 'staff')->first();
+        $staffUser = User::factory()->create(['user_type' => 'admin', 'is_active' => true, 'email' => 'staff.cms@padindi.test']);
+        $staffUser->roles()->attach($staffRole->id);
+
+        // 1. Staff can create post
+        $postRes = $this->actingAs($staffUser)->postJson('/api/v1/admin/posts', [
+            'title' => 'Berita Staff Testing',
+            'content' => 'Konten artikel oleh staf tata usaha.',
+            'status' => 'draft',
+        ]);
+        $postRes->assertStatus(201);
+        $postId = $postRes->json('data.id');
+
+        // 2. Staff can create gallery
+        $galRes = $this->actingAs($staffUser)->postJson('/api/v1/admin/galleries', [
+            'title' => 'Galeri Staff Testing',
+            'description' => 'Dokumentasi kegiatan oleh staf.',
+            'is_published' => true,
+        ]);
+        $galRes->assertStatus(201);
+
+        // 3. Staff can upload media image
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $file = \Illuminate\Http\UploadedFile::fake()->image('staff-photo.jpg', 600, 400);
+
+        $uploadRes = $this->actingAs($staffUser)->postJson('/api/v1/admin/uploads/images', ['image' => $file]);
+        $uploadRes->assertStatus(200);
+        $filePath = $uploadRes->json('data.path');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($filePath);
+
+        // 4. Staff can read public settings (contains FAQ & Achievements)
+        $publicSettingsRes = $this->actingAs($staffUser)->getJson('/api/v1/public/settings');
+        $publicSettingsRes->assertStatus(200);
+
+        // 5. Super Admin updates FAQ & Achievements settings
+        $setPutRes = $this->actingAs($this->admin)->putJson('/api/v1/admin/settings', [
+            'settings' => [
+                'site_faqs' => json_encode([['id' => 1, 'question' => 'Q?', 'answer' => 'A!']]),
+                'site_achievements' => json_encode([['id' => 1, 'title' => 'Juara 1']]),
+            ],
+        ]);
+        $setPutRes->assertStatus(200);
+
+        $faqVal = \App\Models\Setting::where('key', 'site_faqs')->value('value');
+        $this->assertStringContainsString('Q?', $faqVal);
+    }
 }

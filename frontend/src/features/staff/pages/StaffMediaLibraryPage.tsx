@@ -25,6 +25,7 @@ export const StaffMediaLibraryPage: React.FC = () => {
 
   // Modals
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadingDirect, setUploadingDirect] = useState(false);
   const [newFilename, setNewFilename] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newType, setNewType] = useState<'image' | 'video' | 'document'>('image');
@@ -44,7 +45,29 @@ export const StaffMediaLibraryPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    staffStore.syncWithBackend();
+    const unsub = staffStore.subscribe(loadData);
+    return unsub;
   }, []);
+
+  const handleDirectFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDirect(true);
+    const item = await staffStore.uploadMediaFile(file);
+    setUploadingDirect(false);
+    if (item) {
+      setNewFilename(item.filename);
+      setNewUrl(item.url);
+      setNewType('image');
+      setNewSize(item.size);
+      loadData();
+      setToast(`Berkas "${file.name}" berhasil diunggah langsung ke penyimpanan server.`);
+      setTimeout(() => setToast(null), 4000);
+    } else {
+      alert('Gagal mengunggah berkas ke server.');
+    }
+  };
 
   const filteredMedia = mediaList.filter((m) => {
     const matchType = selectedType === 'all' || m.type === selectedType;
@@ -283,6 +306,18 @@ export const StaffMediaLibraryPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleUploadSubmit} className="space-y-3.5 text-xs">
+              <div className="p-3 bg-navy/5 rounded-control border border-dashed border-navy/20">
+                <label className="block font-bold text-navy uppercase mb-1">Pilih Berkas dari Komputer (Upload ke Server)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingDirect}
+                  onChange={handleDirectFileUpload}
+                  className="w-full text-xs text-muted file:mr-2 file:py-1 file:px-3 file:rounded-control file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 cursor-pointer"
+                />
+                {uploadingDirect && <p className="text-[11px] text-primary mt-1 font-semibold animate-pulse">Sedang mengunggah ke penyimpanan server...</p>}
+              </div>
+
               <div>
                 <label className="block font-bold text-navy uppercase mb-1">Nama File</label>
                 <input
