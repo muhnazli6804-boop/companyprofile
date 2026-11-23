@@ -31,13 +31,13 @@ function expectedRoutePermissions(): array
             'GET teacher-applications', 'GET teacher-applications/{}', 'GET teacher-applications/{}/status-history',
             'GET documents/{}/download',
         ],
-        'applications.export' => ['GET student-applications/export', 'GET teacher-applications/export'],
+        'applications.export' => ['GET student-applications/export', 'GET teacher-applications/export', 'GET reports/summary', 'GET reports/export'],
         'applications.verify' => [
             'POST student-applications/bulk-status', 'PATCH student-applications/{}/status', 'PATCH student-applications/{}/note',
             'POST teacher-applications/bulk-status', 'PATCH teacher-applications/{}/status', 'PATCH teacher-applications/{}/note',
             'PATCH documents/{}/verification',
         ],
-        'finance.view' => ['GET reports/summary', 'GET reports/export'],
+        'finance.view' => ['GET finance-dashboard'],
         'periods.manage' => [
             'GET registration-periods', 'POST registration-periods', 'GET registration-periods/{}',
             'PUT registration-periods/{}', 'PATCH registration-periods/{}/active', 'DELETE registration-periods/{}',

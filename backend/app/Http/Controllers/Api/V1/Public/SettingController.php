@@ -14,7 +14,7 @@ class SettingController extends Controller
 {
     public function index(): JsonResponse
     {
-        $settings = Setting::all()->pluck('value', 'key')->toArray();
+        $settings = Setting::where('group_name', '!=', 'finance')->orWhereNull('group_name')->get()->pluck('value', 'key')->toArray();
 
         // Decode JSON fields if applicable
         if (isset($settings['mission'])) {

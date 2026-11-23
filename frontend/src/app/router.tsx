@@ -62,6 +62,7 @@ const AdminVacanciesPage = lazy(() => import('@/features/admin/vacancies/pages/V
 const AdminCmsPage = lazy(() => import('@/features/admin/cms/pages/CmsPage'));
 const AdminMessagesPage = lazy(() => import('@/features/admin/messages/pages/MessagesPage'));
 const AdminFinancePage = lazy(() => import('@/features/admin/finance/pages/FinancePage'));
+const AdminReportsPage = lazy(() => import('@/features/admin/reports/pages/ReportsPage'));
 const AdminUsersPage = lazy(() => import('@/features/admin/users-roles/pages/UsersRolesPage'));
 const AdminLogsPage = lazy(() => import('@/features/admin/activity-logs/pages/ActivityLogsPage'));
 
@@ -232,6 +233,10 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission permission="messages.manage" />,
             children: [{ path: 'pesan-kontak', element: <SuspenseWrapper><AdminMessagesPage /></SuspenseWrapper> }],
+          },
+          {
+            element: <RequirePermission permission="applications.export" />,
+            children: [{ path: 'laporan', element: <SuspenseWrapper><AdminReportsPage /></SuspenseWrapper> }],
           },
           {
             element: <RequirePermission permission="finance.view" />,
