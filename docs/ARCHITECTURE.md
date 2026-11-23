@@ -2,9 +2,10 @@
 
 | | |
 |---|---|
-| **Versi** | 0.3 (Draft) |
+| **Versi** | 0.4 (Draft) |
 | **Dokumen terkait** | `PRD-Website-Yayasan-Padindi.md`, `Skema-Database-Padindi.md` + `schema-padindi.sql`, `Struktur-Folder-Padindi.md`, `Rancangan-API-Padindi.md`, `DESIGN.md` |
 | **Status** | Menunggu review tim teknis dan persetujuan stakeholder |
+| **Perubahan v0.4** | Jalur data keuangan disederhanakan (selaras PRD v0.4): Looker Studio membaca Google Sheets langsung lewat konektor bawaan. Supabase dan Google Apps Script (JDBC) dihapus dari arsitektur fase ini. |
 | **Perubahan v0.3** | Penyesuaian arsitektur **Dashboard Keuangan**: Tim keuangan menginput/update data transaksi di Google Sheets, tersinkronisasi otomatis ke Supabase (PostgreSQL Cloud) via Google Apps Script (JDBC), dan disematkan dari Looker Studio via iframe di panel admin. |
 
 > Teks dalam `[...]` adalah placeholder atau usulan yang perlu dikonfirmasi. Dokumen ini menjelaskan **bagaimana sistem disusun dan mengapa**. Detail kolom tabel, endpoint, dan struktur folder ada di dokumen terkait.
@@ -45,7 +46,7 @@ Sistem terdiri dari dua aplikasi dalam satu repositori (monorepo):
 - **Backend**: Laravel 12 sebagai REST API, satu-satunya pemilik logika bisnis, validasi, dan akses data pendaftaran.
 - **Frontend**: React + Vite + TypeScript sebagai SPA, memuat tiga area: situs publik (company profile), area pendaftar, dan panel admin.
 - **Database Utama**: PostgreSQL (Lokal) untuk data pendaftaran, CMS, dan log sistem.
-- **Integrasi Keuangan (v0.3)**: Panel admin menyematkan dashboard keuangan dari **Looker Studio** lewat iframe, khusus pengguna dengan permission `finance.view`. Ini integrasi tampilan, bukan integrasi data: website tidak menyimpan atau mengolah data keuangan secara langsung (bagian 5.7). Data keuangan di-input/update oleh tim keuangan via **Google Sheets**, tersinkronisasi otomatis ke **Supabase (PostgreSQL Cloud)** via **Google Apps Script (JDBC)**.
+- **Integrasi Keuangan (v0.3)**: Panel admin menyematkan dashboard keuangan dari **Looker Studio** lewat iframe, khusus pengguna dengan permission `finance.view`. Ini integrasi tampilan, bukan integrasi data: website tidak menyimpan atau mengolah data keuangan secara langsung (bagian 5.7). Data keuangan di-input/update oleh tim keuangan via **Google Sheets**, yang dibaca langsung oleh Looker Studio lewat konektor Google Sheets bawaan (tanpa database perantara).
 
 Pendekatan yang dipilih adalah **monolit modular**: satu aplikasi backend yang dipisah rapi per area tanggung jawab, bukan microservices. Alasannya: skala yayasan pendidikan tunggal, tim kecil, kebutuhan operasional sederhana, dan lonjakan beban yang terprediksi (musim pendaftaran). Monolit yang disiplin lebih murah dibangun, diuji, dan dirawat, dan tetap bisa dipecah kelak bila dibutuhkan (lihat bagian 21).
 
@@ -83,8 +84,6 @@ flowchart LR
     MON[Monitoring & error tracking]
     BK[Penyimpanan backup offsite]
     GS[Google Sheets]
-    GAS[Google Apps Script - JDBC]
-    SUPA[(Supabase Cloud DB)]
     LOOKER[Looker Studio Dashboard]
 
     V -->|melihat profil, berita| SYS
@@ -94,9 +93,7 @@ flowchart LR
     SA -->|kelola akun & pengaturan| SYS
 
     FIN_STAFF -->|input / update data transaksi| GS
-    GS -->|sinkronisasi otomatis via JDBC| GAS
-    GAS -->|writeback data| SUPA
-    SUPA -->|baca data laporan| LOOKER
+    GS -->|dibaca langsung via konektor Sheets bawaan| LOOKER
 
     SYS -->|kirim notifikasi| EM
     SYS -->|verifikasi bot| CP
@@ -105,7 +102,7 @@ flowchart LR
     SYS -->|buat URL embed Looker Studio| LOOKER
 ```
 
-Sistem eksternal yang disentuh pada fase ini mencakup: email, CAPTCHA, monitoring, penyimpanan backup, Google Sheets/GAS, Supabase, dan Looker Studio (hanya ditampilkan lewat iframe pada panel admin, tanpa pertukaran data keuangan langsung dengan server Laravel). Tidak ada integrasi langsung antara backend Laravel dengan sistem akademik atau pembayaran.
+Sistem eksternal yang disentuh pada fase ini mencakup: email, CAPTCHA, monitoring, penyimpanan backup, Google Sheets dan Looker Studio (hanya ditampilkan lewat iframe pada panel admin, tanpa pertukaran data keuangan langsung dengan server Laravel). Tidak ada integrasi langsung antara backend Laravel dengan sistem akademik atau pembayaran.
 
 ## 4. Gambaran Kontainer
 
@@ -127,8 +124,6 @@ flowchart TB
 
     subgraph Ekosistem Keuangan Eksternal
         GS[Google Sheets]
-        GAS[Google Apps Script JDBC]
-        SUPA[(Supabase PostgreSQL Cloud)]
         LS[Looker Studio]
     end
 
@@ -147,9 +142,7 @@ flowchart TB
     WK --> FS
     SC --> FPM
 
-    GS -->|Trigger / Sync| GAS
-    GAS -->|JDBC Connect| SUPA
-    SUPA -->|Data Source| LS
+    GS -->|Data Source: konektor Sheets bawaan| LS
     SPA -.->|iframe, khusus admin finance.view| LS
     FPM -.->|sediakan URL embed Looker Studio| LS
 ```
@@ -164,9 +157,7 @@ flowchart TB
 | **PostgreSQL Local** | Satu-satunya sumber kebenaran data pendaftaran, CMS, dan log sistem |
 | **Disk privat / publik** | Berkas dokumen sensitif (tidak pernah publik) dan gambar konten CMS (publik) |
 | **Redis (opsional)** | Cache, rate limiter, dan antrean saat beban meningkat. Tidak wajib di tahap awal |
-| **Google Sheets** | Antarmuka input/update harian bagi Tim Keuangan |
-| **Google Apps Script (JDBC)** | Skrip penghubung otomatis yang mengirim data dari Sheets ke Supabase |
-| **Supabase Cloud DB** | Database PostgreSQL Cloud tersentralisasi khusus data keuangan |
+| **Google Sheets** | Antarmuka input/update harian bagi Tim Keuangan sekaligus sumber data Looker Studio. Sharing dibatasi ke akun berwenang |
 | **Looker Studio** | Visualisasi dashboard keuangan eksternal, dimuat langsung oleh browser admin dari origin Google |
 
 **Satu origin.** Frontend dan API dilayani dari domain yang sama (`https://[domain]/` dan `https://[domain]/api`). Ini menghilangkan kerumitan CORS dan membuat cookie sesi Sanctum sederhana (ADR-003). Konten lintas origin yang sengaja diizinkan hanya widget CAPTCHA dan iframe dashboard keuangan pada halaman admin (bagian 5.7).
@@ -421,7 +412,7 @@ Rincian lengkap ada di `Skema-Database-Padindi.md`. Ringkasan keputusan arsitekt
 | Keputusan | Alasan |
 |---|---|
 | Satu database PostgreSQL Lokal, satu skema aplikasi | Skala dan kebutuhan transaksi (kuota, nomor) pendaftaran cocok untuk RDBMS tunggal |
-| Database Keuangan Terpisah di Supabase Cloud | Mengakomodasi kebiasaan tim keuangan menggunakan Google Sheets + GAS JDBC tanpa mencemari DB pendaftaran lokal |
+| Tidak ada database keuangan; Looker Studio membaca Google Sheets langsung | Mengakomodasi kebiasaan tim keuangan di Google Sheets tanpa skrip, database, atau kredensial tambahan, dan tanpa mencemari DB pendaftaran lokal |
 | Enum sebagai `varchar` + `CHECK` | Mudah diubah lewat migration tanpa menyentuh tipe enum |
 | Soft delete + *partial unique index* | Slug dan email dapat dipakai ulang; data pendaftaran tidak hilang tak sengaja |
 | Relasi polimorfik untuk `documents` dan `application_status_logs` | Satu mekanisme untuk siswa dan guru; dibatasi `CHECK` dan morph map |
@@ -572,7 +563,7 @@ flowchart TB
 | Keamanan data | Enkripsi kolom NIK, HTTPS, disk privat, backup terenkripsi |
 | Retensi dan penghapusan | Job `PurgeExpiredApplicantData` sesuai masa retensi [ditetapkan yayasan] |
 | Keterlacakan | `activity_logs` untuk akses/ekspor/ubah oleh admin dan pembukaan dashboard keuangan |
-| Data keuangan | Website pendaftaran tidak menyimpan atau menyalin data keuangan. Seluruh data transaksi diolah terpisah di Supabase Cloud via Google Sheets |
+| Data keuangan | Website pendaftaran tidak menyimpan atau menyalin data keuangan. Seluruh data transaksi berada di Google Sheets milik tim keuangan dan dibaca langsung oleh Looker Studio. Tab data pribadi siswa (`Master_Siswa`) tidak disalin ke layanan lain |
 | Respons insiden | Prosedur tertulis: deteksi, isolasi, penilaian, pemberitahuan ke pihak berwenang dan subjek data bila disyaratkan [disusun bersama yayasan/konsultan hukum] |
 
 Penafsiran hukum dan kewajiban pasti (mis. penunjukan pejabat pelindungan data, batas waktu pemberitahuan insiden) perlu ditinjau konsultan hukum yayasan; dokumen ini hanya menerjemahkan prinsipnya ke kontrol teknis.
@@ -607,7 +598,7 @@ Keputusan ini dicatat sebagai ADR-006. Bila kebutuhan SEO meningkat (banyak kont
 |---|---|---|
 | **Local** | Pengembangan | Docker Compose (app, PostgreSQL Local, Mailpit, opsional Redis); data seeder |
 | **Staging** | UAT, uji beban, uji rilis | Data sintetis atau hasil anonimisasi; **tidak** memakai data pendaftar asli |
-| **Production** | Layanan sebenarnya | Data asli pendaftaran di DB lokal; Data keuangan di Supabase Cloud |
+| **Production** | Layanan sebenarnya | Data asli pendaftaran di DB lokal; Data keuangan di Google Sheets |
 
 ### 14.2 Topologi Produksi (Tahap Awal)
 
@@ -762,7 +753,7 @@ Format ringkas: konteks, keputusan, konsekuensi. Status semua: **Diusulkan** (me
 | **ADR-012** | **Soft delete + partial unique index** | Mencegah kehilangan data tak sengaja; slug/email dapat dipakai ulang | Query harus konsisten memakai scope soft delete; data perlu retensi/purge terjadwal |
 | **ADR-013** | **Monolit modular, bukan microservices** | Skala dan tim tidak membenarkan kompleksitas operasional | Disiplin batas modul diperlukan agar bisa dipecah kelak |
 | **ADR-014** | **Pengujian backend terhadap PostgreSQL asli** | Skema memakai fitur khusus PostgreSQL | CI sedikit lebih lambat; hasil lebih bisa dipercaya |
-| **ADR-015** | **Dashboard Keuangan = Looker Studio Iframe + Google Sheets Sync via GAS JDBC ke Supabase** | Mengakomodasi kebiasaan tim keuangan menggunakan spreadsheet, tanpa beban pengembangan UI/pencatatan transaksi di Laravel utama, dan visualisasi Looker Studio gratis/fleksibel | Bergantung pada ketersediaan layanan Google Cloud & Supabase |
+| **ADR-015** | **Dashboard Keuangan = Looker Studio Iframe + Google Sheets dibaca langsung (konektor bawaan)** | Mengakomodasi kebiasaan tim keuangan menggunakan spreadsheet, tanpa beban pengembangan UI/pencatatan transaksi di Laravel utama, dan tanpa skrip atau database perantara (lebih sedikit titik kegagalan). Supabase + GAS JDBC dipertimbangkan lalu ditunda | Bergantung pada layanan Google; data di Looker bisa tertinggal ±15 menit (cache); struktur kolom/tab Sheets harus stabil. Beralih ke database perantara kelak tidak mengubah cara input |
 | **ADR-016** | **Allowlist Host (`FINANCE_ALLOWED_HOST=lookerstudio.google.com`) + CSP `frame-src` khusus `/admin`** | Mencegah iframe diarahkan ke host sembarang jika URL disalahgunakan | Penggantian platform BI menuntut penyesuaian `.env` dan Nginx config |
 | **ADR-017** | **Permission terpisah `finance.view` (default Super Admin)** | Data keuangan lebih sensitif daripada pengaturan umum; prinsip hak minimum | Satu permission tambahan perlu dikelola |
 
@@ -780,10 +771,10 @@ Format ringkas: konteks, keputusan, konsekuensi. Status semua: **Diusulkan** (me
 | T8 | Ketergantungan pada satu developer | Pengetahuan hilang bila berganti | Dokumentasi di `docs/`, ADR, runbook, README per bagian, konvensi kode |
 | T9 | Penyimpanan lokal untuk dokumen tumbuh besar | Disk penuh | Pantau disk, kompres gambar di klien, retensi, siap migrasi ke object storage |
 | T10 | Kepatuhan UU PDP belum ditinjau hukum | Risiko hukum | Tinjauan konsultan hukum sebelum go-live |
-| T11 | Skrip Google Apps Script JDBC gagal/gagal koneksi ke Supabase | Data transaksi keuangan di Looker Studio tidak ter-update | Tambahkan error notification / logging di skrip GAS |
-| T12 | Pengguna salah menginput format sel di Google Sheets | Data kotor masuk ke Supabase | Terapkan Data Validation & proteksi rumus di Google Sheets |
+| T11 | Struktur kolom/tab Google Sheets diubah (ganti nama, geser, hapus) | Grafik Looker Studio rusak atau kosong | Proteksi tab dan header (Protect range); perubahan struktur dikoordinasikan dengan tim teknis |
+| T12 | Pengguna salah menginput format sel di Google Sheets | Angka dashboard salah | Terapkan Data Validation & proteksi rumus di Google Sheets |
 | T13 | Kebocoran URL embed Looker Studio | Pihak luar bisa melihat laporan keuangan | Batasi *sharing permissions* di Looker Studio khusus untuk email Google terotorisasi |
-| T14 | Ketergantungan pada platform pihak ketiga (Looker Studio, Supabase) | Dashboard terganggu di luar kendali tim pendaftaran | Catat penanggung jawab sumber (Q17 di PRD); fitur diisolasi sehingga gangguan tidak memengaruhi pendaftaran |
+| T14 | Ketergantungan pada platform pihak ketiga (Looker Studio, Google Sheets) | Dashboard terganggu di luar kendali tim pendaftaran | Catat penanggung jawab sumber (Q17 di PRD); fitur diisolasi sehingga gangguan tidak memengaruhi pendaftaran |
 
 ## 21. Jalur Evolusi
 
@@ -816,7 +807,7 @@ Aturan modul (bagian 5.2) menjaga agar langkah 7-8 menjadi penambahan, bukan per
 | 8 | Apakah perlu 2FA untuk admin pada rilis pertama? | Komponen autentikasi tambahan | Open |
 | 9 | Apakah diperlukan pemindaian virus pada unggahan? | Komponen ClamAV dan sumber daya server | Open |
 | 10 | Apakah ada kebijakan pemerintah/dinas yang mewajibkan lokasi data di dalam negeri atau sertifikasi tertentu? | Pilihan wilayah hosting dan penyedia | Open |
-| 11 | Dashboard keuangan memakai penyedia apa & arsitekturnya? (Q14 di PRD) | Konfigurasi `FINANCE_ALLOWED_HOST`, `EmbedProvider`, dan arsitektur database terpisah | **Resolved** (Looker Studio + Google Sheets + GAS JDBC + Supabase Cloud DB) |
+| 11 | Dashboard keuangan memakai penyedia apa & arsitekturnya? (Q14 di PRD) | Konfigurasi `FINANCE_ALLOWED_HOST`, `EmbedProvider`, dan arsitektur sumber data | **Resolved** (Looker Studio + Google Sheets dibaca langsung; tanpa Supabase/GAS) |
 | 12 | Siapa saja pemegang `finance.view`? (Q15) | Pemetaan role admin | **Resolved** (Default Super Admin) |
 | 13 | Apakah dashboard memuat data pribadi per siswa atau orang tua? (Q16) | Tingkat pembatasan akses, 2FA wajib, kewajiban UU PDP di sumber | **Resolved** (Hanya data ringkasan/agregat) |
-| 14 | Pemelihara dashboard & data? (Q17) | Pembagian peran operasional | **Resolved** (Tim Keuangan mengelola Google Sheets, tim teknis mengelola Supabase & Looker Studio) |
+| 14 | Pemelihara dashboard & data? (Q17) | Pembagian peran operasional | **Resolved** (Tim Keuangan mengelola Google Sheets, tim teknis mengelola Looker Studio) |

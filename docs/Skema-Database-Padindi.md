@@ -1,4 +1,4 @@
-# Dokumentasi Skema Database - Yayasan Padindi v0.3
+# Dokumentasi Skema Database - Yayasan Padindi v0.4
 
 Dokumen ini memuat spesifikasi teknis lengkap skema basis data terpusat untuk **Yayasan Padindi** dan seluruh unit sekolah di bawah naungannya (SD, SMP, SMA/SMK). Skema dirancang menggunakan basis data relasional **PostgreSQL 15+** dengan dukungan pustaka ekstensi untuk enkripsi data, pencarian teks, dan pembuatan ID unik secara terdistribusi (`uuid-ossp`).
 
@@ -6,7 +6,7 @@ Dokumen ini memuat spesifikasi teknis lengkap skema basis data terpusat untuk **
 
 ## 1. Arsitektur & Prinsip Desain Basis Data
 
-1. **Mesin Database**: PostgreSQL 15+ / Supabase Infrastructure.
+1. **Mesin Database**: PostgreSQL 15+ (server lokal). Data keuangan tidak disimpan di database ini; sumbernya Google Sheets yang dibaca langsung oleh Looker Studio (PRD v0.4).
 2. **Pengidentifikasi Utama (Primary Key)**: Penggunaan `UUIDv4` untuk seluruh tabel guna menjamin keunikan ID secara lintas modul dan mencegah *enumeration attack*.
 3. **Konvensi Penamaan**: `snake_case` untuk nama tabel dan kolom, bahasa Inggris untuk entitas teknis, dan konteks spesifik lokal (seperti `nisn`, `nik`, `spp`).
 4. **Audit & Soft Delete**: Setiap tabel utama memiliki kolom standar audit:
@@ -40,14 +40,15 @@ erDiagram
     
     students ||--o| user_profiles : "profil siswa"
     students ||--o{ parent_student_relations : "memiliki wali"
-    students ||--o{ student_bills : "memiliki tagihan"
+    %% Modul 5 (keuangan/pembayaran) DITUNDA, relasinya dinonaktifkan:
+    %% students ||--o{ student_bills : "memiliki tagihan"
     
     ppdb_waves ||--o{ ppdb_registrations : "menerima pendaftaran"
     ppdb_registrations ||--o{ ppdb_documents : "melampirkan berkas"
-    ppdb_registrations ||--o| ppdb_payments : "pembayaran pendaftaran"
+    %% ppdb_registrations ||--o| ppdb_payments : "pembayaran pendaftaran"
     
-    fee_categories ||--o{ student_bills : "tipe pembayaran"
-    student_bills ||--o{ payments : "dibayar via"
+    %% fee_categories ||--o{ student_bills : "tipe pembayaran"
+    %% student_bills ||--o{ payments : "dibayar via"
     
     news_categories ||--o{ posts : "kategori berita"
     users ||--o{ posts : "ditulis oleh"
@@ -95,6 +96,7 @@ CREATE TYPE ppdb_status_enum AS ENUM (
     'batal'
 );
 
+-- DITUNDA (Modul 5): enum pembayaran di bawah baru dipakai bila modul pembayaran dibangun.
 -- Tipe Enum untuk Status Pembayaran
 CREATE TYPE payment_status_enum AS ENUM (
     'pending',
@@ -371,7 +373,9 @@ CREATE TABLE ppdb_documents (
 
 ---
 
-### Modul 5: Keuangan & Pembayaran (`finance_`)
+### Modul 5: Keuangan & Pembayaran (`finance_`) — DITUNDA
+
+> **Status: ditunda, tidak dibangun pada fase ini.** Pembukuan dan pembayaran online di luar lingkup (PRD v0.4 §4.2). Data keuangan diinput tim keuangan di Google Sheets dan dibaca langsung oleh Looker Studio; aplikasi hanya menyematkan dashboard-nya. Tidak ada migrasi untuk tabel di bawah ini dan tidak ada di `schema-padindi.sql`. Bagian ini dipertahankan sebagai rancangan acuan bila modul pembayaran dibangun kelak (ARCHITECTURE bagian 21, butir 7).
 
 #### Tabel `fee_categories`
 Kategori jenis tagihan keuangan sekolah/yayasan.
@@ -522,9 +526,9 @@ CREATE INDEX idx_users_role_unit ON users(role_id, unit_id);
 CREATE INDEX idx_students_nisn ON students(nisn);
 CREATE INDEX idx_students_unit_class ON students(unit_id, current_class_id);
 
--- Indeks Transaksi Keuangan & PPDB
-CREATE INDEX idx_student_bills_student_status ON student_bills(student_id, status);
-CREATE INDEX idx_payments_transaction_code ON payments(transaction_code);
+-- Indeks Transaksi Keuangan (DITUNDA, Modul 5) & PPDB
+-- CREATE INDEX idx_student_bills_student_status ON student_bills(student_id, status);
+-- CREATE INDEX idx_payments_transaction_code ON payments(transaction_code);
 CREATE INDEX idx_ppdb_reg_number ON ppdb_registrations(registration_number);
 
 -- Indeks CMS & JSONB Audit
@@ -542,7 +546,7 @@ Prinsip keamanan diterapkan menggunakan *Row Level Security* (RLS) PostgreSQL un
 ```sql
 -- Mengaktifkan RLS pada tabel sensitif
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE student_bills ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE student_bills ENABLE ROW LEVEL SECURITY; -- DITUNDA (Modul 5)
 
 -- Kebijakan: Admin Unit hanya dapat melihat siswa di unit miliknya
 CREATE POLICY admin_unit_students_policy ON students
@@ -553,16 +557,17 @@ CREATE POLICY admin_unit_students_policy ON students
         (SELECT name FROM roles WHERE id = (SELECT role_id FROM users WHERE id = auth.uid())) IN ('super_admin', 'admin_yayasan')
     );
 
+-- DITUNDA (Modul 5): kebijakan tagihan orang tua, aktif bila tabel student_bills dibangun.
 -- Kebijakan: Orang Tua hanya dapat melihat tagihan anaknya sendiri
-CREATE POLICY parent_bills_policy ON student_bills
-    FOR SELECT
-    USING (
-        student_id IN (
-            SELECT student_id 
-            FROM parent_student_relations 
-            WHERE parent_user_id = auth.uid()
-        )
-    );
+-- CREATE POLICY parent_bills_policy ON student_bills
+--     FOR SELECT
+--     USING (
+--         student_id IN (
+--             SELECT student_id 
+--             FROM parent_student_relations 
+--             WHERE parent_user_id = auth.uid()
+--         )
+--     );
 ```
 
 ---
@@ -578,8 +583,8 @@ CREATE POLICY parent_bills_policy ON student_bills
 | `students` | `unit_id` | `units` | `id` | RESTRICT |
 | `students` | `current_class_id`| `classes` | `id` | SET NULL |
 | `ppdb_registrations` | `wave_id` | `ppdb_waves` | `id` | RESTRICT |
-| `student_bills` | `student_id` | `students` | `id` | CASCADE |
-| `payments` | `bill_id` | `student_bills` | `id` | SET NULL |
+| ~~`student_bills`~~ | `student_id` | `students` | `id` | CASCADE (ditunda, Modul 5) |
+| ~~`payments`~~ | `bill_id` | `student_bills` | `id` | SET NULL (ditunda, Modul 5) |
 | `posts` | `author_id` | `users` | `id` | RESTRICT |
 
 ---
@@ -593,7 +598,7 @@ INSERT INTO roles (id, name, description) VALUES
     ('22222222-2222-2222-2222-222222222222', 'admin_yayasan', 'Akses pengawasan seluruh unit Yayasan Padindi'),
     ('33333333-3333-3333-3333-333333333333', 'admin_unit', 'Administrator khusus unit sekolah (SD/SMP/SMA)'),
     ('44444444-4444-4444-4444-444444444444', 'guru', 'Akses input nilai, materi, dan absensi'),
-    ('55555555-5555-5555-5555-555555555555', 'staf_keuangan', 'Akses tata kelola SPP & pembayaran'),
+    ('55555555-5555-5555-5555-555555555555', 'staf_keuangan', 'Akses tata kelola SPP & pembayaran (ditunda: SPP dikelola di Google Sheets)'),
     ('66666666-6666-6666-6666-666666666666', 'siswa', 'Akses portal siswa dan materi'),
     ('77777777-7777-7777-7777-777777777777', 'orang_tua', 'Akses laporan nilai dan pembayaran anak');
 

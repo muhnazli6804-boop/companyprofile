@@ -26,8 +26,9 @@ use Illuminate\Support\Facades\Route;
 
 // 8.1 Dashboard & Reports
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('can:dashboard.view');
-Route::get('/reports/summary', [ReportController::class, 'summary'])->middleware('can:finance.view');
-Route::get('/reports/export', [ReportController::class, 'export'])->middleware('can:finance.view');
+Route::get('/reports/summary', [ReportController::class, 'summary'])->middleware('can:applications.export');
+Route::get('/reports/export', [ReportController::class, 'export'])->middleware('can:applications.export');
+Route::get('/finance-dashboard', [\App\Http\Controllers\Api\V1\Admin\FinanceDashboardController::class, 'show'])->middleware('can:finance.view');
 
 // 8.2 Student Applications
 Route::prefix('student-applications')->group(function () {

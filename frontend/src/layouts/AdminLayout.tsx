@@ -55,6 +55,7 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: Luc
   {
     label: 'Sistem',
     items: [
+      { to: '/admin/laporan', label: 'Laporan Pendaftaran', icon: FileCheck2, permission: 'applications.export' },
       { to: '/admin/keuangan', label: 'Keuangan', icon: Wallet, permission: 'finance.view' },
       { to: '/admin/pengguna', label: 'Pengguna & Role', icon: ShieldCheck, permission: 'users.manage' },
       { to: '/admin/log-aktivitas', label: 'Log Aktivitas', icon: History, permission: 'logs.view' },
@@ -90,8 +91,11 @@ const getActiveMenuTitle = (pathname: string, isGuru: boolean): string => {
   if (pathname.startsWith('/admin/pesan-kontak')) {
     return 'Pesan Kontak';
   }
+  if (pathname.startsWith('/admin/laporan')) {
+    return 'Laporan Pendaftaran';
+  }
   if (pathname.startsWith('/admin/keuangan')) {
-    return 'Laporan Keuangan';
+    return 'Dashboard Keuangan';
   }
   if (pathname.startsWith('/admin/pengguna')) {
     return 'Pengguna & Role';
