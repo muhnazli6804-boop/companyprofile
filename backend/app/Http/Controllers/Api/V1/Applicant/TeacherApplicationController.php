@@ -97,7 +97,12 @@ class TeacherApplicationController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== TeacherApplicationStatus::DRAFT) {
+        $editableStatuses = [
+            TeacherApplicationStatus::DRAFT,
+            TeacherApplicationStatus::REVISION_REQUIRED,
+        ];
+
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'Data lamaran yang sudah dikirim tidak dapat diubah.',
                 'code' => 'APPLICATION_LOCKED',
@@ -165,7 +170,12 @@ class TeacherApplicationController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== TeacherApplicationStatus::DRAFT) {
+        $editableStatuses = [
+            TeacherApplicationStatus::DRAFT,
+            TeacherApplicationStatus::REVISION_REQUIRED,
+        ];
+
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'Data lamaran yang sudah dikirim tidak dapat diubah.',
                 'code' => 'APPLICATION_LOCKED',
@@ -256,7 +266,12 @@ class TeacherApplicationController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== TeacherApplicationStatus::DRAFT) {
+        $editableStatuses = [
+            TeacherApplicationStatus::DRAFT,
+            TeacherApplicationStatus::REVISION_REQUIRED,
+        ];
+
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'Data lamaran yang sudah dikirim tidak dapat diubah.',
                 'code' => 'APPLICATION_LOCKED',
@@ -405,6 +420,102 @@ class TeacherApplicationController extends Controller
                 'registration_number' => $application->registration_number,
                 'status' => 'submitted',
                 'submitted_at' => $application->submitted_at->toIso8601String(),
+                'masked_phone' => $maskedPhone,
+                'application' => new TeacherApplicationResource($application),
+            ],
+        ])->header('Cache-Control', 'no-store');
+    }
+
+    public function resubmit(Request $request, $id): JsonResponse
+    {
+        $application = $this->getApplication($id, $request->user()->id);
+
+        $resubmittableStatuses = [
+            TeacherApplicationStatus::REVISION_REQUIRED,
+            TeacherApplicationStatus::ADMINISTRATIVE_REVIEW,
+        ];
+
+        if (! in_array($application->status, $resubmittableStatuses, true)) {
+            return response()->json([
+                'message' => 'Hanya lamaran dengan status perlu revisi atau seleksi administrasi yang dapat diajukan ulang.',
+                'code' => 'APPLICATION_NOT_IN_REVISION',
+            ], 409);
+        }
+
+        // Cek persyaratan dokumen wajib
+        $requiredTypes = DocumentRequirement::query()
+            ->where('applicant_type', 'teacher')
+            ->where('is_active', true)
+            ->where('is_required', true)
+            ->where(function ($q) use ($application) {
+                $q->whereNull('education_unit_id')
+                    ->orWhere('education_unit_id', $application->education_unit_id);
+            })
+            ->pluck('document_type')
+            ->toArray();
+
+        $uploadedTypes = $application->documents->pluck('document_type')->toArray();
+        $missing = array_values(array_diff($requiredTypes, $uploadedTypes));
+
+        if (! empty($missing)) {
+            return response()->json([
+                'message' => 'Dokumen persyaratan belum lengkap.',
+                'code' => 'DOCUMENTS_INCOMPLETE',
+                'missing' => $missing,
+            ], 409);
+        }
+
+        // Cek jika masih ada dokumen berstatus 'invalid'
+        $hasInvalidDocs = $application->documents->contains(function ($doc) {
+            $status = $doc->verification_status instanceof \BackedEnum ? $doc->verification_status->value : (string) $doc->verification_status;
+            return $status === 'invalid';
+        });
+
+        if ($hasInvalidDocs) {
+            return response()->json([
+                'message' => 'Masih ada dokumen berstatus perlu perbaikan (invalid) yang belum diperbarui.',
+                'code' => 'INVALID_DOCUMENTS_REMAINING',
+            ], 409);
+        }
+
+        $validated = $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $note = $validated['note'] ?? 'Pelamar guru mengajukan ulang berkas lamaran setelah perbaikan/revisi.';
+        $toStatus = TeacherApplicationStatus::ADMINISTRATIVE_REVIEW;
+
+        DB::transaction(function () use ($application, $request, $note, $toStatus) {
+            $fromStatus = $application->status instanceof \BackedEnum ? $application->status->value : (string) $application->status;
+
+            $application->update([
+                'status' => $toStatus,
+                'submitted_at' => now(),
+            ]);
+
+            ApplicationStatusLog::create([
+                'loggable_type' => 'teacher_application',
+                'loggable_id' => $application->id,
+                'from_status' => $fromStatus,
+                'to_status' => $toStatus->value,
+                'note' => $note,
+                'changed_by' => $request->user()->id,
+                'created_at' => now(),
+            ]);
+        });
+
+        $application->load(['educationUnit', 'vacancy', 'educations', 'experiences', 'certifications', 'documents']);
+
+        $phone = $application->phone;
+        $maskedPhone = strlen($phone) >= 8 ? substr($phone, 0, 4).'****'.substr($phone, -4) : $phone;
+
+        return response()->json([
+            'message' => 'Lamaran guru berhasil diajukan ulang.',
+            'data' => [
+                'id' => $application->id,
+                'registration_number' => $application->registration_number,
+                'status' => $toStatus->value,
+                'submitted_at' => $application->submitted_at?->toIso8601String(),
                 'masked_phone' => $maskedPhone,
                 'application' => new TeacherApplicationResource($application),
             ],

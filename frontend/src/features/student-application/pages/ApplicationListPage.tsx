@@ -6,11 +6,14 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import {
   getStudentApplications,
   deleteStudentDraft,
+  downloadStudentReceipt,
 } from '@/features/student-application/api';
 import {
   getTeacherApplications,
   deleteTeacherDraft,
+  downloadTeacherReceipt,
 } from '@/features/teacher-application/api';
+import { triggerBlobDownload } from '@/utils/fileDownload';
 import type { StudentApplication } from '@/features/student-application/types';
 import type { TeacherApplication } from '@/features/teacher-application/types';
 import {
@@ -21,6 +24,7 @@ import {
   Briefcase,
   AlertCircle,
   ExternalLink,
+  Download,
 } from 'lucide-react';
 
 export const ApplicationListPage: React.FC = () => {
@@ -84,6 +88,26 @@ export const ApplicationListPage: React.FC = () => {
     if (app.current_step === 2) return `/pendaftaran/guru/${app.id}/persyaratan`;
     if (app.current_step === 3) return `/pendaftaran/guru/${app.id}/konfirmasi`;
     return `/pendaftaran/guru/${app.id}`;
+  };
+
+  const handleDownloadStudentReceipt = async (app: StudentApplication) => {
+    try {
+      const blob = await downloadStudentReceipt(app.id);
+      const filename = `bukti-pendaftaran-${app.registration_number || app.id}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Gagal mengunduh bukti pendaftaran:', err);
+    }
+  };
+
+  const handleDownloadTeacherReceipt = async (app: TeacherApplication) => {
+    try {
+      const blob = await downloadTeacherReceipt(app.id);
+      const filename = `bukti-lamaran-${app.registration_number || app.id}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Gagal mengunduh bukti lamaran:', err);
+    }
   };
 
   return (
@@ -247,7 +271,16 @@ export const ApplicationListPage: React.FC = () => {
                                 </Link>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-end w-full">
+                              <div className="flex items-center justify-end gap-4 w-full">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadStudentReceipt(app)}
+                                  className="inline-flex items-center gap-1 text-xs font-sans font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                                  title="Unduh Tanda Bukti Pendaftaran Resmi (PDF)"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Unduh Bukti (PDF)</span>
+                                </button>
                                 <Link
                                   to={`/akun/pendaftaran/murid/${app.id}`}
                                   className="inline-flex items-center gap-1.5 text-xs font-sans font-bold text-primary hover:underline"
@@ -349,7 +382,16 @@ export const ApplicationListPage: React.FC = () => {
                                 </Link>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-end w-full">
+                              <div className="flex items-center justify-end gap-4 w-full">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadTeacherReceipt(app)}
+                                  className="inline-flex items-center gap-1 text-xs font-sans font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                                  title="Unduh Tanda Bukti Lamaran Resmi (PDF)"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Unduh Bukti (PDF)</span>
+                                </button>
                                 <Link
                                   to={`/akun/pendaftaran/guru/${app.id}`}
                                   className="inline-flex items-center gap-1.5 text-xs font-sans font-bold text-primary hover:underline"

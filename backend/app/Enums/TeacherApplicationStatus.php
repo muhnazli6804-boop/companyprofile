@@ -8,6 +8,7 @@ enum TeacherApplicationStatus: string
     case DRAFT = 'draft';
     case SUBMITTED = 'submitted';
     case ADMINISTRATIVE_REVIEW = 'administrative_review';
+    case REVISION_REQUIRED = 'revision_required';
     case INTERVIEW_TEST = 'interview_test';
     case PASSED = 'passed';
     case FAILED = 'failed';
@@ -19,6 +20,7 @@ enum TeacherApplicationStatus: string
             self::DRAFT => 'Draft',
             self::SUBMITTED => 'Terkirim',
             self::ADMINISTRATIVE_REVIEW => 'Seleksi administrasi',
+            self::REVISION_REQUIRED => 'Perlu revisi',
             self::INTERVIEW_TEST => 'Wawancara atau tes',
             self::PASSED => 'Lolos',
             self::FAILED => 'Tidak lolos',

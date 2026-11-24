@@ -53,9 +53,12 @@ class SettingController extends Controller
             if (! $isSettingsAdmin && $isContentStaff) {
                 $allowedContentKeys = [
                     'site_faqs', 'site_achievements', 'site_website_content', 'site_media_library',
-                    'vision', 'mission', 'about_description',
+                    'vision', 'mission', 'about_description', 'site_name', 'site_tagline', 'site_logo',
                 ];
-                $isAllowed = in_array($key, $allowedContentKeys) || str_starts_with($key, 'about_');
+                $isAllowed = in_array($key, $allowedContentKeys)
+                    || str_starts_with($key, 'about_')
+                    || str_starts_with($key, 'contact_')
+                    || str_starts_with($key, 'social_');
                 if (! $isAllowed) {
                     continue;
                 }

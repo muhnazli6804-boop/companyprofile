@@ -6,13 +6,20 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import {
   getStudentApplication,
   getStudentStatusHistory,
+  uploadStudentDocument,
+  resubmitStudentApplication,
+  downloadStudentReceipt,
 } from '@/features/student-application/api';
 import {
   getTeacherApplication,
   getTeacherStatusHistory,
+  uploadTeacherDocument,
+  resubmitTeacherApplication,
+  downloadTeacherReceipt,
 } from '@/features/teacher-application/api';
-import type { StudentApplication, StatusHistoryItem } from '@/features/student-application/types';
-import type { TeacherApplication, TeacherStatusHistoryItem } from '@/features/teacher-application/types';
+import { triggerBlobDownload } from '@/utils/fileDownload';
+import type { StudentApplication, StatusHistoryItem, DocumentItem } from '@/features/student-application/types';
+import type { TeacherApplication, TeacherStatusHistoryItem, TeacherDocumentItem } from '@/features/teacher-application/types';
 import {
   ArrowLeft,
   Building,
@@ -20,9 +27,14 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   FileText,
   Phone,
   ShieldAlert,
+  Upload,
+  Send,
+  RefreshCw,
+  Download,
 } from 'lucide-react';
 
 const getDocumentTypeLabel = (docType?: string, isTeacher = false): string => {
@@ -64,6 +76,13 @@ export const ApplicationStatusPage: React.FC = () => {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isUploadingDoc, setIsUploadingDoc] = useState<number | null>(null);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+  const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [resubmitNote, setResubmitNote] = useState('');
+
   const loadData = useCallback(async () => {
     if (!id) return;
     try {
@@ -101,6 +120,72 @@ export const ApplicationStatusPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleReplaceDocument = async (doc: DocumentItem | TeacherDocumentItem, file: File) => {
+    if (!id) return;
+    try {
+      setIsUploadingDoc(doc.id);
+      setActionError(null);
+      setActionSuccess(null);
+      if (isTeacher) {
+        await uploadTeacherDocument(id, file, doc.document_type, doc.sequence);
+      } else {
+        await uploadStudentDocument(id, file, doc.document_type, doc.sequence);
+      }
+      setActionSuccess(`Berkas ${getDocumentTypeLabel(doc.document_type, isTeacher)} berhasil diunggah ulang.`);
+      await loadData();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setActionError(errObj.response?.data?.message || 'Gagal mengunggah dokumen perbaikan.');
+    } finally {
+      setIsUploadingDoc(null);
+    }
+  };
+
+  const handleResubmit = async () => {
+    if (!id) return;
+    try {
+      setIsResubmitting(true);
+      setActionError(null);
+      setActionSuccess(null);
+      if (isTeacher) {
+        await resubmitTeacherApplication(id, { note: resubmitNote.trim() || undefined });
+        setActionSuccess('Lamaran guru berhasil diajukan ulang! Berkas Anda akan diverifikasi kembali oleh panitia.');
+      } else {
+        await resubmitStudentApplication(id, { note: resubmitNote.trim() || undefined });
+        setActionSuccess('Pendaftaran berhasil diajukan ulang! Berkas Anda akan diverifikasi kembali oleh panitia.');
+      }
+      setResubmitNote('');
+      await loadData();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setActionError(errObj.response?.data?.message || 'Gagal mengajukan ulang pendaftaran.');
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!id) return;
+    try {
+      setIsDownloadingReceipt(true);
+      setActionError(null);
+      if (isTeacher) {
+        const blob = await downloadTeacherReceipt(id);
+        const filename = `bukti-lamaran-${regNumber || id}.pdf`;
+        triggerBlobDownload(blob, filename);
+      } else {
+        const blob = await downloadStudentReceipt(id);
+        const filename = `bukti-pendaftaran-${regNumber || id}.pdf`;
+        triggerBlobDownload(blob, filename);
+      }
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setActionError(errObj.response?.data?.message || 'Gagal mengunduh tanda bukti pendaftaran resmi.');
+    } finally {
+      setIsDownloadingReceipt(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -178,8 +263,29 @@ export const ApplicationStatusPage: React.FC = () => {
                 {regNumber || `DRAFT-${id}`}
               </span>
             </div>
-            <div>
+            <div className="flex flex-wrap items-center gap-2.5">
               <StatusBadge status={appStatus || 'draft'} className="text-sm px-3 py-1.5" />
+              {appStatus && appStatus !== 'draft' && (
+                <button
+                  type="button"
+                  onClick={handleDownloadReceipt}
+                  disabled={isDownloadingReceipt}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-primary text-white text-xs sm:text-sm font-semibold rounded-control hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors shadow-xs disabled:opacity-50"
+                  title="Unduh Tanda Bukti Pendaftaran Resmi Berstempel Digital (PDF)"
+                >
+                  {isDownloadingReceipt ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Mengunduh...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Unduh Bukti (PDF)</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -217,8 +323,37 @@ export const ApplicationStatusPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Panel Panduan Langkah Berikutnya: US-R11 */}
-        {isTeacher ? (
+        {/* Panel Panduan Langkah Berikutnya / Status Revisi */}
+        {appStatus === 'revision_required' ? (
+          <div className="bg-amber-50/80 border-2 border-warning/50 rounded-panel p-6 shadow-sm mb-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-warning text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="font-sans flex-1">
+                <h2 className="font-display font-semibold text-lg text-amber-950 mb-1.5">
+                  {isTeacher ? 'Perlu Revisi Berkas Lamaran Guru' : 'Perlu Revisi Dokumen Pendaftaran'}
+                </h2>
+                <p className="text-sm text-amber-900 leading-relaxed mb-3">
+                  {isTeacher
+                    ? 'Tim panitia seleksi rekrutmen telah memeriksa berkas Anda dan meminta perbaikan atau penggantian dokumen yang belum memenuhi persyaratan.'
+                    : 'Panitia verifikator telah memeriksa pendaftaran Anda dan meminta perbaikan atau penggantian berkas dokumen yang belum memenuhi persyaratan.'}
+                </p>
+                {(isTeacher ? teacherApp?.admin_note : studentApp?.admin_note) && (
+                  <div className="p-3 bg-white/90 rounded-control border border-amber-300 text-sm font-sans text-ink mb-3 shadow-xs">
+                    <span className="font-bold text-xs uppercase text-amber-800 tracking-wider block mb-1">
+                      Catatan Verifikator:
+                    </span>
+                    <p className="whitespace-pre-wrap">{isTeacher ? teacherApp?.admin_note : studentApp?.admin_note}</p>
+                  </div>
+                )}
+                <p className="text-xs text-amber-800">
+                  Silakan periksa dokumen bertanda <strong className="text-rose-700">Perlu Diganti</strong> di bawah, unggah berkas baru, kemudian klik tombol <strong>{isTeacher ? 'Ajukan Ulang Lamaran' : 'Ajukan Ulang Pendaftaran'}</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : isTeacher ? (
           <div className="bg-white border-2 border-primary/20 rounded-panel p-6 shadow-sm mb-6">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -266,36 +401,140 @@ export const ApplicationStatusPage: React.FC = () => {
             <span>Dokumen Persyaratan Terlampir</span>
           </h2>
           <div className="space-y-3">
-            {(isTeacher ? teacherApp?.documents : studentApp?.documents)?.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-control border border-line bg-paper/50 text-sm font-sans"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-control bg-tint-100 text-primary shrink-0 mt-0.5">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-sans font-bold text-ink text-sm sm:text-base">
-                      {getDocumentTypeLabel(doc.document_type, isTeacher)}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-ink/80 font-medium truncate max-w-xs sm:max-w-md mt-0.5">
-                      {doc.original_name}
-                    </p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {(doc.size_bytes / 1024).toFixed(0)} KB • Diunggah {new Date(doc.created_at).toLocaleDateString('id-ID')}
-                    </p>
-                  </div>
-                </div>
+            {(isTeacher ? teacherApp?.documents : studentApp?.documents)?.map((doc) => {
+              const isInvalid = doc.verification_status === 'invalid';
+              const isValid = doc.verification_status === 'valid';
 
-                <div className="sm:self-center shrink-0">
-                  <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-medium border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Terverifikasi Sistem
-                  </span>
+              return (
+                <div
+                  key={doc.id}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-control border ${
+                    isInvalid ? 'border-rose-300 bg-rose-50/40' : 'border-line bg-paper/50'
+                  } text-sm font-sans`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-control ${isInvalid ? 'bg-rose-100 text-rose-700' : 'bg-tint-100 text-primary'} shrink-0 mt-0.5`}>
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-sans font-bold text-ink text-sm sm:text-base">
+                          {getDocumentTypeLabel(doc.document_type, isTeacher)}
+                        </h3>
+                        {isInvalid && (
+                          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded">
+                            Revisi
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-ink/80 font-medium truncate max-w-xs sm:max-w-md mt-0.5">
+                        {doc.original_name}
+                      </p>
+                      <p className="text-xs text-muted mt-0.5">
+                        {(doc.size_bytes / 1024).toFixed(0)} KB • Diunggah {new Date(doc.created_at).toLocaleDateString('id-ID')}
+                      </p>
+                      {doc.verification_note && (
+                        <div className="mt-2 p-2 bg-rose-100/70 border border-rose-200 rounded text-xs text-rose-900 font-sans">
+                          <span className="font-bold">Catatan Verifikator: </span>
+                          {doc.verification_note}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="sm:self-center shrink-0 flex flex-wrap items-center gap-2">
+                    {isValid ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-medium border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Sesuai
+                      </span>
+                    ) : isInvalid ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full font-medium border border-rose-200">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Perlu Diganti
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full font-medium border border-amber-200">
+                        <Clock className="w-3.5 h-3.5" /> Menunggu Verifikasi
+                      </span>
+                    )}
+
+                    {appStatus === 'revision_required' && (
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:border-primary text-xs font-semibold text-primary rounded-control transition-colors shadow-xs">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{isUploadingDoc === doc.id ? 'Mengunggah...' : 'Ganti Berkas'}</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          disabled={isUploadingDoc !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleReplaceDocument(doc, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {/* Form Pengajuan Ulang Saat Status Perlu Revisi */}
+          {appStatus === 'revision_required' && (
+            <div className="mt-6 pt-6 border-t border-line bg-amber-50/50 -mx-6 -mb-6 p-6 rounded-b-panel">
+              <h3 className="font-display font-semibold text-base text-ink mb-1">
+                {isTeacher ? 'Kirim Pengajuan Ulang Lamaran Guru' : 'Kirim Pengajuan Ulang Pendaftaran'}
+              </h3>
+              <p className="text-xs text-muted font-sans mb-3">
+                Setelah mengganti dokumen yang perlu diperbaiki, Anda dapat menulis catatan dan mengirim ulang {isTeacher ? 'lamaran' : 'pendaftaran'} agar dapat diperiksa kembali oleh panitia.
+              </p>
+              <div className="mb-3">
+                <label htmlFor="resubmit-note" className="block text-xs font-semibold text-ink mb-1 font-sans">
+                  Catatan untuk Verifikator (Opsional):
+                </label>
+                <textarea
+                  id="resubmit-note"
+                  rows={2}
+                  value={resubmitNote}
+                  onChange={(e) => setResubmitNote(e.target.value)}
+                  placeholder="Contoh: Saya sudah mengunggah ulang dokumen yang diminta dengan berkas yang lebih jelas."
+                  className="w-full px-3 py-2 text-sm border border-line rounded-control focus:border-primary focus:ring-1 focus:ring-primary font-sans bg-white"
+                />
+              </div>
+
+              {actionError && (
+                <div role="alert" className="p-3 mb-3 bg-rose-50 border border-rose-300 rounded text-xs text-rose-800 font-sans flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+              {actionSuccess && (
+                <div role="status" className="p-3 mb-3 bg-emerald-50 border border-emerald-300 rounded text-xs text-emerald-800 font-sans flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{actionSuccess}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleResubmit}
+                disabled={isResubmitting || isUploadingDoc !== null}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-sans font-bold text-sm rounded-control hover:bg-primary-hover disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {isResubmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Mengirim Ulang...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>{isTeacher ? 'Ajukan Ulang Lamaran' : 'Ajukan Ulang Pendaftaran'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Riwayat Status Timeline: US-R11 */}

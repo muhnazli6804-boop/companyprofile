@@ -154,6 +154,12 @@ Route::prefix('organization-members')->middleware('can:content.manage')->group(f
 // Uploads (Editor Image)
 Route::post('/uploads/images', [SettingController::class, 'uploadImage'])->middleware('can:content.manage');
 
+// CMS Aggregate Data & Content Settings
+Route::prefix('cms')->middleware('can:content.manage')->group(function () {
+    Route::get('/', [SettingController::class, 'index']);
+    Route::put('/', [SettingController::class, 'update']);
+});
+
 // 11. Messages, Users, Roles, Logs, Settings
 // Contact Messages
 Route::apiResource('contact-messages', ContactMessageController::class)->only(['index', 'show', 'update', 'destroy'])->middleware('can:messages.manage');

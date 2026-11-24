@@ -109,7 +109,7 @@ class StudentApplicationController extends Controller
 
         DB::transaction(function () use ($application, $fromStatus, $toStatus, $note, $adminId) {
             ApplicationStatusLog::create([
-                'loggable_type' => StudentApplication::class,
+                'loggable_type' => 'student_application',
                 'loggable_id' => $application->id,
                 'from_status' => $fromStatus,
                 'to_status' => $toStatus,
@@ -158,11 +158,7 @@ class StudentApplicationController extends Controller
     {
         $application = StudentApplication::findOrFail($id);
 
-        $logs = ApplicationStatusLog::with('changedBy')
-            ->where('loggable_type', StudentApplication::class)
-            ->where('loggable_id', $application->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $logs = $application->statusLogs()->with('changedBy')->get();
 
         return response()->json([
             'data' => $logs->map(function ($log) {
@@ -200,7 +196,7 @@ class StudentApplicationController extends Controller
                 $fromStatus = $app->status instanceof \BackedEnum ? $app->status->value : (string) $app->status;
 
                 ApplicationStatusLog::create([
-                    'loggable_type' => StudentApplication::class,
+                    'loggable_type' => 'student_application',
                     'loggable_id' => $app->id,
                     'from_status' => $fromStatus,
                     'to_status' => $validated['status'],

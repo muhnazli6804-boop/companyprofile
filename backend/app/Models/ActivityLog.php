@@ -26,4 +26,14 @@ class ActivityLog extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function getPayloadAttribute(): ?array
+    {
+        return $this->properties;
+    }
+
+    public function setPayloadAttribute($value): void
+    {
+        $this->attributes['properties'] = is_array($value) ? json_encode($value) : $value;
+    }
 }

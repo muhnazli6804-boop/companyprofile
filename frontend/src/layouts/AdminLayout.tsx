@@ -63,7 +63,7 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: Luc
   },
 ];
 
-const getActiveMenuTitle = (pathname: string, isGuru: boolean): string => {
+const getActiveMenuTitle = (pathname: string, isGuru: boolean, isSuperAdmin: boolean = false): string => {
   if (pathname === '/admin/dashboard' || pathname.startsWith('/admin/dashboard')) {
     return isGuru ? 'Dashboard Guru & Pendidik' : 'Dashboard Administrator';
   }
@@ -101,7 +101,7 @@ const getActiveMenuTitle = (pathname: string, isGuru: boolean): string => {
     return 'Pengguna & Role';
   }
   if (pathname.startsWith('/admin/log-aktivitas')) {
-    return isGuru ? 'Log Aktivitas Akun' : 'Log Aktivitas';
+    return isSuperAdmin ? 'Log Aktivitas' : 'Log Aktivitas Akun';
   }
   return '';
 };
@@ -161,6 +161,7 @@ export const AdminLayout: React.FC = () => {
   const { data: user } = useCurrentUser();
   const isGuru = Boolean(user?.roles?.includes('guru') && !user?.roles?.includes('super_admin'));
   const isStaffOnly = Boolean(user?.roles?.includes('staff') && !user?.roles?.includes('super_admin'));
+  const isSuperAdmin = Boolean(user?.roles?.includes('super_admin'));
 
   // Jika akun adalah role Staf internal, arahkan ke rute portal staff (/staff/*) agar sidebar staf tetap konsisten
   useEffect(() => {
@@ -180,7 +181,7 @@ export const AdminLayout: React.FC = () => {
       }
     }
   }, [isStaffOnly, pathname, navigate]);
-  const activeMenuTitle = getActiveMenuTitle(pathname, isGuru);
+  const activeMenuTitle = getActiveMenuTitle(pathname, isGuru, isSuperAdmin);
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => hasPermission(user, item.permission)),

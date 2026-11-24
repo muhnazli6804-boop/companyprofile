@@ -33,6 +33,7 @@ export interface TeacherDocumentItem {
   original_name: string;
   size_bytes: number;
   verification_status: string;
+  verification_note?: string | null;
   created_at: string;
 }
 
@@ -52,6 +53,7 @@ export interface TeacherApplication {
   applied_position: string;
   registration_number?: string | null;
   status: string;
+  admin_note?: string | null;
   current_step: number;
   unit?: { id: number; name: string; slug: string } | null;
   vacancy?: { id: number; title: string } | null;

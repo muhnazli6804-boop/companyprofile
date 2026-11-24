@@ -8,7 +8,17 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { env } from '@/lib/env';
-import { fetchPublicSettings, fetchActivities, fetchRegistrationInfo, type PublicRegistrationInfo } from './api';
+import {
+  fetchPublicSettings,
+  fetchActivities,
+  fetchRegistrationInfo,
+  fetchVacancies,
+  fetchPage,
+  fetchPublicPages,
+  type PublicRegistrationInfo,
+  type TeacherVacancyItem,
+  type PublicPageItem,
+} from './api';
 import { mockSettings } from './mocks/settings.mock';
 import { mockActivities } from './mocks/activities.mock';
 import type { SiteSettings, Activity, PaginatedResponse } from './types';
@@ -72,3 +82,35 @@ export function useRegistrationInfo() {
     staleTime: 60 * 1000,
   });
 }
+
+// ---------- useVacancies ----------
+
+export function useVacancies() {
+  return useQuery<TeacherVacancyItem[], Error>({
+    queryKey: ['public', 'vacancies'],
+    queryFn: fetchVacancies,
+    staleTime: 60 * 1000,
+  });
+}
+
+// ---------- usePublicPage ----------
+
+export function usePublicPage(slug: string) {
+  return useQuery<PublicPageItem, Error>({
+    queryKey: ['public', 'page', slug],
+    queryFn: () => fetchPage(slug),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+// ---------- usePublicPages ----------
+
+export function usePublicPages() {
+  return useQuery<PublicPageItem[], Error>({
+    queryKey: ['public', 'pages'],
+    queryFn: fetchPublicPages,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+

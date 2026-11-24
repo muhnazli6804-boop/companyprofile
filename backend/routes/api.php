@@ -28,5 +28,5 @@ Route::prefix('v1')
 
 // Admin routes: /api/v1/admin
 Route::prefix('v1/admin')
-    ->middleware(['auth:sanctum', 'admin'])
+    ->middleware(['auth:sanctum', 'admin', 'log.admin'])
     ->group(base_path('routes/api/v1/admin.php'));

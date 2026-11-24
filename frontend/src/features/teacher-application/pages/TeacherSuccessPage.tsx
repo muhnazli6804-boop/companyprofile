@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
-import { getTeacherApplication } from '@/features/teacher-application/api';
+import { getTeacherApplication, downloadTeacherReceipt } from '@/features/teacher-application/api';
+import { triggerBlobDownload } from '@/utils/fileDownload';
 import type { TeacherApplication } from '@/features/teacher-application/types';
 import {
   CheckCircle,
@@ -12,6 +13,7 @@ import {
   Home,
   Phone,
   Clock,
+  Download,
 } from 'lucide-react';
 
 interface LocationState {
@@ -29,6 +31,7 @@ export const TeacherSuccessPage: React.FC = () => {
 
   const [application, setApplication] = useState<TeacherApplication | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +59,20 @@ export const TeacherSuccessPage: React.FC = () => {
     navigator.clipboard.writeText(registrationNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!id) return;
+    try {
+      setIsDownloading(true);
+      const blob = await downloadTeacherReceipt(id);
+      const filename = `bukti-lamaran-${registrationNumber || id}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Gagal mengunduh bukti lamaran:', err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -111,6 +128,30 @@ export const TeacherSuccessPage: React.FC = () => {
               <span className="text-muted block text-xs">Posisi Dilamar</span>
               <strong className="text-ink">{position}</strong>
             </div>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-line text-center">
+            <button
+              type="button"
+              onClick={handleDownloadReceipt}
+              disabled={isDownloading}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-700 text-white font-sans font-bold text-sm rounded-control hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              {isDownloading ? (
+                <>
+                  <Clock className="w-4 h-4 animate-spin" />
+                  <span>Menyiapkan Dokumen PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>Unduh Tanda Bukti Lamaran Resmi (PDF)</span>
+                </>
+              )}
+            </button>
+            <p className="text-xs text-muted mt-2">
+              Dilengkapi stempel digital dan QR validasi keaslian dokumen resmi Yayasan Padindi.
+            </p>
           </div>
         </div>
 

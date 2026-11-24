@@ -24,6 +24,7 @@ Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{slug}', [PostController::class, 'show']);
 Route::get('/post-categories', [PostController::class, 'categories']);
 
+Route::get('/pages', [PageController::class, 'index']);
 Route::get('/pages/{slug}', [PageController::class, 'show']);
 
 Route::get('/galleries', [GalleryController::class, 'index']);

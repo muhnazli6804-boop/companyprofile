@@ -10,19 +10,19 @@ use Illuminate\Http\Request;
 
 class ActivityLogController extends Controller
 {
-    private function isGuruOnly(?User $user): bool
+    private function isSuperAdmin(?User $user): bool
     {
-        return $user !== null && $user->hasRole('guru') && ! $user->hasRole('super_admin');
+        return $user !== null && $user->hasRole('super_admin');
     }
 
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $isGuru = $this->isGuruOnly($user);
+        $isSuperAdmin = $this->isSuperAdmin($user);
 
         $query = ActivityLog::query()->with('user:id,name,email');
 
-        if ($isGuru) {
+        if (! $isSuperAdmin) {
             $query->where('user_id', $user->id);
         } elseif ($userId = $request->input('user_id')) {
             $query->where('user_id', $userId);
@@ -45,4 +45,3 @@ class ActivityLogController extends Controller
         ]);
     }
 }
-

@@ -58,9 +58,10 @@ class StudentApplicationDocumentController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== StudentApplicationStatus::DRAFT) {
+        $editableStatuses = [StudentApplicationStatus::DRAFT, StudentApplicationStatus::REVISION_REQUIRED];
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
-                'message' => 'Dokumen tidak dapat diunggah pada pendaftaran yang sudah dikirim.',
+                'message' => 'Dokumen tidak dapat diunggah pada pendaftaran yang terkunci.',
                 'code' => 'APPLICATION_LOCKED',
             ], 409);
         }
@@ -208,9 +209,10 @@ class StudentApplicationDocumentController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== StudentApplicationStatus::DRAFT) {
+        $editableStatuses = [StudentApplicationStatus::DRAFT, StudentApplicationStatus::REVISION_REQUIRED];
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
-                'message' => 'Dokumen tidak dapat dihapus pada pendaftaran yang sudah dikirim.',
+                'message' => 'Dokumen tidak dapat dihapus pada pendaftaran yang terkunci.',
                 'code' => 'APPLICATION_LOCKED',
             ], 409);
         }

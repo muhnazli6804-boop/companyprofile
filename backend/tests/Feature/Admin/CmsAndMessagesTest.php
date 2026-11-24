@@ -238,4 +238,43 @@ class CmsAndMessagesTest extends TestCase
         $faqVal = \App\Models\Setting::where('key', 'site_faqs')->value('value');
         $this->assertStringContainsString('Q?', $faqVal);
     }
+
+    public function test_admin_and_staff_can_access_and_update_via_admin_cms_endpoint(): void
+    {
+        // 1. Unauthenticated request to /admin/cms is rejected with 401
+        $this->getJson('/api/v1/admin/cms')->assertStatus(401);
+
+        $staffRole = \App\Models\Role::where('name', 'staff')->first();
+        $staffUser = User::factory()->create(['user_type' => 'admin', 'is_active' => true, 'email' => 'staff.cms.endpoint@padindi.test']);
+        $staffUser->roles()->attach($staffRole->id);
+
+        // 2. Staff can access GET /api/v1/admin/cms
+        $getCmsRes = $this->actingAs($staffUser)->getJson('/api/v1/admin/cms');
+        $getCmsRes->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => ['flat', 'grouped'],
+            ]);
+
+        // 3. Staff can update CMS content via PUT /api/v1/admin/cms
+        $putCmsRes = $this->actingAs($staffUser)->putJson('/api/v1/admin/cms', [
+            'settings' => [
+                'vision' => 'Visi Sekolah Padindi Unggul',
+                'site_name' => 'Yayasan Pendidikan Padindi',
+                'site_faqs' => json_encode([['id' => 99, 'question' => 'Pertanyaan CMS?', 'answer' => 'Jawaban CMS!']]),
+            ],
+        ]);
+        $putCmsRes->assertStatus(200);
+
+        $this->assertEquals('Visi Sekolah Padindi Unggul', \App\Models\Setting::where('key', 'vision')->value('value'));
+        $this->assertEquals('Yayasan Pendidikan Padindi', \App\Models\Setting::where('key', 'site_name')->value('value'));
+        $this->assertStringContainsString('Pertanyaan CMS?', \App\Models\Setting::where('key', 'site_faqs')->value('value'));
+
+        // 4. Super Admin can also access and update via /api/v1/admin/cms
+        $adminGetRes = $this->actingAs($this->admin)->getJson('/api/v1/admin/cms');
+        $adminGetRes->assertStatus(200);
+
+        // 5. User without content.manage permission is rejected with 403
+        $applicantUser = User::factory()->create(['user_type' => 'applicant', 'is_active' => true]);
+        $this->actingAs($applicantUser)->getJson('/api/v1/admin/cms')->assertStatus(403);
+    }
 }

@@ -102,4 +102,71 @@ class ActivityLogTest extends TestCase
         $this->assertTrue($dataFilter->contains('id', $logB->id));
         $this->assertFalse($dataFilter->contains('id', $logAdmin->id));
     }
+
+    public function test_staff_can_only_view_their_own_activity_logs_and_cannot_view_superadmin_logs(): void
+    {
+        $staffRole = Role::where('name', 'staff')->first();
+
+        $staffUser = User::factory()->create(['user_type' => 'admin', 'is_active' => true]);
+        $staffUser->roles()->attach($staffRole->id);
+
+        $logStaff = ActivityLog::create([
+            'user_id' => $staffUser->id,
+            'action' => 'applications.verify',
+            'subject_type' => 'App\Models\StudentApplication',
+            'subject_id' => 201,
+            'payload' => ['status' => 'verified'],
+            'ip_address' => '127.0.0.1',
+        ]);
+
+        $logSuperAdmin = ActivityLog::create([
+            'user_id' => $this->admin->id,
+            'action' => 'users.destroy',
+            'subject_type' => 'App\Models\User',
+            'subject_id' => 998,
+            'payload' => ['reason' => 'Terminated'],
+            'ip_address' => '127.0.0.1',
+        ]);
+
+        // Staff mengakses daftar log -> hanya melihat log miliknya sendiri
+        $response = $this->actingAs($staffUser)->getJson('/api/v1/admin/activity-logs');
+        $response->assertStatus(200);
+
+        $data = collect($response->json('data'));
+        $this->assertTrue($data->contains('id', $logStaff->id));
+        $this->assertFalse($data->contains('id', $logSuperAdmin->id));
+
+        // Staff mencoba memfilter dengan user_id milik superadmin -> tetap dipaksa hanya log miliknya
+        $attempt = $this->actingAs($staffUser)->getJson("/api/v1/admin/activity-logs?user_id={$this->admin->id}");
+        $attempt->assertStatus(200);
+
+        $attemptData = collect($attempt->json('data'));
+        $this->assertTrue($attemptData->contains('id', $logStaff->id));
+        $this->assertFalse($attemptData->contains('id', $logSuperAdmin->id));
+    }
+
+    public function test_log_admin_activity_middleware_automatically_records_admin_actions(): void
+    {
+        // 1. Eksekusi mutasi setting oleh admin
+        $res = $this->actingAs($this->admin)->putJson('/api/v1/admin/settings', [
+            'settings' => [
+                'site_tagline' => 'Tagline Audit Middleware Uji',
+            ],
+        ]);
+        $res->assertStatus(200);
+
+        // Verifikasi otomatis tercatat di activity_logs
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $this->admin->id,
+            'action' => 'setting.update',
+        ]);
+
+        $initialCount = ActivityLog::count();
+
+        // 2. Request GET biasa (seperti dashboard) tidak dicatat agar tidak membanjiri log
+        $getRes = $this->actingAs($this->admin)->getJson('/api/v1/admin/dashboard');
+        $getRes->assertStatus(200);
+
+        $this->assertEquals($initialCount, ActivityLog::count());
+    }
 }

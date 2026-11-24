@@ -31,6 +31,7 @@ import {
   FileText,
   Video,
   Bookmark,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const TeacherApplicationDetailPage: React.FC = () => {
@@ -233,6 +234,26 @@ export const TeacherApplicationDetailPage: React.FC = () => {
             >
               <Video className="w-3.5 h-3.5 mr-1 text-primary" />
               <span>Jadwalkan Wawancara</span>
+            </Button>
+
+            {/* Minta Revisi */}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                handleActionClick(
+                  'revision_required',
+                  'Minta Revisi / Perbaikan Berkas Pelamar',
+                  'Pelamar akan menerima pemberitahuan bahwa terdapat berkas/dokumen yang perlu diperbaiki atau diunggah ulang.',
+                  'accent',
+                  'Kirim Permintaan Revisi',
+                  true
+                )
+              }
+              className="text-xs"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 mr-1 text-warning" />
+              <span>Minta Revisi</span>
             </Button>
 
             {/* Cadangan / Reserve */}
@@ -705,6 +726,7 @@ export const TeacherApplicationDetailPage: React.FC = () => {
         currentStatus={app.status}
         allowedStatuses={[
           { value: 'administrative_review', label: 'Seleksi Administrasi' },
+          { value: 'revision_required', label: 'Perlu Revisi Dokumen' },
           { value: 'interview_test', label: 'Wawancara & Tes Pedagogik' },
           { value: 'passed', label: 'Lolos / Diterima' },
           { value: 'failed', label: 'Tidak Lolos' },

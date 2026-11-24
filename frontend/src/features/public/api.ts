@@ -162,3 +162,57 @@ export async function fetchRegistrationInfo(): Promise<PublicRegistrationInfo> {
   const res = await apiClient.get<{ data: PublicRegistrationInfo }>('/public/registration-info');
   return res.data.data;
 }
+
+// ---------- Vacancies ----------
+
+export interface TeacherVacancyItem {
+  id: number;
+  title: string;
+  slug: string;
+  subject?: string | null;
+  employment_type?: string | null;
+  description?: string | null;
+  requirements?: string | null;
+  quota?: number | null;
+  opens_at?: string | null;
+  closes_at?: string | null;
+  education_unit?: {
+    id: number;
+    name: string;
+    level: string;
+    slug: string;
+  } | null;
+}
+
+export async function fetchVacancies(): Promise<TeacherVacancyItem[]> {
+  const res = await apiClient.get<{ data: TeacherVacancyItem[] }>('/public/vacancies');
+  return res.data.data;
+}
+
+// ---------- Pages ----------
+
+export interface PublicPageItem {
+  id: number;
+  title: string;
+  slug: string;
+  content: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  sort_order?: number;
+  updated_at?: string;
+  created_at?: string;
+}
+
+export async function fetchPublicPages(): Promise<PublicPageItem[]> {
+  const res = await apiClient.get<{ data: PublicPageItem[] }>('/public/pages');
+  return res.data.data;
+}
+
+export async function fetchPage(slug: string): Promise<PublicPageItem> {
+  const res = await apiClient.get<{ data: PublicPageItem }>(`/public/pages/${slug}`);
+  return res.data.data;
+}
+
+export const getPublicPages = fetchPublicPages;
+export const getPublicPage = fetchPage;
+

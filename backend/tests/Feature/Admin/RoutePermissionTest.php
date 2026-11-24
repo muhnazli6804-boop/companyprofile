@@ -63,6 +63,7 @@ function expectedRoutePermissions(): array
             'GET organization-members', 'POST organization-members', 'GET organization-members/{}',
             'PUT organization-members/{}', 'DELETE organization-members/{}', 'PUT organization-members/order',
             'POST uploads/images',
+            'GET cms', 'PUT cms',
         ],
         'messages.manage' => [...resourceRoutes('contact-messages', false)],
         'users.manage' => [

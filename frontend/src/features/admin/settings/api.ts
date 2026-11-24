@@ -2,13 +2,29 @@ import { apiClient } from "@/lib/api-client";
 import { SystemSettings } from "./types";
 
 export const getSettings = async () => {
-  const response = await apiClient.get<{ data: SystemSettings }>("/admin/settings");
-  return response.data.data;
+  try {
+    const response = await apiClient.get<{ data: SystemSettings }>("/admin/settings");
+    return response.data.data;
+  } catch (err: any) {
+    if (err?.response?.status === 403 || err?.response?.status === 404) {
+      const cmsResponse = await apiClient.get<{ data: SystemSettings }>("/admin/cms");
+      return cmsResponse.data.data;
+    }
+    throw err;
+  }
 };
 
 export const updateSettings = async (settings: Record<string, string>) => {
-  const response = await apiClient.put<{ message: string }>("/admin/settings", { settings });
-  return response.data;
+  try {
+    const response = await apiClient.put<{ message: string }>("/admin/settings", { settings });
+    return response.data;
+  } catch (err: any) {
+    if (err?.response?.status === 403 || err?.response?.status === 404) {
+      const cmsResponse = await apiClient.put<{ message: string }>("/admin/cms", { settings });
+      return cmsResponse.data;
+    }
+    throw err;
+  }
 };
 
 export const uploadLogo = async (file: File) => {
