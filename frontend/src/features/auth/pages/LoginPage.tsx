@@ -9,7 +9,7 @@ import type { ApiResponse, User } from '@/types';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
@@ -21,6 +21,9 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get('returnTo');
+  const verifiedParam = searchParams.get('verified');
+  const isVerifiedSuccess = verifiedParam === '1' || Boolean(returnTo && returnTo.includes('verified=1'));
+  const isVerifiedFailed = verifiedParam === '0' || Boolean(returnTo && returnTo.includes('verified=0'));
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -113,6 +116,32 @@ export const LoginPage: React.FC = () => {
           Masuk sebagai pendaftar atau administrator Yayasan Padindi.
         </p>
       </div>
+
+      {isVerifiedSuccess && (
+        <div
+          role="status"
+          className="flex items-start gap-3 p-4 mb-6 bg-emerald-50 border border-emerald-200 rounded-control text-emerald-800 text-sm font-sans"
+        >
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600 mt-0.5" />
+          <div>
+            <p className="font-semibold">Email Anda berhasil diverifikasi!</p>
+            <p className="text-xs text-emerald-700 mt-0.5">Silakan masuk untuk melanjutkan proses pendaftaran.</p>
+          </div>
+        </div>
+      )}
+
+      {isVerifiedFailed && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 p-4 mb-6 bg-amber-50 border border-amber-200 rounded-control text-amber-800 text-sm font-sans"
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-600 mt-0.5" />
+          <div>
+            <p className="font-semibold">Tautan verifikasi tidak valid atau telah kedaluwarsa.</p>
+            <p className="text-xs text-amber-700 mt-0.5">Silakan masuk ke akun Anda untuk mengirim ulang tautan verifikasi baru.</p>
+          </div>
+        </div>
+      )}
 
       {serverError && (
         <div
