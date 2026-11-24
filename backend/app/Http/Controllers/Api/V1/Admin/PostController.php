@@ -55,7 +55,7 @@ class PostController extends Controller
             'excerpt' => ['nullable', 'string', 'max:500'],
             'content' => ['required', 'string'],
             'cover_path' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', 'in:draft,published,archived'],
+            'status' => ['nullable', 'in:draft,published,archived,pending,revision,rejected'],
             'published_at' => ['nullable', 'date'],
             'meta_title' => ['nullable', 'string', 'max:160'],
             'meta_description' => ['nullable', 'string', 'max:320'],
@@ -103,13 +103,13 @@ class PostController extends Controller
         $post = Post::findOrFail($id);
 
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:250'],
+            'title' => ['sometimes', 'required', 'string', 'max:250'],
             'slug' => ['nullable', 'string', 'max:270'],
             'post_category_id' => ['nullable', 'exists:post_categories,id'],
             'excerpt' => ['nullable', 'string', 'max:500'],
-            'content' => ['required', 'string'],
+            'content' => ['sometimes', 'required', 'string'],
             'cover_path' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', 'in:draft,published,archived'],
+            'status' => ['nullable', 'in:draft,published,archived,pending,revision,rejected'],
             'published_at' => ['nullable', 'date'],
             'meta_title' => ['nullable', 'string', 'max:160'],
             'meta_description' => ['nullable', 'string', 'max:320'],

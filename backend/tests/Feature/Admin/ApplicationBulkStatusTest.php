@@ -199,4 +199,50 @@ class ApplicationBulkStatusTest extends TestCase
         $this->assertEquals('teacher_application', $logs->first()->loggable_type);
         $this->assertInstanceOf(TeacherApplication::class, $logs->first()->loggable);
     }
+
+    public function test_admin_can_export_student_applications_to_csv(): void
+    {
+        $applicant = User::factory()->create([
+            'user_type' => 'applicant',
+            'is_active' => true,
+        ]);
+
+        $app = StudentApplication::create([
+            'user_id' => $applicant->id,
+            'education_unit_id' => $this->unit->id,
+            'registration_period_id' => $this->period->id,
+            'registration_number' => 'REG-EXP-' . uniqid(),
+            'track' => 'reguler',
+            'submitted_at' => now(),
+            'status' => StudentApplicationStatus::SUBMITTED,
+            'current_step' => 5,
+        ]);
+
+        \App\Models\Student::create([
+            'student_application_id' => $app->id,
+            'full_name' => 'Murid Ekspor Testing',
+            'gender' => 'L',
+            'previous_school' => 'TK Padindi Asri',
+            'birth_place' => 'Jakarta',
+            'birth_date' => '2018-05-10',
+            'nik' => '3171010101180009',
+            'address' => 'Jl. Merdeka No. 10 Jakarta',
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->get('/api/v1/admin/student-applications/export');
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('attachment; filename="pendaftaran-murid-', $response->headers->get('Content-Disposition'));
+
+        // Capture streamed response output
+        ob_start();
+        $response->sendContent();
+        $content = ob_get_clean();
+
+        $this->assertStringContainsString('No. Registrasi', $content);
+        $this->assertStringContainsString('Murid Ekspor Testing', $content);
+        $this->assertStringContainsString('SD Padindi', $content);
+    }
 }

@@ -57,7 +57,7 @@ export interface PostItem {
   excerpt?: string | null;
   content: string;
   cover_path?: string | null;
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'pending' | 'revision' | 'rejected' | 'published' | 'archived';
   post_category_id?: number | null;
   category?: { id: number; name: string } | null;
   published_at?: string | null;
@@ -71,6 +71,7 @@ export interface GalleryItemType {
   description?: string | null;
   cover_path?: string | null;
   event_date?: string | null;
+  status?: 'draft' | 'pending' | 'revision' | 'rejected' | 'published' | 'archived';
   is_published: boolean;
   items?: { id: number; path: string; caption?: string }[];
 }

@@ -3,6 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { StatusBadge } from '@/components/brand/StatusBadge';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { Modal } from '@/components/ui/Modal';
 import {
   getStudentApplication,
   getStudentStatusHistory,
@@ -83,6 +84,13 @@ export const ApplicationStatusPage: React.FC = () => {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [resubmitNote, setResubmitNote] = useState('');
 
+  // Replacement document modal state
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false);
+  const [selectedDocForReplace, setSelectedDocForReplace] = useState<DocumentItem | TeacherDocumentItem | null>(null);
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
+  const [uploadModalError, setUploadModalError] = useState<string | null>(null);
+  const [isUploadingReplacement, setIsUploadingReplacement] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!id) return;
     try {
@@ -139,6 +147,58 @@ export const ApplicationStatusPage: React.FC = () => {
       setActionError(errObj.response?.data?.message || 'Gagal mengunggah dokumen perbaikan.');
     } finally {
       setIsUploadingDoc(null);
+    }
+  };
+
+  const handleConfirmReplaceDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !selectedDocForReplace || !replacementFile) return;
+
+    if (replacementFile.size > 5 * 1024 * 1024) {
+      setUploadModalError('Ukuran berkas melebihi batas maksimal 5 MB.');
+      return;
+    }
+
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+    const extension = replacementFile.name.split('.').pop()?.toLowerCase() || '';
+    if (!allowedExtensions.includes(extension)) {
+      setUploadModalError('Format berkas tidak didukung. Harap unggah file PDF, JPG, JPEG, atau PNG.');
+      return;
+    }
+
+    setIsUploadingReplacement(true);
+    setUploadModalError(null);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      if (isTeacher) {
+        await uploadTeacherDocument(
+          id,
+          replacementFile,
+          selectedDocForReplace.document_type,
+          selectedDocForReplace.sequence
+        );
+      } else {
+        await uploadStudentDocument(
+          id,
+          replacementFile,
+          selectedDocForReplace.document_type,
+          selectedDocForReplace.sequence
+        );
+      }
+      setActionSuccess(
+        `Berkas pengganti "${getDocumentTypeLabel(selectedDocForReplace.document_type, isTeacher)}" berhasil diunggah.`
+      );
+      setReplaceModalOpen(false);
+      setSelectedDocForReplace(null);
+      setReplacementFile(null);
+      await loadData();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setUploadModalError(errObj.response?.data?.message || 'Gagal mengunggah dokumen pengganti.');
+    } finally {
+      setIsUploadingReplacement(false);
     }
   };
 
@@ -457,21 +517,24 @@ export const ApplicationStatusPage: React.FC = () => {
                       </span>
                     )}
 
-                    {appStatus === 'revision_required' && (
-                      <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:border-primary text-xs font-semibold text-primary rounded-control transition-colors shadow-xs">
+                    {(isInvalid || appStatus === 'revision_required') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDocForReplace(doc);
+                          setReplacementFile(null);
+                          setUploadModalError(null);
+                          setReplaceModalOpen(true);
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-semibold transition-colors shadow-xs ${
+                          isInvalid
+                            ? 'bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 hover:border-rose-400'
+                            : 'bg-white text-primary border border-line hover:border-primary'
+                        }`}
+                      >
                         <Upload className="w-3.5 h-3.5" />
-                        <span>{isUploadingDoc === doc.id ? 'Mengunggah...' : 'Ganti Berkas'}</span>
-                        <input
-                          type="file"
-                          className="hidden"
-                          disabled={isUploadingDoc !== null}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleReplaceDocument(doc, file);
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
+                        <span>Unggah Berkas Pengganti</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -585,6 +648,146 @@ export const ApplicationStatusPage: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* Modal Upload Dokumen Pengganti */}
+        <Modal
+          isOpen={replaceModalOpen}
+          onClose={() => {
+            if (!isUploadingReplacement) {
+              setReplaceModalOpen(false);
+              setSelectedDocForReplace(null);
+              setReplacementFile(null);
+              setUploadModalError(null);
+            }
+          }}
+          title="Unggah Dokumen Pengganti"
+        >
+          {selectedDocForReplace && (
+            <form onSubmit={handleConfirmReplaceDocument} className="space-y-4 font-sans text-sm">
+              <div className="bg-paper p-3.5 rounded-control border border-line space-y-1">
+                <div className="text-xs text-muted">Dokumen yang akan diperbaiki:</div>
+                <div className="font-bold text-ink text-base">
+                  {getDocumentTypeLabel(selectedDocForReplace.document_type, isTeacher)}
+                </div>
+                <div className="text-xs text-ink/70">
+                  Berkas lama: <span className="font-mono">{selectedDocForReplace.original_name}</span> ({(selectedDocForReplace.size_bytes / 1024).toFixed(0)} KB)
+                </div>
+              </div>
+
+              {/* Catatan Verifikator / Alasan Penolakan */}
+              {selectedDocForReplace.verification_note && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-control space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Catatan Penolakan dari Verifikator:</span>
+                  </div>
+                  <p className="text-xs text-rose-800 leading-relaxed">
+                    {selectedDocForReplace.verification_note}
+                  </p>
+                </div>
+              )}
+
+              {/* Area Pilih Berkas Baru */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-ink">
+                  Pilih Berkas Pengganti <span className="text-rose-600">*</span>
+                </label>
+
+                {!replacementFile ? (
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-line hover:border-primary rounded-control bg-paper/50 cursor-pointer transition-colors group">
+                    <div className="p-3 bg-white rounded-full border border-line text-primary group-hover:bg-tint-100 transition-colors mb-2">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-semibold text-ink group-hover:text-primary">
+                      Klik untuk memilih berkas pengganti
+                    </span>
+                    <span className="text-[11px] text-muted mt-1">
+                      Format didukung: PDF, JPG, JPEG, PNG (Maksimal 5 MB)
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setReplacementFile(file);
+                          setUploadModalError(null);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center justify-between p-3.5 rounded-control bg-tint-50 border border-tint-200">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-2 bg-white rounded text-primary border border-tint-200 shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-ink truncate">
+                          {replacementFile.name}
+                        </p>
+                        <p className="text-[11px] text-muted">
+                          {(replacementFile.size / 1024).toFixed(0)} KB • Siap diunggah
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplacementFile(null)}
+                      disabled={isUploadingReplacement}
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-800 p-1.5 hover:bg-rose-50 rounded transition-colors"
+                    >
+                      Ganti
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {uploadModalError && (
+                <div role="alert" className="p-3 bg-rose-50 border border-rose-300 rounded text-xs text-rose-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{uploadModalError}</span>
+                </div>
+              )}
+
+              {/* Tombol Aksi */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplaceModalOpen(false);
+                    setSelectedDocForReplace(null);
+                    setReplacementFile(null);
+                    setUploadModalError(null);
+                  }}
+                  disabled={isUploadingReplacement}
+                  className="px-4 py-2 border border-line rounded-control text-xs font-semibold text-ink hover:bg-paper transition-colors disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!replacementFile || isUploadingReplacement}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-hover disabled:bg-line disabled:text-muted disabled:cursor-not-allowed text-white rounded-control text-xs font-semibold transition-colors shadow-xs"
+                >
+                  {isUploadingReplacement ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Mengunggah...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Unggah Dokumen Pengganti</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </Modal>
       </div>
     </div>
   );
