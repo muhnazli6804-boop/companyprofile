@@ -18,15 +18,12 @@ export const ActivityLogsPage: React.FC = () => {
   const [searchAction, setSearchAction] = useState("");
   const [page, setPage] = useState(1);
   const { data: currentUser } = useCurrentUser();
-  const isGuruOnly = Boolean(
-    currentUser?.roles?.includes("guru") &&
-      !currentUser?.roles?.includes("super_admin")
-  );
+  const isSuperAdmin = Boolean(currentUser?.roles?.includes("super_admin"));
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [
       "admin-activity-logs",
-      { searchAction, page, userId: currentUser?.id, isGuruOnly },
+      { searchAction, page, userId: currentUser?.id, isSuperAdmin },
     ],
     queryFn: () =>
       getActivityLogs({
@@ -42,18 +39,18 @@ export const ActivityLogsPage: React.FC = () => {
     <div className="space-y-6">
       <SeoHead
         title={
-          isGuruOnly
-            ? "Log Aktivitas Akun — Guru Padindi"
-            : "Log Aktivitas & Audit — Admin Yayasan"
+          isSuperAdmin
+            ? "Log Aktivitas & Audit — Admin Yayasan"
+            : "Log Aktivitas Akun — Yayasan Padindi"
         }
       />
 
       <AdminPageHeader
-        title={isGuruOnly ? "Log Aktivitas Akun" : "Log Aktivitas Sistem"}
+        title={isSuperAdmin ? "Log Aktivitas Sistem" : "Log Aktivitas Akun"}
         subtitle={
-          isGuruOnly
-            ? "Catatan riwayat tindakan dan aktivitas pengelolaan konten yang dilakukan oleh akun Anda."
-            : "Audit jejak tindakan administratif, perubahan status pendaftaran, modifikasi kuota, dan aktivitas pengguna secara berkala."
+          isSuperAdmin
+            ? "Audit jejak tindakan administratif, perubahan status pendaftaran, modifikasi kuota, dan aktivitas pengguna secara berkala."
+            : "Catatan riwayat tindakan dan aktivitas yang dilakukan oleh akun Anda."
         }
         breadcrumbs={[
           { label: "Dashboard", href: "/admin/dashboard" },
@@ -61,8 +58,8 @@ export const ActivityLogsPage: React.FC = () => {
         ]}
       />
 
-      {/* Stat Card hanya untuk Super Admin/Admin sistem; dihilangkan pada tampilan Guru */}
-      {!isGuruOnly && (
+      {/* Stat Card hanya untuk Super Admin; dihilangkan pada tampilan staff/guru */}
+      {isSuperAdmin && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <AdminStatCard
             title="Total Log Tercatat"
@@ -88,9 +85,9 @@ export const ActivityLogsPage: React.FC = () => {
           <input
             type="text"
             placeholder={
-              isGuruOnly
-                ? "Cari tindakan atau aksi Anda (misal: posts, create, update)..."
-                : "Cari tindakan atau aksi (misal: login, status_update, store)..."
+              isSuperAdmin
+                ? "Cari tindakan atau aksi (misal: login, status_update, store)..."
+                : "Cari tindakan atau aksi Anda (misal: posts, create, update, verify)..."
             }
             value={searchAction}
             onChange={(e) => {
@@ -102,9 +99,9 @@ export const ActivityLogsPage: React.FC = () => {
         </div>
 
         <span className="text-xs text-muted">
-          {isGuruOnly
-            ? "Menampilkan riwayat aktivitas akun Anda"
-            : "Menampilkan catatan audit terbaru"}
+          {isSuperAdmin
+            ? "Menampilkan catatan audit terbaru"
+            : "Menampilkan riwayat aktivitas akun Anda"}
         </span>
       </div>
 
@@ -128,14 +125,14 @@ export const ActivityLogsPage: React.FC = () => {
         <div className="bg-white rounded-xl border border-border p-12 text-center text-muted">
           <History className="w-12 h-12 mx-auto mb-3 text-muted/60" />
           <h3 className="text-base font-semibold text-foreground">
-            {isGuruOnly
-              ? "Belum Ada Aktivitas Tercatat"
-              : "Belum Ada Rekaman Aktivitas"}
+            {isSuperAdmin
+              ? "Belum Ada Rekaman Aktivitas"
+              : "Belum Ada Aktivitas Tercatat"}
           </h3>
           <p className="text-sm mt-1">
-            {isGuruOnly
-              ? "Setiap tindakan pengelolaan konten dan aktivitas akun Anda akan tercatat secara otomatis di sini."
-              : "Setiap tindakan administratif akan tercatat secara otomatis di sini."}
+            {isSuperAdmin
+              ? "Setiap tindakan administratif akan tercatat secara otomatis di sini."
+              : "Setiap tindakan dan aktivitas akun Anda akan tercatat secara otomatis di sini."}
           </p>
         </div>
       ) : (
@@ -173,7 +170,7 @@ export const ActivityLogsPage: React.FC = () => {
                         <div className="flex items-center gap-1.5 font-semibold text-navy">
                           <User className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span>{log.user.name}</span>
-                          {isGuruOnly && (
+                          {(!isSuperAdmin || log.user.id === currentUser?.id) && (
                             <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium ml-1">
                               Anda
                             </span>
