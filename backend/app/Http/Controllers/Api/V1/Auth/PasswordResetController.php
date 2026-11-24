@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Throwable;
 
 class PasswordResetController extends Controller
 {
@@ -25,11 +27,13 @@ class PasswordResetController extends Controller
         $user = User::whereRaw('lower(email) = ?', [strtolower($validated['email'])])->first();
 
         if ($user) {
-            $token = Str::random(60);
-            DB::table('password_reset_tokens')->updateOrInsert(
-                ['email' => $user->email],
-                ['token' => Hash::make($token), 'created_at' => now()]
-            );
+            $token = Password::broker()->createToken($user);
+
+            try {
+                $user->sendPasswordResetNotification($token);
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         return response()->json([
@@ -42,7 +46,7 @@ class PasswordResetController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)],
+            'password' => ['required', 'string', 'confirmed', PasswordRule::min(8)],
         ], [
             'password.required' => 'Kata sandi baru wajib diisi.',
             'password.min' => 'Kata sandi minimal 8 karakter.',
@@ -51,7 +55,10 @@ class PasswordResetController extends Controller
 
         $record = DB::table('password_reset_tokens')->where('email', strtolower($validated['email']))->first();
 
-        if (! $record || ! Hash::check($validated['token'], $record->token)) {
+        $expireMinutes = (int) config('auth.passwords.users.expire', 60);
+        $isExpired = $record && Carbon::parse($record->created_at)->addMinutes($expireMinutes)->isPast();
+
+        if (! $record || $isExpired || ! Hash::check($validated['token'], $record->token)) {
             return response()->json([
                 'message' => 'Token atur ulang kata sandi tidak valid atau telah kedaluwarsa.',
                 'code' => 'INVALID_TOKEN',
