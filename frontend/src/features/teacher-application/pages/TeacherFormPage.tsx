@@ -146,8 +146,9 @@ export const TeacherFormPage: React.FC = () => {
       setValue('teacher_vacancy_id', Number(vacancyIdParam));
       if (linkedVacancy) {
         setValue('applied_position', linkedVacancy.title);
-        if (linkedVacancy.education_unit_id) {
-          setValue('education_unit_id', linkedVacancy.education_unit_id);
+        const unitId = linkedVacancy.education_unit?.id || (linkedVacancy as { education_unit_id?: number }).education_unit_id;
+        if (unitId) {
+          setValue('education_unit_id', unitId);
         }
       }
     }
