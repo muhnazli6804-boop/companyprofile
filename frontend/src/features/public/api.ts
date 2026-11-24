@@ -198,11 +198,21 @@ export interface PublicPageItem {
   content: string;
   meta_title?: string | null;
   meta_description?: string | null;
+  sort_order?: number;
   updated_at?: string;
+  created_at?: string;
+}
+
+export async function fetchPublicPages(): Promise<PublicPageItem[]> {
+  const res = await apiClient.get<{ data: PublicPageItem[] }>('/public/pages');
+  return res.data.data;
 }
 
 export async function fetchPage(slug: string): Promise<PublicPageItem> {
   const res = await apiClient.get<{ data: PublicPageItem }>(`/public/pages/${slug}`);
   return res.data.data;
 }
+
+export const getPublicPages = fetchPublicPages;
+export const getPublicPage = fetchPage;
 

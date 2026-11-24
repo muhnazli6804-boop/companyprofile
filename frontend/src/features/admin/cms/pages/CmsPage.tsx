@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Upload,
   Sparkles,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
@@ -27,6 +29,13 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { apiClient } from '@/lib/api-client';
 import { getSettings, updateSettings, uploadLogo } from '@/features/admin/settings/api';
+import {
+  AdminPageItem,
+  getAdminPages,
+  createAdminPage,
+  updateAdminPage,
+  deleteAdminPage,
+} from '@/features/admin/cms/api';
 import { useCurrentUser } from '@/features/auth/permissions';
 
 // Types
@@ -218,10 +227,38 @@ const FALLBACK_ACHIEVEMENTS: AchievementItem[] = [
   },
 ];
 
+const FALLBACK_PAGES: AdminPageItem[] = [
+  {
+    id: 1,
+    title: '[Contoh] Kebijakan Privasi & Perlindungan Data',
+    slug: 'kebijakan-privasi',
+    content: '<h2>Kebijakan Privasi Yayasan Padindi</h2><p>Kami berkomitmen penuh melindungi privasi data pribadi peserta didik dan staf pengajar sesuai UU No. 27 Tahun 2022 (UU PDP).</p>',
+    meta_title: 'Kebijakan Privasi — Yayasan Padindi',
+    meta_description: 'Informasi kebijakan privasi dan perlindungan data pribadi Yayasan Perguruan Padindi.',
+    is_published: true,
+    sort_order: 1,
+    created_at: '2026-11-01T08:00:00Z',
+    updated_at: '2026-11-24T12:00:00Z',
+  },
+  {
+    id: 2,
+    title: '[Contoh] Tata Tertib & Kode Etik Sekolah',
+    slug: 'tata-tertib',
+    content: '<h2>Tata Tertib Lingkungan Pembelajaran</h2><p>Pedoman kedisiplinan dan budaya berakhlakul karimah di lingkungan kampus Yayasan Padindi.</p>',
+    meta_title: 'Tata Tertib Sekolah — Yayasan Padindi',
+    meta_description: 'Pedoman tata tertib dan disiplin sekolah di lingkungan Yayasan Perguruan Padindi.',
+    is_published: true,
+    sort_order: 2,
+    created_at: '2026-11-05T08:00:00Z',
+    updated_at: '2026-11-20T10:00:00Z',
+  },
+];
+
 type TabKey =
   | 'hero'
   | 'articles'
   | 'gallery'
+  | 'pages'
   | 'profile'
   | 'achievements'
   | 'faq_contact'
@@ -242,6 +279,7 @@ export const CmsPage: React.FC = () => {
     if (t === 'profile') return 'profile';
     if (t === 'articles') return 'articles';
     if (t === 'gallery') return 'gallery';
+    if (t === 'pages' || t === 'page' || t === 'halaman') return 'pages';
     if (t === 'achievements') return 'achievements';
     return 'hero';
   };
@@ -359,7 +397,119 @@ export const CmsPage: React.FC = () => {
   });
   const [deleteGalleryTarget, setDeleteGalleryTarget] = useState<GalleryItemType | null>(null);
 
-  // 4. Organization Profile state
+  // 4. Static Pages state
+  const [localPages, setLocalPages] = useState<AdminPageItem[]>(FALLBACK_PAGES);
+  const { data: remotePages } = useQuery({
+    queryKey: ['adminCmsPages'],
+    enabled: !isGuruOnly,
+    queryFn: async () => {
+      try {
+        const res = await getAdminPages();
+        const items = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        return items.length > 0 ? (items as AdminPageItem[]) : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const pages = remotePages && remotePages.length > 0 ? remotePages : localPages;
+  const [pageSearch, setPageSearch] = useState('');
+  const [pageModalOpen, setPageModalOpen] = useState(false);
+  const [pageForm, setPageForm] = useState<Partial<AdminPageItem>>({
+    title: '',
+    slug: '',
+    content: '',
+    meta_title: '',
+    meta_description: '',
+    is_published: true,
+    sort_order: 1,
+  });
+  const [deletePageTarget, setDeletePageTarget] = useState<AdminPageItem | null>(null);
+  const [isSavingPage, setIsSavingPage] = useState(false);
+
+  const slugify = (text: string) =>
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+  const handleSavePage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pageForm.title?.trim() || !pageForm.content?.trim()) {
+      alert('Judul dan isi konten halaman wajib diisi.');
+      return;
+    }
+
+    const finalSlug = (pageForm.slug || slugify(pageForm.title)).trim();
+
+    setIsSavingPage(true);
+    try {
+      if (pageForm.id) {
+        await updateAdminPage(pageForm.id, {
+          title: pageForm.title,
+          slug: finalSlug,
+          content: pageForm.content,
+          meta_title: pageForm.meta_title || null,
+          meta_description: pageForm.meta_description || null,
+          is_published: pageForm.is_published ?? true,
+          sort_order: Number(pageForm.sort_order) || 0,
+        });
+        showToast('Halaman statis berhasil diperbarui.');
+      } else {
+        await createAdminPage({
+          title: pageForm.title,
+          slug: finalSlug,
+          content: pageForm.content,
+          meta_title: pageForm.meta_title || null,
+          meta_description: pageForm.meta_description || null,
+          is_published: pageForm.is_published ?? true,
+          sort_order: Number(pageForm.sort_order) || 0,
+        });
+        showToast('Halaman statis baru berhasil dibuat dan siap diakses.');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['adminCmsPages'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'pages'] });
+      if (finalSlug) {
+        queryClient.invalidateQueries({ queryKey: ['public', 'page', finalSlug] });
+      }
+      setPageModalOpen(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Gagal menyimpan halaman. Periksa kembali isian Anda.';
+      alert(msg);
+    } finally {
+      setIsSavingPage(false);
+    }
+  };
+
+  const handleTogglePagePublish = async (item: AdminPageItem) => {
+    try {
+      await updateAdminPage(item.id, {
+        ...item,
+        is_published: !item.is_published,
+      });
+      queryClient.invalidateQueries({ queryKey: ['adminCmsPages'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'pages'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'page', item.slug] });
+      showToast(
+        item.is_published
+          ? `Halaman "${item.title}" sekarang disetel sebagai draf.`
+          : `Halaman "${item.title}" berhasil diterbitkan ke publik.`
+      );
+    } catch {
+      alert('Gagal mengubah status publikasi halaman.');
+    }
+  };
+
+  // 5. Organization Profile state
   const [localOrgMembers, setLocalOrgMembers] = useState<OrgMemberItem[]>(FALLBACK_ORG);
   const { data: remoteOrgMembers } = useQuery({
     queryKey: ['adminCmsOrgMembers'],
@@ -946,6 +1096,18 @@ export const CmsPage: React.FC = () => {
             <>
               <button
                 type="button"
+                onClick={() => handleTabChange('pages')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
+                  currentTab === 'pages'
+                    ? 'bg-navy text-white shadow-sm'
+                    : 'text-ink-muted hover:bg-navy/5 hover:text-navy'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                4. Halaman Statis
+              </button>
+              <button
+                type="button"
                 onClick={() => handleTabChange('profile')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-xs font-bold transition-colors whitespace-nowrap ${
                   currentTab === 'profile'
@@ -954,7 +1116,7 @@ export const CmsPage: React.FC = () => {
                 }`}
               >
                 <Users className="w-4 h-4" />
-                4. Profil & Organisasi
+                5. Profil & Organisasi
               </button>
               <button
                 type="button"
@@ -966,7 +1128,7 @@ export const CmsPage: React.FC = () => {
                 }`}
               >
                 <Award className="w-4 h-4" />
-                5. Prestasi & Fasilitas
+                6. Prestasi & Fasilitas
               </button>
               <button
                 type="button"
@@ -978,7 +1140,7 @@ export const CmsPage: React.FC = () => {
                 }`}
               >
                 <HelpCircle className="w-4 h-4" />
-                6. FAQ & Kontak
+                7. FAQ & Kontak
               </button>
               <button
                 type="button"
@@ -990,7 +1152,7 @@ export const CmsPage: React.FC = () => {
                 }`}
               >
                 <Building2 className="w-4 h-4" />
-                7. Identitas & Logo Yayasan
+                8. Identitas & Logo Yayasan
               </button>
               <button
                 type="button"
@@ -1002,7 +1164,7 @@ export const CmsPage: React.FC = () => {
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" />
-                8. Sistem & Akademik
+                9. Sistem & Akademik
               </button>
             </>
           )}
@@ -1378,7 +1540,380 @@ export const CmsPage: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: PROFIL & STRUKTUR ORGANISASI */}
+      {/* TAB 4: HALAMAN STATIS */}
+      {/* ========================================================================= */}
+      {!isGuruOnly && currentTab === 'pages' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-card border border-navy/10 shadow-sm">
+            <div>
+              <h3 className="font-display font-bold text-base text-navy">Manajemen Halaman Statis & Informasi Publik</h3>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Kelola halaman kustom (seperti Kebijakan Privasi, Tata Tertib, Alur Pendaftaran) yang dapat diakses publik melalui rute <code className="text-primary font-mono font-semibold">/halaman/:slug</code>.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setPageForm({
+                    title: '',
+                    slug: '',
+                    content: '',
+                    meta_title: '',
+                    meta_description: '',
+                    is_published: true,
+                    sort_order: (pages.length ? Math.max(...pages.map((p) => p.sort_order || 0)) : 0) + 1,
+                  });
+                  setPageModalOpen(true);
+                }}
+                className="text-xs flex items-center gap-1.5 bg-navy text-white"
+              >
+                <Plus className="w-4 h-4 text-star" /> Tambah Halaman Baru
+              </Button>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="bg-white p-4 rounded-card border border-navy/10 shadow-sm flex items-center gap-3">
+            <Search className="w-4 h-4 text-ink-muted" />
+            <input
+              type="text"
+              value={pageSearch}
+              onChange={(e) => setPageSearch(e.target.value)}
+              placeholder="Cari berdasarkan judul halaman atau slug..."
+              className="w-full text-xs bg-transparent border-none focus:outline-none placeholder:text-ink-muted text-ink"
+            />
+            {pageSearch && (
+              <button
+                type="button"
+                onClick={() => setPageSearch('')}
+                className="text-xs text-ink-muted hover:text-navy"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          {/* Pages Table */}
+          <div className="bg-white rounded-card border border-navy/10 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-paper border-b border-navy/10 text-ink-muted font-bold">
+                    <th className="py-3.5 px-4 w-12 text-center">Urutan</th>
+                    <th className="py-3.5 px-4">Judul & Deskripsi SEO</th>
+                    <th className="py-3.5 px-4">Tautan Publik</th>
+                    <th className="py-3.5 px-4 w-32">Status</th>
+                    <th className="py-3.5 px-4 w-36">Diperbarui</th>
+                    <th className="py-3.5 px-4 w-36 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-navy/5">
+                  {pages
+                    .filter((p) =>
+                      pageSearch
+                        ? p.title.toLowerCase().includes(pageSearch.toLowerCase()) ||
+                          p.slug.toLowerCase().includes(pageSearch.toLowerCase())
+                        : true
+                    )
+                    .map((item) => (
+                      <tr key={item.id} className="hover:bg-navy/5 transition-colors">
+                        <td className="py-3.5 px-4 text-center font-bold text-ink-muted">
+                          {item.sort_order}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-navy text-sm">{item.title}</div>
+                          {item.meta_description && (
+                            <p className="text-[11px] text-ink-muted line-clamp-1 mt-0.5">
+                              {item.meta_description}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <a
+                            href={`/halaman/${item.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-primary hover:underline font-semibold"
+                          >
+                            <span>/halaman/{item.slug}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePagePublish(item)}
+                            title="Klik untuk mengubah status publikasi"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-transform active:scale-95 ${
+                              item.is_published
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                item.is_published ? 'bg-emerald-600' : 'bg-amber-600'
+                              }`}
+                            />
+                            {item.is_published ? 'Terbit' : 'Draf'}
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4 text-ink-muted text-[11px]">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })
+                            : '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <a
+                              href={`/halaman/${item.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 text-navy hover:bg-navy/10 rounded-control transition-colors"
+                              title="Buka di tab baru"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPageForm({
+                                  id: item.id,
+                                  title: item.title,
+                                  slug: item.slug,
+                                  content: item.content,
+                                  meta_title: item.meta_title || '',
+                                  meta_description: item.meta_description || '',
+                                  is_published: item.is_published,
+                                  sort_order: item.sort_order,
+                                });
+                                setPageModalOpen(true);
+                              }}
+                              className="p-1.5 text-primary hover:bg-primary/10 rounded-control transition-colors"
+                              title="Edit Halaman"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletePageTarget(item)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-control transition-colors"
+                              title="Hapus Halaman"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  {pages.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-ink-muted">
+                        <FileText className="w-10 h-10 mx-auto text-ink-muted/40 mb-2" />
+                        <p className="font-semibold text-navy">Belum ada halaman statis</p>
+                        <p className="text-xs text-ink-muted mt-0.5">
+                          Klik tombol &quot;Tambah Halaman Baru&quot; untuk membuat halaman informasi publik.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah/Edit Halaman Statis */}
+      {pageModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-xs">
+          <div className="bg-white rounded-card shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col border border-navy/10 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-navy/10 bg-paper">
+              <div>
+                <h3 className="font-display font-bold text-base text-navy">
+                  {pageForm.id ? 'Edit Halaman Statis' : 'Tambah Halaman Statis Baru'}
+                </h3>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Lengkapi judul, tautan slug, dan isi konten yang ingin ditampilkan.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPageModalOpen(false)}
+                className="text-ink-muted hover:text-navy text-sm p-1 rounded-control"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePage} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="font-bold text-navy">
+                    Judul Halaman <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={pageForm.title || ''}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      setPageForm((prev) => ({
+                        ...prev,
+                        title,
+                        slug: prev.id ? prev.slug : slugify(title),
+                      }));
+                    }}
+                    placeholder="Contoh: Tata Tertib Siswa & Guru"
+                    className="w-full px-3 py-2 border border-navy/20 rounded-control focus:outline-none focus:border-navy text-ink text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-navy">Urutan Tampilan</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={pageForm.sort_order ?? 0}
+                    onChange={(e) =>
+                      setPageForm((prev) => ({ ...prev, sort_order: parseInt(e.target.value, 10) || 0 }))
+                    }
+                    className="w-full px-3 py-2 border border-navy/20 rounded-control focus:outline-none focus:border-navy text-ink text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-navy">
+                    Slug / Tautan URL <span className="text-rose-600">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (pageForm.title) {
+                        setPageForm((prev) => ({ ...prev, slug: slugify(prev.title || '') }));
+                      }
+                    }}
+                    className="text-[11px] text-primary hover:underline font-semibold"
+                  >
+                    Generate dari Judul
+                  </button>
+                </div>
+                <div className="flex items-center rounded-control border border-navy/20 bg-paper overflow-hidden focus-within:border-navy">
+                  <span className="px-3 py-2 text-ink-muted text-xs font-mono bg-navy/5 border-r border-navy/10">
+                    /halaman/
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={pageForm.slug || ''}
+                    onChange={(e) =>
+                      setPageForm((prev) => ({
+                        ...prev,
+                        slug: slugify(e.target.value),
+                      }))
+                    }
+                    placeholder="tata-tertib"
+                    className="w-full px-3 py-2 bg-transparent border-none focus:outline-none font-mono text-ink text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 pb-1">
+                <input
+                  type="checkbox"
+                  id="page_is_published"
+                  checked={Boolean(pageForm.is_published)}
+                  onChange={(e) =>
+                    setPageForm((prev) => ({ ...prev, is_published: e.target.checked }))
+                  }
+                  className="rounded text-navy focus:ring-navy w-4 h-4"
+                />
+                <label htmlFor="page_is_published" className="text-xs text-navy font-semibold cursor-pointer">
+                  Terbitkan Halaman (dapat diakses langsung oleh publik di <code className="text-primary font-mono font-semibold">/halaman/{pageForm.slug || '...'}</code>)
+                </label>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-navy">
+                  Konten Halaman (HTML / Teks) <span className="text-rose-600">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={8}
+                  value={pageForm.content || ''}
+                  onChange={(e) => setPageForm((prev) => ({ ...prev, content: e.target.value }))}
+                  placeholder="Tuliskan isi halaman di sini. Mendukung tag HTML seperti <h2>, <p>, <ul>, <li>, <strong>, dll..."
+                  className="w-full px-3 py-2 border border-navy/20 rounded-control focus:outline-none focus:border-navy text-ink font-mono text-xs leading-relaxed"
+                />
+                <p className="text-[11px] text-ink-muted">
+                  Tip: Anda dapat menulis teks polos atau menyertakan tag HTML standar untuk format paragraf, heading, dan daftar.
+                </p>
+              </div>
+
+              <div className="border-t border-navy/10 pt-3 space-y-3">
+                <h4 className="font-display font-bold text-xs text-navy">Metadata SEO (Opsional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-ink-muted">Meta Title</label>
+                    <input
+                      type="text"
+                      maxLength={160}
+                      value={pageForm.meta_title || ''}
+                      onChange={(e) => setPageForm((prev) => ({ ...prev, meta_title: e.target.value }))}
+                      placeholder="Judul halaman untuk mesin pencari..."
+                      className="w-full px-3 py-1.5 border border-navy/20 rounded-control focus:outline-none focus:border-navy text-ink text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-ink-muted">Meta Description</label>
+                    <input
+                      type="text"
+                      maxLength={320}
+                      value={pageForm.meta_description || ''}
+                      onChange={(e) => setPageForm((prev) => ({ ...prev, meta_description: e.target.value }))}
+                      placeholder="Ringkasan konten untuk hasil pencarian Google..."
+                      className="w-full px-3 py-1.5 border border-navy/20 rounded-control focus:outline-none focus:border-navy text-ink text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-navy/10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPageModalOpen(false)}
+                  disabled={isSavingPage}
+                  className="text-xs"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={isSavingPage}
+                  className="text-xs bg-navy text-white flex items-center gap-1.5"
+                >
+                  {isSavingPage ? 'Menyimpan...' : 'Simpan Halaman'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: PROFIL & STRUKTUR ORGANISASI */}
       {/* ========================================================================= */}
       {!isGuruOnly && currentTab === 'profile' && (
         <div className="space-y-6">
@@ -2734,6 +3269,32 @@ export const CmsPage: React.FC = () => {
         title="Hapus Data Pengurus"
         description={`Apakah Anda yakin ingin menghapus pengurus "${deleteOrgTarget?.name}"?`}
         confirmLabel="Hapus Pengurus"
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        open={Boolean(deletePageTarget)}
+        onClose={() => setDeletePageTarget(null)}
+        onConfirm={async () => {
+          if (deletePageTarget) {
+            try {
+              await deleteAdminPage(deletePageTarget.id);
+            } catch {
+              // fallback
+            }
+            queryClient.invalidateQueries({ queryKey: ['adminCmsPages'] });
+            queryClient.invalidateQueries({ queryKey: ['public', 'pages'] });
+            if (deletePageTarget.slug) {
+              queryClient.invalidateQueries({ queryKey: ['public', 'page', deletePageTarget.slug] });
+            }
+            setLocalPages((prev) => prev.filter((p) => p.id !== deletePageTarget.id));
+            setDeletePageTarget(null);
+            showToast('Halaman statis berhasil dihapus.');
+          }
+        }}
+        title="Hapus Halaman Statis"
+        description={`Apakah Anda yakin ingin menghapus halaman "${deletePageTarget?.title}"? Tindakan ini akan menghapus akses publik /halaman/${deletePageTarget?.slug}.`}
+        confirmLabel="Hapus Halaman"
         confirmVariant="danger"
       />
     </div>

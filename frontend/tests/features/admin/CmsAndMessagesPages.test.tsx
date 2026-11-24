@@ -100,7 +100,8 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
     expect(screen.getByText('1. Hero & Banner Beranda')).toBeInTheDocument();
     expect(screen.getByText('2. Berita & Artikel')).toBeInTheDocument();
     expect(screen.getByText('3. Galeri Media')).toBeInTheDocument();
-    expect(screen.getByText('4. Profil & Organisasi')).toBeInTheDocument();
+    expect(screen.getByText('4. Halaman Statis')).toBeInTheDocument();
+    expect(screen.getByText('5. Profil & Organisasi')).toBeInTheDocument();
 
     // Default seeded banner
     expect(await screen.findByText('[Contoh] Selamat Datang di Yayasan Perguruan Padindi')).toBeInTheDocument();
@@ -113,7 +114,7 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
     fireEvent.click(articlesTab);
     expect(await screen.findByText('Manajemen Berita & Artikel Yayasan')).toBeInTheDocument();
 
-    const profileTab = screen.getByText('4. Profil & Organisasi');
+    const profileTab = screen.getByText('5. Profil & Organisasi');
     fireEvent.click(profileTab);
     expect(await screen.findByText('Visi & Misi Yayasan Padindi')).toBeInTheDocument();
     expect(screen.getByText('Struktur Dewan Pembina & Pengurus Yayasan')).toBeInTheDocument();
@@ -185,7 +186,7 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
     renderWithClient(<CmsPage />);
 
     // 1. Verifikasi parsing site_achievements
-    const achTab = screen.getByText('5. Prestasi & Fasilitas');
+    const achTab = screen.getByText('6. Prestasi & Fasilitas');
     fireEvent.click(achTab);
     expect(await screen.findByText('Juara 1 Sains Komputasi Nasional')).toBeInTheDocument();
 
@@ -199,7 +200,7 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
     }));
 
     // 2. Verifikasi parsing site_faqs
-    const faqTab = screen.getByText('6. FAQ & Kontak');
+    const faqTab = screen.getByText('7. FAQ & Kontak');
     fireEvent.click(faqTab);
     expect(await screen.findByText('Apakah sekolah menyediakan asrama?')).toBeInTheDocument();
 
@@ -239,5 +240,53 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
       settings: { site_name: 'Yayasan Padindi Baru' },
     });
     expect(putRes.data.message).toBe('Pengaturan berhasil diperbarui.');
+  });
+
+  it('dapat mengelola halaman statis melalui tab 4. Halaman Statis', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/admin/pages') {
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: 1,
+                title: 'Kebijakan Privasi Resmi',
+                slug: 'kebijakan-privasi',
+                content: '<p>Isi kebijakan privasi...</p>',
+                meta_title: 'Kebijakan Privasi',
+                meta_description: 'Deskripsi privasi.',
+                is_published: true,
+                sort_order: 1,
+                updated_at: '2026-11-24T12:00:00Z',
+              },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderWithClient(<CmsPage />);
+
+    // Berpindah ke tab Halaman Statis
+    const pagesTab = screen.getByText('4. Halaman Statis');
+    expect(pagesTab).toBeInTheDocument();
+    fireEvent.click(pagesTab);
+
+    // Memverifikasi tabel data
+    expect(await screen.findByText('Manajemen Halaman Statis & Informasi Publik')).toBeInTheDocument();
+    expect(await screen.findByText('Kebijakan Privasi Resmi')).toBeInTheDocument();
+    expect(screen.getByText('/halaman/kebijakan-privasi')).toBeInTheDocument();
+    expect(screen.getByText('Terbit')).toBeInTheDocument();
+
+    // Membuka modal tambah halaman
+    const addBtn = screen.getByText('Tambah Halaman Baru');
+    fireEvent.click(addBtn);
+
+    expect(screen.getByText('Tambah Halaman Statis Baru')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Contoh: Tata Tertib Siswa & Guru')).toBeInTheDocument();
+    expect(screen.getByText('Generate dari Judul')).toBeInTheDocument();
+    expect(screen.getByText('Simpan Halaman')).toBeInTheDocument();
   });
 });

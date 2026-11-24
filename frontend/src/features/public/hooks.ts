@@ -14,6 +14,7 @@ import {
   fetchRegistrationInfo,
   fetchVacancies,
   fetchPage,
+  fetchPublicPages,
   type PublicRegistrationInfo,
   type TeacherVacancyItem,
   type PublicPageItem,
@@ -99,7 +100,17 @@ export function usePublicPage(slug: string) {
     queryKey: ['public', 'page', slug],
     queryFn: () => fetchPage(slug),
     staleTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: false,
+  });
+}
+
+// ---------- usePublicPages ----------
+
+export function usePublicPages() {
+  return useQuery<PublicPageItem[], Error>({
+    queryKey: ['public', 'pages'],
+    queryFn: fetchPublicPages,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -25,6 +25,7 @@ const VacancyListPage = lazy(() => import('@/features/public/pages/VacancyListPa
 const ContactPage = lazy(() => import('@/features/public/pages/ContactPage'));
 const PrivacyPolicyPage = lazy(() => import('@/features/public/pages/PrivacyPolicyPage'));
 const RegistrationHubPage = lazy(() => import('@/features/public/pages/RegistrationHubPage'));
+const StaticPageView = lazy(() => import('@/features/public/pages/StaticPageView'));
 
 // Lazy-loaded Auth Pages
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
@@ -106,6 +107,7 @@ export const router = createBrowserRouter([
       { path: 'lowongan-guru', element: <SuspenseWrapper><VacancyListPage /></SuspenseWrapper> },
       { path: 'kontak', element: <SuspenseWrapper><ContactPage /></SuspenseWrapper> },
       { path: 'kebijakan-privasi', element: <SuspenseWrapper><PrivacyPolicyPage /></SuspenseWrapper> },
+      { path: 'halaman/:slug', element: <SuspenseWrapper><StaticPageView /></SuspenseWrapper> },
 
       // Hub Pendaftaran
       { path: 'pendaftaran', element: <SuspenseWrapper><RegistrationHubPage /></SuspenseWrapper> },
