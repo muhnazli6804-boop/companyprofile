@@ -241,7 +241,7 @@ export const VacancyListPage: React.FC = () => {
                     </div>
 
                     <Link
-                      to="/pendaftaran/guru"
+                      to={`/pendaftaran/guru?vacancy_id=${vac.id}`}
                       className="px-5 py-2.5 rounded-control bg-navy text-white hover:bg-navy/90 font-bold text-center transition-colors flex items-center justify-center gap-1.5"
                     >
                       Lamar Sekarang <ArrowRight className="w-3.5 h-3.5 text-star" />

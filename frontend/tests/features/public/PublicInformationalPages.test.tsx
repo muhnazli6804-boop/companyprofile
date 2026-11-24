@@ -154,6 +154,8 @@ describe('Halaman Informasi Publik', () => {
     expect(screen.getByText(/Penuh Waktu/)).toBeInTheDocument();
     expect(screen.getByText(/S1 Pendidikan Matematika/)).toBeInTheDocument();
     expect(screen.getByText('Lamar Sekarang')).toBeInTheDocument();
+    const applyLink = screen.getByText('Lamar Sekarang').closest('a');
+    expect(applyLink).toHaveAttribute('href', '/pendaftaran/guru?vacancy_id=1');
     expect(screen.getByText('Alur & Tahapan Rekrutmen Guru')).toBeInTheDocument();
   });
 
