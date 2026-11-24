@@ -12,9 +12,11 @@ import {
 import {
   getTeacherApplication,
   getTeacherStatusHistory,
+  uploadTeacherDocument,
+  resubmitTeacherApplication,
 } from '@/features/teacher-application/api';
 import type { StudentApplication, StatusHistoryItem, DocumentItem } from '@/features/student-application/types';
-import type { TeacherApplication, TeacherStatusHistoryItem } from '@/features/teacher-application/types';
+import type { TeacherApplication, TeacherStatusHistoryItem, TeacherDocumentItem } from '@/features/teacher-application/types';
 import {
   ArrowLeft,
   Building,
@@ -114,14 +116,18 @@ export const ApplicationStatusPage: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  const handleReplaceDocument = async (doc: DocumentItem, file: File) => {
+  const handleReplaceDocument = async (doc: DocumentItem | TeacherDocumentItem, file: File) => {
     if (!id) return;
     try {
       setIsUploadingDoc(doc.id);
       setActionError(null);
       setActionSuccess(null);
-      await uploadStudentDocument(id, file, doc.document_type, doc.sequence);
-      setActionSuccess(`Berkas ${getDocumentTypeLabel(doc.document_type, false)} berhasil diunggah ulang.`);
+      if (isTeacher) {
+        await uploadTeacherDocument(id, file, doc.document_type, doc.sequence);
+      } else {
+        await uploadStudentDocument(id, file, doc.document_type, doc.sequence);
+      }
+      setActionSuccess(`Berkas ${getDocumentTypeLabel(doc.document_type, isTeacher)} berhasil diunggah ulang.`);
       await loadData();
     } catch (err: unknown) {
       const errObj = err as { response?: { data?: { message?: string } } };
@@ -137,8 +143,13 @@ export const ApplicationStatusPage: React.FC = () => {
       setIsResubmitting(true);
       setActionError(null);
       setActionSuccess(null);
-      await resubmitStudentApplication(id, { note: resubmitNote.trim() || undefined });
-      setActionSuccess('Pendaftaran berhasil diajukan ulang! Berkas Anda akan diverifikasi kembali oleh panitia.');
+      if (isTeacher) {
+        await resubmitTeacherApplication(id, { note: resubmitNote.trim() || undefined });
+        setActionSuccess('Lamaran guru berhasil diajukan ulang! Berkas Anda akan diverifikasi kembali oleh panitia.');
+      } else {
+        await resubmitStudentApplication(id, { note: resubmitNote.trim() || undefined });
+        setActionSuccess('Pendaftaran berhasil diajukan ulang! Berkas Anda akan diverifikasi kembali oleh panitia.');
+      }
       setResubmitNote('');
       await loadData();
     } catch (err: unknown) {
@@ -273,21 +284,23 @@ export const ApplicationStatusPage: React.FC = () => {
               </div>
               <div className="font-sans flex-1">
                 <h2 className="font-display font-semibold text-lg text-amber-950 mb-1.5">
-                  Perlu Revisi Dokumen Pendaftaran
+                  {isTeacher ? 'Perlu Revisi Berkas Lamaran Guru' : 'Perlu Revisi Dokumen Pendaftaran'}
                 </h2>
                 <p className="text-sm text-amber-900 leading-relaxed mb-3">
-                  Panitia verifikator telah memeriksa pendaftaran Anda dan meminta perbaikan atau penggantian berkas dokumen yang belum memenuhi persyaratan.
+                  {isTeacher
+                    ? 'Tim panitia seleksi rekrutmen telah memeriksa berkas Anda dan meminta perbaikan atau penggantian dokumen yang belum memenuhi persyaratan.'
+                    : 'Panitia verifikator telah memeriksa pendaftaran Anda dan meminta perbaikan atau penggantian berkas dokumen yang belum memenuhi persyaratan.'}
                 </p>
-                {studentApp?.admin_note && (
+                {(isTeacher ? teacherApp?.admin_note : studentApp?.admin_note) && (
                   <div className="p-3 bg-white/90 rounded-control border border-amber-300 text-sm font-sans text-ink mb-3 shadow-xs">
                     <span className="font-bold text-xs uppercase text-amber-800 tracking-wider block mb-1">
                       Catatan Verifikator:
                     </span>
-                    <p className="whitespace-pre-wrap">{studentApp.admin_note}</p>
+                    <p className="whitespace-pre-wrap">{isTeacher ? teacherApp?.admin_note : studentApp?.admin_note}</p>
                   </div>
                 )}
                 <p className="text-xs text-amber-800">
-                  Silakan periksa dokumen bertanda <strong className="text-rose-700">Perlu Diganti</strong> di bawah, unggah berkas baru, kemudian klik tombol <strong>Ajukan Ulang Pendaftaran</strong>.
+                  Silakan periksa dokumen bertanda <strong className="text-rose-700">Perlu Diganti</strong> di bawah, unggah berkas baru, kemudian klik tombol <strong>{isTeacher ? 'Ajukan Ulang Lamaran' : 'Ajukan Ulang Pendaftaran'}</strong>.
                 </p>
               </div>
             </div>
@@ -396,7 +409,7 @@ export const ApplicationStatusPage: React.FC = () => {
                       </span>
                     )}
 
-                    {appStatus === 'revision_required' && !isTeacher && (
+                    {appStatus === 'revision_required' && (
                       <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:border-primary text-xs font-semibold text-primary rounded-control transition-colors shadow-xs">
                         <Upload className="w-3.5 h-3.5" />
                         <span>{isUploadingDoc === doc.id ? 'Mengunggah...' : 'Ganti Berkas'}</span>
@@ -419,13 +432,13 @@ export const ApplicationStatusPage: React.FC = () => {
           </div>
 
           {/* Form Pengajuan Ulang Saat Status Perlu Revisi */}
-          {appStatus === 'revision_required' && !isTeacher && (
+          {appStatus === 'revision_required' && (
             <div className="mt-6 pt-6 border-t border-line bg-amber-50/50 -mx-6 -mb-6 p-6 rounded-b-panel">
               <h3 className="font-display font-semibold text-base text-ink mb-1">
-                Kirim Pengajuan Ulang Pendaftaran
+                {isTeacher ? 'Kirim Pengajuan Ulang Lamaran Guru' : 'Kirim Pengajuan Ulang Pendaftaran'}
               </h3>
               <p className="text-xs text-muted font-sans mb-3">
-                Setelah mengganti dokumen yang perlu diperbaiki, Anda dapat menulis catatan dan mengirim ulang pendaftaran agar dapat diperiksa kembali oleh panitia.
+                Setelah mengganti dokumen yang perlu diperbaiki, Anda dapat menulis catatan dan mengirim ulang {isTeacher ? 'lamaran' : 'pendaftaran'} agar dapat diperiksa kembali oleh panitia.
               </p>
               <div className="mb-3">
                 <label htmlFor="resubmit-note" className="block text-xs font-semibold text-ink mb-1 font-sans">
@@ -465,6 +478,15 @@ export const ApplicationStatusPage: React.FC = () => {
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     <span>Mengirim Ulang...</span>
                   </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>{isTeacher ? 'Ajukan Ulang Lamaran' : 'Ajukan Ulang Pendaftaran'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
                 ) : (
                   <>
                     <Send className="w-4 h-4" />

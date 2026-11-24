@@ -42,6 +42,7 @@ Route::prefix('teacher-applications')->group(function () {
     Route::put('/{id}/steps/3', [TeacherApplicationController::class, 'updateStep3']);
     Route::get('/{id}/requirements', [TeacherApplicationController::class, 'requirements']);
     Route::post('/{id}/submit', [TeacherApplicationController::class, 'submit']);
+    Route::post('/{id}/resubmit', [TeacherApplicationController::class, 'resubmit']);
     Route::get('/{id}/status-history', [TeacherApplicationController::class, 'statusHistory']);
     Route::get('/{id}/receipt', [ReceiptController::class, 'teacherReceipt']);
     Route::delete('/{id}', [TeacherApplicationController::class, 'destroy']);

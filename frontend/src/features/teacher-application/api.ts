@@ -84,6 +84,21 @@ export const submitTeacherApplication = async (id: number | string) => {
   return res.data.data;
 };
 
+export const resubmitTeacherApplication = async (
+  id: number | string,
+  data?: { note?: string }
+) => {
+  const res = await apiClient.post<ApiResponse<{
+    id: number;
+    registration_number: string;
+    status: string;
+    submitted_at: string;
+    masked_phone: string;
+    application: TeacherApplication;
+  }>>(`/teacher-applications/${id}/resubmit`, data || {});
+  return res.data.data;
+};
+
 export const getTeacherStatusHistory = async (id: number | string): Promise<TeacherStatusHistoryItem[]> => {
   const res = await apiClient.get<ApiResponse<TeacherStatusHistoryItem[]>>(`/teacher-applications/${id}/status-history`);
   return res.data.data;

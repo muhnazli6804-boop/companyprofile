@@ -30,6 +30,7 @@ const STATUS_OPTIONS = [
   { value: '', label: 'Semua Status Seleksi' },
   { value: 'submitted', label: 'Terkirim (Menunggu Peninjauan)' },
   { value: 'administrative_review', label: 'Seleksi Administrasi' },
+  { value: 'revision_required', label: 'Perlu Revisi Dokumen' },
   { value: 'interview_test', label: 'Wawancara & Tes Pedagogik' },
   { value: 'passed', label: 'Lolos / Diterima' },
   { value: 'failed', label: 'Tidak Lolos' },
@@ -38,6 +39,7 @@ const STATUS_OPTIONS = [
 
 const ALLOWED_TEACHER_STATUSES = [
   { value: 'administrative_review', label: 'Seleksi Administrasi', description: 'Memverifikasi berkas ijazah, CV, dan sertifikat' },
+  { value: 'revision_required', label: 'Perlu Revisi Dokumen', description: 'Meminta pelamar mengunggah ulang atau memperbaiki berkas' },
   { value: 'interview_test', label: 'Wawancara & Tes', description: 'Menjadwalkan pelamar ke tahap wawancara pedagogik' },
   { value: 'passed', label: 'Lolos / Diterima', description: 'Pelamar dinyatakan lolos sebagai tenaga pendidik' },
   { value: 'failed', label: 'Tidak Lolos Seleksi', description: 'Pelamar tidak memenuhi kualifikasi rekrutmen' },

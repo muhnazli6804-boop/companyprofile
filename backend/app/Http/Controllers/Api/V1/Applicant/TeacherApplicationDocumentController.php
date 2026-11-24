@@ -58,9 +58,15 @@ class TeacherApplicationDocumentController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== TeacherApplicationStatus::DRAFT) {
+        $editableStatuses = [
+            TeacherApplicationStatus::DRAFT,
+            TeacherApplicationStatus::REVISION_REQUIRED,
+            TeacherApplicationStatus::ADMINISTRATIVE_REVIEW,
+        ];
+
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
-                'message' => 'Dokumen tidak dapat diunggah pada lamaran yang sudah dikirim.',
+                'message' => 'Dokumen tidak dapat diunggah pada lamaran yang terkunci.',
                 'code' => 'APPLICATION_LOCKED',
             ], 409);
         }
@@ -203,9 +209,15 @@ class TeacherApplicationDocumentController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== TeacherApplicationStatus::DRAFT) {
+        $editableStatuses = [
+            TeacherApplicationStatus::DRAFT,
+            TeacherApplicationStatus::REVISION_REQUIRED,
+            TeacherApplicationStatus::ADMINISTRATIVE_REVIEW,
+        ];
+
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
-                'message' => 'Dokumen tidak dapat dihapus pada lamaran yang sudah dikirim.',
+                'message' => 'Dokumen tidak dapat dihapus pada lamaran yang terkunci.',
                 'code' => 'APPLICATION_LOCKED',
             ], 409);
         }
