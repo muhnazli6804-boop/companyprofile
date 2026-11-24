@@ -8,13 +8,16 @@ import {
   getStudentStatusHistory,
   uploadStudentDocument,
   resubmitStudentApplication,
+  downloadStudentReceipt,
 } from '@/features/student-application/api';
 import {
   getTeacherApplication,
   getTeacherStatusHistory,
   uploadTeacherDocument,
   resubmitTeacherApplication,
+  downloadTeacherReceipt,
 } from '@/features/teacher-application/api';
+import { triggerBlobDownload } from '@/utils/fileDownload';
 import type { StudentApplication, StatusHistoryItem, DocumentItem } from '@/features/student-application/types';
 import type { TeacherApplication, TeacherStatusHistoryItem, TeacherDocumentItem } from '@/features/teacher-application/types';
 import {
@@ -31,6 +34,7 @@ import {
   Upload,
   Send,
   RefreshCw,
+  Download,
 } from 'lucide-react';
 
 const getDocumentTypeLabel = (docType?: string, isTeacher = false): string => {
@@ -74,6 +78,7 @@ export const ApplicationStatusPage: React.FC = () => {
 
   const [isUploadingDoc, setIsUploadingDoc] = useState<number | null>(null);
   const [isResubmitting, setIsResubmitting] = useState(false);
+  const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [resubmitNote, setResubmitNote] = useState('');
@@ -160,6 +165,28 @@ export const ApplicationStatusPage: React.FC = () => {
     }
   };
 
+  const handleDownloadReceipt = async () => {
+    if (!id) return;
+    try {
+      setIsDownloadingReceipt(true);
+      setActionError(null);
+      if (isTeacher) {
+        const blob = await downloadTeacherReceipt(id);
+        const filename = `bukti-lamaran-${regNumber || id}.pdf`;
+        triggerBlobDownload(blob, filename);
+      } else {
+        const blob = await downloadStudentReceipt(id);
+        const filename = `bukti-pendaftaran-${regNumber || id}.pdf`;
+        triggerBlobDownload(blob, filename);
+      }
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setActionError(errObj.response?.data?.message || 'Gagal mengunduh tanda bukti pendaftaran resmi.');
+    } finally {
+      setIsDownloadingReceipt(false);
+    }
+  };
+
   if (loading) {
     return (
       <LoadingScreen
@@ -236,8 +263,29 @@ export const ApplicationStatusPage: React.FC = () => {
                 {regNumber || `DRAFT-${id}`}
               </span>
             </div>
-            <div>
+            <div className="flex flex-wrap items-center gap-2.5">
               <StatusBadge status={appStatus || 'draft'} className="text-sm px-3 py-1.5" />
+              {appStatus && appStatus !== 'draft' && (
+                <button
+                  type="button"
+                  onClick={handleDownloadReceipt}
+                  disabled={isDownloadingReceipt}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-primary text-white text-xs sm:text-sm font-semibold rounded-control hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors shadow-xs disabled:opacity-50"
+                  title="Unduh Tanda Bukti Pendaftaran Resmi Berstempel Digital (PDF)"
+                >
+                  {isDownloadingReceipt ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Mengunduh...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Unduh Bukti (PDF)</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -482,15 +530,6 @@ export const ApplicationStatusPage: React.FC = () => {
                   <>
                     <Send className="w-4 h-4" />
                     <span>{isTeacher ? 'Ajukan Ulang Lamaran' : 'Ajukan Ulang Pendaftaran'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Ajukan Ulang Pendaftaran</span>
                   </>
                 )}
               </button>

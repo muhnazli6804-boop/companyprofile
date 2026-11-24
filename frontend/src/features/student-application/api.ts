@@ -105,3 +105,10 @@ export const deleteStudentDraft = async (id: number | string) => {
   const res = await apiClient.delete(`/student-applications/${id}`);
   return res.data;
 };
+
+export const downloadStudentReceipt = async (id: number | string): Promise<Blob> => {
+  const res = await apiClient.get(`/student-applications/${id}/receipt`, {
+    responseType: 'blob',
+  });
+  return res.data;
+};

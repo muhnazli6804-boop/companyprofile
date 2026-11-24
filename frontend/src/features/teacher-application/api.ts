@@ -108,3 +108,10 @@ export const deleteTeacherDraft = async (id: number | string) => {
   const res = await apiClient.delete(`/teacher-applications/${id}`);
   return res.data;
 };
+
+export const downloadTeacherReceipt = async (id: number | string): Promise<Blob> => {
+  const res = await apiClient.get(`/teacher-applications/${id}/receipt`, {
+    responseType: 'blob',
+  });
+  return res.data;
+};
