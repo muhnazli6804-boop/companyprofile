@@ -144,4 +144,29 @@ class ActivityLogTest extends TestCase
         $this->assertTrue($attemptData->contains('id', $logStaff->id));
         $this->assertFalse($attemptData->contains('id', $logSuperAdmin->id));
     }
+
+    public function test_log_admin_activity_middleware_automatically_records_admin_actions(): void
+    {
+        // 1. Eksekusi mutasi setting oleh admin
+        $res = $this->actingAs($this->admin)->putJson('/api/v1/admin/settings', [
+            'settings' => [
+                'site_tagline' => 'Tagline Audit Middleware Uji',
+            ],
+        ]);
+        $res->assertStatus(200);
+
+        // Verifikasi otomatis tercatat di activity_logs
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $this->admin->id,
+            'action' => 'setting.update',
+        ]);
+
+        $initialCount = ActivityLog::count();
+
+        // 2. Request GET biasa (seperti dashboard) tidak dicatat agar tidak membanjiri log
+        $getRes = $this->actingAs($this->admin)->getJson('/api/v1/admin/dashboard');
+        $getRes->assertStatus(200);
+
+        $this->assertEquals($initialCount, ActivityLog::count());
+    }
 }
