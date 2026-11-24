@@ -147,4 +147,69 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
     expect(screen.queryByText(/Identitas & Logo Yayasan/)).not.toBeInTheDocument();
     expect(await screen.findByText('Manajemen Berita & Artikel Yayasan')).toBeInTheDocument();
   });
+
+  it('mem-parsing data site_achievements dan site_faqs dari backend saat reload dan mendukung aksi edit/hapus', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/admin/settings') {
+        return Promise.resolve({
+          data: {
+            data: {
+              flat: {
+                site_achievements: JSON.stringify([
+                  {
+                    id: 101,
+                    title: 'Juara 1 Sains Komputasi Nasional',
+                    category: 'Akademik',
+                    year: '2026',
+                    description: 'Kompetisi tingkat nasional',
+                  },
+                ]),
+                site_faqs: JSON.stringify([
+                  {
+                    id: 202,
+                    question: 'Apakah sekolah menyediakan asrama?',
+                    answer: 'Sekolah saat ini menyediakan fasilitas antar jemput.',
+                    sort_order: 1,
+                  },
+                ]),
+              },
+              grouped: {},
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderWithClient(<CmsPage />);
+
+    // 1. Verifikasi parsing site_achievements
+    const achTab = screen.getByText('5. Prestasi & Fasilitas');
+    fireEvent.click(achTab);
+    expect(await screen.findByText('Juara 1 Sains Komputasi Nasional')).toBeInTheDocument();
+
+    // Hapus prestasi
+    const deleteAchBtn = screen.getByRole('button', { name: 'Hapus' });
+    fireEvent.click(deleteAchBtn);
+    expect(apiClient.put).toHaveBeenCalledWith('/admin/settings', expect.objectContaining({
+      settings: expect.objectContaining({
+        site_achievements: JSON.stringify([]),
+      }),
+    }));
+
+    // 2. Verifikasi parsing site_faqs
+    const faqTab = screen.getByText('6. FAQ & Kontak');
+    fireEvent.click(faqTab);
+    expect(await screen.findByText('Apakah sekolah menyediakan asrama?')).toBeInTheDocument();
+
+    // Hapus FAQ
+    const deleteFaqBtn = screen.getByRole('button', { name: 'Hapus' });
+    fireEvent.click(deleteFaqBtn);
+    expect(apiClient.put).toHaveBeenCalledWith('/admin/settings', expect.objectContaining({
+      settings: expect.objectContaining({
+        site_faqs: JSON.stringify([]),
+      }),
+    }));
+  });
 });

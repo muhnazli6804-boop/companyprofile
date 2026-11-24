@@ -477,18 +477,21 @@ export const CmsPage: React.FC = () => {
         }
       }
       if (f.about_description) setAboutDescription(f.about_description);
-      if (f.site_achievements) {
+      const rawAchievements = f.site_achievements ?? f.achievements;
+      if (rawAchievements !== undefined && rawAchievements !== null) {
         try {
-          const parsedAchievements = JSON.parse(f.site_achievements);
-          if (Array.isArray(parsedAchievements) && parsedAchievements.length > 0) {
+          const parsedAchievements =
+            typeof rawAchievements === 'string' ? JSON.parse(rawAchievements) : rawAchievements;
+          if (Array.isArray(parsedAchievements)) {
             setAchievements(parsedAchievements);
           }
         } catch {}
       }
-      if (f.site_faqs) {
+      const rawFaqs = f.site_faqs ?? f.faqs;
+      if (rawFaqs !== undefined && rawFaqs !== null) {
         try {
-          const parsedFaqs = JSON.parse(f.site_faqs);
-          if (Array.isArray(parsedFaqs) && parsedFaqs.length > 0) {
+          const parsedFaqs = typeof rawFaqs === 'string' ? JSON.parse(rawFaqs) : rawFaqs;
+          if (Array.isArray(parsedFaqs)) {
             setFaqs(parsedFaqs);
           }
         } catch {}
@@ -781,6 +784,7 @@ export const CmsPage: React.FC = () => {
       alert('Nama prestasi wajib diisi.');
       return;
     }
+    const isEdit = Boolean(achievementForm.id);
     const updated = achievementForm.id
       ? achievements.map((a) => (a.id === achievementForm.id ? { ...(achievementForm as AchievementItem) } : a))
       : [
@@ -798,11 +802,24 @@ export const CmsPage: React.FC = () => {
       await updateSettings({ site_achievements: JSON.stringify(updated) });
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
       queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast(isEdit ? 'Prestasi berhasil diperbarui.' : 'Prestasi siswa berhasil disimpan.');
     } catch {
-      // offline fallback
+      showToast('Gagal menyimpan prestasi ke server.');
     }
     setAchievementModalOpen(false);
-    showToast('Prestasi siswa berhasil disimpan.');
+  };
+
+  const handleDeleteAchievement = async (id: number) => {
+    const updated = achievements.filter((a) => a.id !== id);
+    setAchievements(updated);
+    try {
+      await updateSettings({ site_achievements: JSON.stringify(updated) });
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast('Prestasi berhasil dihapus.');
+    } catch {
+      showToast('Gagal menghapus prestasi dari server.');
+    }
   };
 
   // --- Handlers: FAQ ---
@@ -811,6 +828,7 @@ export const CmsPage: React.FC = () => {
       alert('Pertanyaan dan jawaban FAQ wajib diisi.');
       return;
     }
+    const isEdit = Boolean(faqForm.id);
     const updated = faqForm.id
       ? faqs.map((f) => (f.id === faqForm.id ? { ...(faqForm as FaqItem) } : f))
       : [
@@ -827,11 +845,24 @@ export const CmsPage: React.FC = () => {
       await updateSettings({ site_faqs: JSON.stringify(updated) });
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
       queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast(isEdit ? 'FAQ berhasil diperbarui.' : 'FAQ berhasil disimpan.');
     } catch {
-      // offline fallback
+      showToast('Gagal menyimpan FAQ ke server.');
     }
     setFaqModalOpen(false);
-    showToast('FAQ berhasil disimpan.');
+  };
+
+  const handleDeleteFaq = async (id: number) => {
+    const updated = faqs.filter((f) => f.id !== id);
+    setFaqs(updated);
+    try {
+      await updateSettings({ site_faqs: JSON.stringify(updated) });
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'settings'] });
+      showToast('FAQ berhasil dihapus.');
+    } catch {
+      showToast('Gagal menghapus FAQ dari server.');
+    }
   };
 
   return (
@@ -1556,7 +1587,26 @@ export const CmsPage: React.FC = () => {
                 <div key={ach.id} className="p-4 bg-paper rounded-card border border-navy/10 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{ach.category}</span>
-                    <span className="font-semibold text-ink-muted">Tahun {ach.year}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink-muted">Tahun {ach.year}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAchievementForm(ach);
+                          setAchievementModalOpen(true);
+                        }}
+                        className="text-primary hover:underline font-semibold ml-2"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAchievement(ach.id)}
+                        className="text-rose-600 hover:underline font-semibold ml-1"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </div>
                   <h4 className="font-bold text-sm text-navy">{ach.title}</h4>
                   <p className="text-xs text-ink-muted">{ach.description}</p>
@@ -1602,16 +1652,25 @@ export const CmsPage: React.FC = () => {
                       </span>
                       {f.question}
                     </h4>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFaqs((prev) => prev.filter((item) => item.id !== f.id));
-                        showToast('FAQ berhasil dihapus.');
-                      }}
-                      className="text-xs text-rose-600 hover:underline"
-                    >
-                      Hapus
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFaqForm(f);
+                          setFaqModalOpen(true);
+                        }}
+                        className="text-xs text-primary hover:underline font-semibold"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFaq(f.id)}
+                        className="text-xs text-rose-600 hover:underline font-semibold"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </div>
                   <p className="text-xs text-ink-muted pl-7">{f.answer}</p>
                 </div>
@@ -2479,7 +2538,9 @@ export const CmsPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-card shadow-2xl border border-navy/20 w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 bg-navy text-white flex items-center justify-between">
-              <h3 className="font-display font-bold text-base">Tambah Prestasi Siswa / Sekolah</h3>
+              <h3 className="font-display font-bold text-base">
+                {achievementForm.id ? 'Edit Prestasi Siswa / Sekolah' : 'Tambah Prestasi Siswa / Sekolah'}
+              </h3>
               <button type="button" onClick={() => setAchievementModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
             </div>
             <div className="p-6 space-y-3 text-xs">
@@ -2529,7 +2590,9 @@ export const CmsPage: React.FC = () => {
             </div>
             <div className="px-6 py-3 bg-paper border-t border-navy/10 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setAchievementModalOpen(false)}>Batal</Button>
-              <Button variant="primary" size="sm" onClick={handleSaveAchievement} className="bg-navy text-white">Simpan Prestasi</Button>
+              <Button variant="primary" size="sm" onClick={handleSaveAchievement} className="bg-navy text-white">
+                {achievementForm.id ? 'Perbarui Prestasi' : 'Simpan Prestasi'}
+              </Button>
             </div>
           </div>
         </div>
@@ -2542,7 +2605,9 @@ export const CmsPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-card shadow-2xl border border-navy/20 w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 bg-navy text-white flex items-center justify-between">
-              <h3 className="font-display font-bold text-base">Tambah Pertanyaan FAQ</h3>
+              <h3 className="font-display font-bold text-base">
+                {faqForm.id ? 'Edit Pertanyaan FAQ' : 'Tambah Pertanyaan FAQ'}
+              </h3>
               <button type="button" onClick={() => setFaqModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
             </div>
             <div className="p-6 space-y-3 text-xs">
@@ -2569,7 +2634,9 @@ export const CmsPage: React.FC = () => {
             </div>
             <div className="px-6 py-3 bg-paper border-t border-navy/10 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setFaqModalOpen(false)}>Batal</Button>
-              <Button variant="primary" size="sm" onClick={handleSaveFaq} className="bg-navy text-white">Simpan FAQ</Button>
+              <Button variant="primary" size="sm" onClick={handleSaveFaq} className="bg-navy text-white">
+                {faqForm.id ? 'Perbarui FAQ' : 'Simpan FAQ'}
+              </Button>
             </div>
           </div>
         </div>
