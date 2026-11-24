@@ -6,6 +6,9 @@ namespace App\Enums;
 enum PostStatus: string
 {
     case DRAFT = 'draft';
+    case PENDING = 'pending';
+    case REVISION = 'revision';
+    case REJECTED = 'rejected';
     case PUBLISHED = 'published';
     case ARCHIVED = 'archived';
 
@@ -13,6 +16,9 @@ enum PostStatus: string
     {
         return match ($this) {
             self::DRAFT => 'Draft',
+            self::PENDING => 'Menunggu Persetujuan',
+            self::REVISION => 'Perlu Revisi',
+            self::REJECTED => 'Ditolak',
             self::PUBLISHED => 'Diterbitkan',
             self::ARCHIVED => 'Diarsipkan',
         };

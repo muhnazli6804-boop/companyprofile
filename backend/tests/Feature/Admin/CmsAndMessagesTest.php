@@ -277,4 +277,78 @@ class CmsAndMessagesTest extends TestCase
         $applicantUser = User::factory()->create(['user_type' => 'applicant', 'is_active' => true]);
         $this->actingAs($applicantUser)->getJson('/api/v1/admin/cms')->assertStatus(403);
     }
+
+    public function test_posts_and_galleries_support_pending_revision_and_rejected_statuses(): void
+    {
+        // 1. Post creation & update with extended statuses
+        $postRes = $this->actingAs($this->admin)->postJson('/api/v1/admin/posts', [
+            'title' => 'Artikel Menunggu Moderasi',
+            'content' => 'Konten artikel menunggu review yayasan.',
+            'status' => 'pending',
+        ]);
+        $postRes->assertStatus(201);
+        $this->assertEquals('pending', $postRes->json('data.status'));
+        $postId = $postRes->json('data.id');
+
+        // Update to revision
+        $revRes = $this->actingAs($this->admin)->putJson("/api/v1/admin/posts/{$postId}", [
+            'status' => 'revision',
+        ]);
+        $revRes->assertStatus(200);
+        $this->assertEquals('revision', $revRes->json('data.status'));
+
+        // Update to rejected
+        $rejRes = $this->actingAs($this->admin)->putJson("/api/v1/admin/posts/{$postId}", [
+            'status' => 'rejected',
+        ]);
+        $rejRes->assertStatus(200);
+        $this->assertEquals('rejected', $rejRes->json('data.status'));
+
+        // Invalid status should be rejected
+        $invRes = $this->actingAs($this->admin)->putJson("/api/v1/admin/posts/{$postId}", [
+            'status' => 'invalid_status_xyz',
+        ]);
+        $invRes->assertStatus(422);
+
+        // 2. Gallery creation & update with extended statuses and is_published sync
+        $galRes = $this->actingAs($this->admin)->postJson('/api/v1/admin/galleries', [
+            'title' => 'Dokumentasi Pending Verifikasi',
+            'description' => 'Foto kegiatan ekskul',
+            'status' => 'pending',
+        ]);
+        $galRes->assertStatus(201);
+        $this->assertEquals('pending', $galRes->json('data.status'));
+        $this->assertFalse($galRes->json('data.is_published'));
+        $galId = $galRes->json('data.id');
+
+        // Update gallery to revision
+        $galRev = $this->actingAs($this->admin)->putJson("/api/v1/admin/galleries/{$galId}", [
+            'status' => 'revision',
+        ]);
+        $galRev->assertStatus(200);
+        $this->assertEquals('revision', $galRev->json('data.status'));
+        $this->assertFalse($galRev->json('data.is_published'));
+
+        // Update gallery to rejected
+        $galRej = $this->actingAs($this->admin)->putJson("/api/v1/admin/galleries/{$galId}", [
+            'status' => 'rejected',
+        ]);
+        $galRej->assertStatus(200);
+        $this->assertEquals('rejected', $galRej->json('data.status'));
+        $this->assertFalse($galRej->json('data.is_published'));
+
+        // Update gallery to published
+        $galPub = $this->actingAs($this->admin)->putJson("/api/v1/admin/galleries/{$galId}", [
+            'status' => 'published',
+        ]);
+        $galPub->assertStatus(200);
+        $this->assertEquals('published', $galPub->json('data.status'));
+        $this->assertTrue($galPub->json('data.is_published'));
+
+        // Invalid status on gallery should be rejected
+        $galInv = $this->actingAs($this->admin)->putJson("/api/v1/admin/galleries/{$galId}", [
+            'status' => 'not_a_valid_status',
+        ]);
+        $galInv->assertStatus(422);
+    }
 }

@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('excerpt', 500)->nullable();
             $table->text('content');
             $table->string('cover_path', 255)->nullable();
-            $table->string('status', 10)->default('draft');
+            $table->string('status', 20)->default('draft');
             $table->timestampTz('published_at')->nullable();
             $table->string('meta_title', 160)->nullable();
             $table->string('meta_description', 320)->nullable();
@@ -35,7 +35,7 @@ return new class extends Migration
             $table->softDeletesTz();
         });
 
-        DB::statement("ALTER TABLE posts ADD CONSTRAINT posts_status_check CHECK (status IN ('draft', 'published', 'archived'))");
+        DB::statement("ALTER TABLE posts ADD CONSTRAINT posts_status_check CHECK (status IN ('draft', 'published', 'archived', 'pending', 'revision', 'rejected'))");
         DB::statement('CREATE UNIQUE INDEX posts_slug_unique ON posts (slug) WHERE deleted_at IS NULL');
         DB::statement('CREATE INDEX posts_list_idx ON posts (status, published_at DESC)');
         DB::statement('CREATE INDEX posts_category_idx ON posts (post_category_id)');
@@ -75,12 +75,14 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('cover_path', 255)->nullable();
             $table->date('event_date')->nullable();
+            $table->string('status', 20)->default('draft');
             $table->boolean('is_published')->default(true);
             $table->timestampTz('created_at')->useCurrent();
             $table->timestampTz('updated_at')->useCurrent();
             $table->softDeletesTz();
         });
 
+        DB::statement("ALTER TABLE galleries ADD CONSTRAINT galleries_status_check CHECK (status IN ('draft', 'published', 'archived', 'pending', 'revision', 'rejected'))");
         DB::statement('CREATE UNIQUE INDEX galleries_slug_unique ON galleries (slug) WHERE deleted_at IS NULL');
 
         Schema::create('gallery_items', function (Blueprint $table) {

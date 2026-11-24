@@ -28,6 +28,7 @@ class GalleryController extends Controller
             'description' => ['nullable', 'string'],
             'cover_path' => ['nullable', 'string', 'max:255'],
             'event_date' => ['nullable', 'date'],
+            'status' => ['nullable', 'in:draft,published,archived,pending,revision,rejected'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -39,7 +40,10 @@ class GalleryController extends Controller
             $counter++;
         }
         $validated['slug'] = $slug;
-        $validated['is_published'] = $validated['is_published'] ?? true;
+
+        $statusStr = $validated['status'] ?? ($validated['is_published'] ?? true ? 'published' : 'draft');
+        $validated['status'] = $statusStr;
+        $validated['is_published'] = ($statusStr === 'published');
 
         $gallery = Gallery::create($validated);
         $gallery->load('items');
@@ -64,11 +68,12 @@ class GalleryController extends Controller
         $gallery = Gallery::findOrFail($id);
 
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:200'],
+            'title' => ['sometimes', 'required', 'string', 'max:200'],
             'slug' => ['nullable', 'string', 'max:220'],
             'description' => ['nullable', 'string'],
             'cover_path' => ['nullable', 'string', 'max:255'],
             'event_date' => ['nullable', 'date'],
+            'status' => ['nullable', 'in:draft,published,archived,pending,revision,rejected'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -81,6 +86,12 @@ class GalleryController extends Controller
                 $counter++;
             }
             $validated['slug'] = $slug;
+        }
+
+        if (isset($validated['status'])) {
+            $validated['is_published'] = ($validated['status'] === 'published');
+        } elseif (isset($validated['is_published'])) {
+            $validated['status'] = $validated['is_published'] ? 'published' : 'draft';
         }
 
         $gallery->update($validated);
