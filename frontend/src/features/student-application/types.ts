@@ -41,6 +41,7 @@ export interface DocumentItem {
   original_name: string;
   size_bytes: number;
   verification_status: string;
+  verification_note?: string | null;
   created_at: string;
 }
 
@@ -61,6 +62,7 @@ export interface StudentApplication {
   status: string;
   current_step: number;
   track?: string | null;
+  admin_note?: string | null;
   period?: { id: number; name: string; academic_year: string } | null;
   unit?: { id: number; code: string; name: string; slug: string; level: string } | null;
   student?: StudentData | null;

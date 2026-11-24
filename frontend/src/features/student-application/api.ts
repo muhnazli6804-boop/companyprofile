@@ -82,6 +82,20 @@ export const submitStudentApplication = async (id: number | string) => {
   return res.data.data;
 };
 
+export const resubmitStudentApplication = async (
+  id: number | string,
+  data?: { note?: string }
+) => {
+  const res = await apiClient.post<ApiResponse<{
+    id: number;
+    registration_number: string;
+    status: string;
+    submitted_at: string;
+    application: StudentApplication;
+  }>>(`/student-applications/${id}/resubmit`, data || {});
+  return res.data.data;
+};
+
 export const getStudentStatusHistory = async (id: number | string): Promise<StatusHistoryItem[]> => {
   const res = await apiClient.get<ApiResponse<StatusHistoryItem[]>>(`/student-applications/${id}/status-history`);
   return res.data.data;

@@ -105,7 +105,8 @@ class StudentApplicationController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== StudentApplicationStatus::DRAFT) {
+        $editableStatuses = [StudentApplicationStatus::DRAFT, StudentApplicationStatus::REVISION_REQUIRED];
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'Data pendaftaran yang sudah dikirim tidak dapat diubah.',
                 'code' => 'APPLICATION_LOCKED',
@@ -165,7 +166,8 @@ class StudentApplicationController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== StudentApplicationStatus::DRAFT) {
+        $editableStatuses = [StudentApplicationStatus::DRAFT, StudentApplicationStatus::REVISION_REQUIRED];
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'Data pendaftaran yang sudah dikirim tidak dapat diubah.',
                 'code' => 'APPLICATION_LOCKED',
@@ -226,7 +228,8 @@ class StudentApplicationController extends Controller
     {
         $application = $this->getApplication($id, $request->user()->id);
 
-        if ($application->status !== StudentApplicationStatus::DRAFT) {
+        $editableStatuses = [StudentApplicationStatus::DRAFT, StudentApplicationStatus::REVISION_REQUIRED];
+        if (! in_array($application->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'Data pendaftaran yang sudah dikirim tidak dapat diubah.',
                 'code' => 'APPLICATION_LOCKED',
@@ -390,12 +393,89 @@ class StudentApplicationController extends Controller
         ])->header('Cache-Control', 'no-store');
     }
 
-    public function resubmit()
+    public function resubmit(Request $request, $id): JsonResponse
     {
+        $application = $this->getApplication($id, $request->user()->id);
+
+        if ($application->status !== StudentApplicationStatus::REVISION_REQUIRED) {
+            return response()->json([
+                'message' => 'Hanya pendaftaran dengan status perlu revisi yang dapat diajukan ulang.',
+                'code' => 'APPLICATION_NOT_IN_REVISION',
+            ], 409);
+        }
+
+        // Cek persyaratan dokumen wajib
+        $requiredTypes = DocumentRequirement::query()
+            ->where('applicant_type', 'student')
+            ->where('is_active', true)
+            ->where('is_required', true)
+            ->where(function ($q) use ($application) {
+                $q->whereNull('education_unit_id')
+                    ->orWhere('education_unit_id', $application->education_unit_id);
+            })
+            ->pluck('document_type')
+            ->toArray();
+
+        $uploadedTypes = $application->documents->pluck('document_type')->toArray();
+        $missing = array_values(array_diff($requiredTypes, $uploadedTypes));
+
+        if (! empty($missing)) {
+            return response()->json([
+                'message' => 'Dokumen wajib belum lengkap.',
+                'code' => 'DOCUMENTS_INCOMPLETE',
+                'missing' => $missing,
+            ], 409);
+        }
+
+        // Cek jika masih ada dokumen berstatus 'invalid'
+        $hasInvalidDocs = $application->documents->contains(function ($doc) {
+            $status = $doc->verification_status instanceof \BackedEnum ? $doc->verification_status->value : (string) $doc->verification_status;
+            return $status === 'invalid';
+        });
+
+        if ($hasInvalidDocs) {
+            return response()->json([
+                'message' => 'Masih ada dokumen berstatus perlu perbaikan (invalid) yang belum diperbarui.',
+                'code' => 'INVALID_DOCUMENTS_REMAINING',
+            ], 409);
+        }
+
+        $validated = $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $note = $validated['note'] ?? 'Pendaftar mengajukan ulang berkas setelah perbaikan/revisi.';
+        $toStatus = StudentApplicationStatus::IN_REVIEW;
+
+        DB::transaction(function () use ($application, $request, $note, $toStatus) {
+            $application->update([
+                'status' => $toStatus,
+                'submitted_at' => now(),
+            ]);
+
+            ApplicationStatusLog::create([
+                'loggable_type' => 'student_application',
+                'loggable_id' => $application->id,
+                'from_status' => 'revision_required',
+                'to_status' => $toStatus->value,
+                'note' => $note,
+                'changed_by' => $request->user()->id,
+                'created_at' => now(),
+            ]);
+        });
+
+        $application->load(['educationUnit', 'registrationPeriod', 'student', 'guardians', 'documents']);
+
         return response()->json([
-            'message' => 'Endpoint belum diimplementasikan.',
-            'code' => 'NOT_IMPLEMENTED',
-        ], 501);
+            'message' => 'Pendaftaran berhasil diajukan ulang.',
+            'data' => [
+                'id' => $application->id,
+                'registration_number' => $application->registration_number,
+                'status' => $toStatus->value,
+                'submitted_at' => $application->submitted_at?->toIso8601String(),
+                'application' => new StudentApplicationResource($application),
+            ],
+        ])->header('Cache-Control', 'no-store');
     }
 
     public function statusHistory(Request $request, $id): JsonResponse

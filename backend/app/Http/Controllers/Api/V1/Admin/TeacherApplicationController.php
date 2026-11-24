@@ -103,7 +103,7 @@ class TeacherApplicationController extends Controller
 
         DB::transaction(function () use ($application, $fromStatus, $toStatus, $note, $adminId) {
             ApplicationStatusLog::create([
-                'loggable_type' => TeacherApplication::class,
+                'loggable_type' => 'teacher_application',
                 'loggable_id' => $application->id,
                 'from_status' => $fromStatus,
                 'to_status' => $toStatus,
@@ -152,11 +152,7 @@ class TeacherApplicationController extends Controller
     {
         $application = TeacherApplication::findOrFail($id);
 
-        $logs = ApplicationStatusLog::with('changedBy')
-            ->where('loggable_type', TeacherApplication::class)
-            ->where('loggable_id', $application->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $logs = $application->statusLogs()->with('changedBy')->get();
 
         return response()->json([
             'data' => $logs->map(function ($log) {
