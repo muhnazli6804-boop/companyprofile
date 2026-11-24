@@ -25,8 +25,8 @@ Buka **/admin/keuangan** sebagai Super Admin. Di bawah dashboard ada panel **Pen
 | Siapa | Melihat dashboard | Mengubah pengaturan |
 |---|---|---|
 | Super Admin | ya | ya |
-| Role dengan `finance.view` lain (mis. Staf TU) | ya, tanpa panel pengaturan | tidak (403) |
-| Admin Konten, Admin Pendaftaran, Guru | tidak (403, menu tersembunyi) | tidak (403) |
+| Role kustom yang diberi `finance.view` | ya, tanpa panel pengaturan | tidak (403) |
+| Staf TU, Admin Konten, Admin Pendaftaran, Guru | tidak (403, menu tersembunyi) | tidak (403) |
 
 Catatan: iframe memakai sesi Google browser admin. Bila laporan dibatasi, akun Google yang login di browser itu harus punya akses ke laporan.
 
