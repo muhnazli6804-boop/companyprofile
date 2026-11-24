@@ -723,7 +723,7 @@ class StaffContentStore {
           thumbnailUrl: g.cover_path || (g.items && g.items[0]?.path) || '/images/gallery/classroom-sd.jpg',
           eventDate: g.event_date || new Date().toISOString().split('T')[0],
           description: g.description || '',
-          status: g.is_published ? 'published' : 'draft',
+          status: (g.status as PublicationStatus) || (g.is_published ? 'published' : 'draft'),
           author: 'Staf Yayasan',
         }));
 
@@ -857,7 +857,7 @@ class StaffContentStore {
       excerpt: result.excerpt,
       content: result.content,
       cover_path: result.thumbnail,
-      status: result.status === 'published' ? 'published' : (result.status === 'archived' ? 'archived' : 'draft'),
+      status: result.status,
       meta_title: result.metaTitle,
       meta_description: result.metaDescription,
       published_at: result.publishedAt,
@@ -922,6 +922,8 @@ class StaffContentStore {
       apiClient.patch(`/admin/posts/${id}/unpublish`).catch(() => {});
     } else if (status === 'archived') {
       apiClient.patch(`/admin/posts/${id}/archive`).catch(() => {});
+    } else {
+      apiClient.put(`/admin/posts/${id}`, { status }).catch(() => {});
     }
 
     return list[index];
@@ -1095,6 +1097,7 @@ class StaffContentStore {
       description: result.description,
       cover_path: result.mediaUrl || result.thumbnailUrl,
       event_date: result.eventDate,
+      status: result.status,
       is_published: result.status === 'published',
     };
 

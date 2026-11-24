@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import { Stepper } from '@/components/form/Stepper';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
-import { useRegistrationInfo } from '@/features/public/hooks';
+import { useRegistrationInfo, useVacancies } from '@/features/public/hooks';
 import {
   createTeacherApplication,
   getTeacherApplication,
@@ -31,6 +31,7 @@ import {
 const formSchema = z.object({
   applied_position: z.string().min(2, 'Posisi yang dilamar wajib diisi').max(200),
   education_unit_id: z.number().optional().nullable(),
+  teacher_vacancy_id: z.number().optional().nullable(),
   // Data Pribadi
   full_name: z.string().min(2, 'Nama lengkap wajib diisi').max(150),
   gender: z.enum(['L', 'P'] as const),
@@ -87,10 +88,15 @@ type FormValues = z.infer<typeof formSchema>;
 
 export const TeacherFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+  const vacancyIdParam = searchParams.get('vacancy_id');
   const navigate = useNavigate();
   const { data: regInfo } = useRegistrationInfo();
+  const { data: vacancies = [] } = useVacancies();
   const [serverError, setServerError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(Boolean(id));
+
+  const linkedVacancy = vacancies.find((v) => String(v.id) === vacancyIdParam);
 
   const {
     register,
@@ -136,11 +142,25 @@ export const TeacherFormPage: React.FC = () => {
 
   // Load existing application if ID is provided
   useEffect(() => {
+    if (!id && vacancyIdParam) {
+      setValue('teacher_vacancy_id', Number(vacancyIdParam));
+      if (linkedVacancy) {
+        setValue('applied_position', linkedVacancy.title);
+        const unitId = linkedVacancy.education_unit?.id || (linkedVacancy as { education_unit_id?: number }).education_unit_id;
+        if (unitId) {
+          setValue('education_unit_id', unitId);
+        }
+      }
+    }
+  }, [id, vacancyIdParam, linkedVacancy, setValue]);
+
+  useEffect(() => {
     if (!id) return;
     getTeacherApplication(id)
       .then((app) => {
         setValue('applied_position', app.applied_position);
         if (app.unit?.id) setValue('education_unit_id', app.unit.id);
+        if (app.vacancy?.id) setValue('teacher_vacancy_id', app.vacancy.id);
         setValue('full_name', app.full_name);
         setValue('gender', app.gender);
         setValue('birth_place', app.birth_place);
@@ -199,6 +219,7 @@ export const TeacherFormPage: React.FC = () => {
         const initial = await createTeacherApplication({
           applied_position: values.applied_position,
           education_unit_id: values.education_unit_id || null,
+          teacher_vacancy_id: values.teacher_vacancy_id ?? (vacancyIdParam ? Number(vacancyIdParam) : null),
         });
         appId = String(initial.id);
       }
@@ -215,6 +236,7 @@ export const TeacherFormPage: React.FC = () => {
       await updateTeacherStep1(appId, {
         applied_position: values.applied_position,
         education_unit_id: values.education_unit_id || null,
+        teacher_vacancy_id: values.teacher_vacancy_id ?? (vacancyIdParam ? Number(vacancyIdParam) : null),
         full_name: values.full_name,
         gender: values.gender,
         birth_place: values.birth_place,
@@ -323,6 +345,24 @@ export const TeacherFormPage: React.FC = () => {
               <Briefcase className="w-5 h-5 text-primary" />
               <span>1. Posisi & Unit yang Dilamar</span>
             </h2>
+
+            {linkedVacancy && (
+              <div className="mb-4 p-3.5 bg-navy/5 border border-navy/15 rounded-control flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs font-sans">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-primary shrink-0" />
+                  <div>
+                    <span className="font-semibold text-primary">Melamar Formasi: </span>
+                    <strong className="text-ink">{linkedVacancy.title}</strong>
+                    {linkedVacancy.education_unit?.name && (
+                      <span className="text-muted"> — {linkedVacancy.education_unit.name}</span>
+                    )}
+                  </div>
+                </div>
+                <Link to="/lowongan-guru" className="text-primary hover:underline font-semibold self-start sm:self-auto">
+                  Pilih Formasi Lain
+                </Link>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>

@@ -116,6 +116,7 @@ export const router = createBrowserRouter([
       { path: 'masuk', element: <SuspenseWrapper><LoginPage /></SuspenseWrapper> },
       { path: 'daftar-akun', element: <SuspenseWrapper><RegisterPage /></SuspenseWrapper> },
       { path: 'lupa-kata-sandi', element: <SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper> },
+      { path: 'verifikasi-email', element: <SuspenseWrapper><VerifyEmailPage /></SuspenseWrapper> },
 
       // Rute Masuk / Autentikasi Staff & Guru (dibungkus PublicLayout agar seragam)
       { path: 'staff/login', element: <SuspenseWrapper><StaffLoginPage /></SuspenseWrapper> },

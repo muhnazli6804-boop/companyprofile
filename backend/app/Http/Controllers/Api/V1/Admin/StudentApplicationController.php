@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\AdminStudentApplicationResource;
 use App\Models\ApplicationStatusLog;
 use App\Models\StudentApplication;
+use App\Notifications\ApplicationStatusChangedNotification;
+use App\Notifications\RevisionRequestedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -126,7 +128,15 @@ class StudentApplicationController extends Controller
             ]);
         });
 
-        $application->load(['student', 'guardians', 'educationUnit', 'registrationPeriod', 'documents', 'statusLogs.changedBy', 'reviewer']);
+        $application->load(['student', 'guardians', 'educationUnit', 'registrationPeriod', 'documents', 'statusLogs.changedBy', 'reviewer', 'user']);
+
+        if ($application->user) {
+            if ($toStatus === StudentApplicationStatus::REVISION_REQUIRED->value || $toStatus === 'revision_required') {
+                $application->user->notify(new RevisionRequestedNotification($application, 'student', $note));
+            } else {
+                $application->user->notify(new ApplicationStatusChangedNotification($application, $toStatus, 'student', $note));
+            }
+        }
 
         return response()->json([
             'data' => new AdminStudentApplicationResource($application),
@@ -190,7 +200,7 @@ class StudentApplicationController extends Controller
         $updatedCount = 0;
 
         DB::transaction(function () use ($validated, $adminId, &$updatedCount) {
-            $apps = StudentApplication::whereIn('id', $validated['ids'])->get();
+            $apps = StudentApplication::with('user')->whereIn('id', $validated['ids'])->get();
 
             foreach ($apps as $app) {
                 $fromStatus = $app->status instanceof \BackedEnum ? $app->status->value : (string) $app->status;
@@ -210,6 +220,14 @@ class StudentApplicationController extends Controller
                     'reviewed_by' => $adminId,
                     'reviewed_at' => now(),
                 ]);
+
+                if ($app->user) {
+                    if ($validated['status'] === StudentApplicationStatus::REVISION_REQUIRED->value || $validated['status'] === 'revision_required') {
+                        $app->user->notify(new RevisionRequestedNotification($app, 'student', $validated['note'] ?? null));
+                    } else {
+                        $app->user->notify(new ApplicationStatusChangedNotification($app, $validated['status'], 'student', $validated['note'] ?? null));
+                    }
+                }
 
                 $updatedCount++;
             }

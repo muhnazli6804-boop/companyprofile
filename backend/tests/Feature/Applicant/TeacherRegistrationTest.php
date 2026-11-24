@@ -165,3 +165,58 @@ test('US-R12: Mencegah akses IDOR ke lamaran guru orang lain', function () {
     $response->assertStatus(404)
         ->assertJsonPath('code', 'NOT_FOUND');
 });
+
+test('calon guru dapat membuat lamaran yang terikat pada lowongan tertentu (teacher_vacancy_id)', function () {
+    $vacancy = \App\Models\TeacherVacancy::create([
+        'title' => 'Guru IPA SMP Terpadu',
+        'slug' => 'guru-ipa-smp-'.uniqid(),
+        'education_unit_id' => $this->smp->id,
+        'quota' => 2,
+        'is_published' => true,
+        'opens_at' => now()->subDay(),
+        'closes_at' => now()->addDays(30),
+    ]);
+
+    $createResponse = $this->actingAs($this->user)
+        ->postJson('/api/v1/teacher-applications', [
+            'applied_position' => 'Guru IPA SMP Terpadu',
+            'education_unit_id' => $this->smp->id,
+            'teacher_vacancy_id' => $vacancy->id,
+        ]);
+
+    $createResponse->assertStatus(201)
+        ->assertJsonPath('data.vacancy.id', $vacancy->id)
+        ->assertJsonPath('data.vacancy.title', 'Guru IPA SMP Terpadu');
+
+    $appId = $createResponse->json('data.id');
+
+    $this->assertDatabaseHas('teacher_applications', [
+        'id' => $appId,
+        'teacher_vacancy_id' => $vacancy->id,
+    ]);
+
+    // Step 1 preserves or updates vacancy
+    $step1Response = $this->actingAs($this->user)
+        ->putJson("/api/v1/teacher-applications/{$appId}/steps/1", [
+            'applied_position' => 'Guru IPA SMP Terpadu',
+            'education_unit_id' => $this->smp->id,
+            'teacher_vacancy_id' => $vacancy->id,
+            'full_name' => 'Siti Nurhaliza, S.Si.',
+            'gender' => 'P',
+            'birth_place' => 'Jakarta',
+            'birth_date' => '1996-05-12',
+            'nik' => '3171015205960001',
+            'phone' => '081234567899',
+            'email' => 'siti@example.com',
+            'address' => 'Jl. Kebon Jeruk No. 10',
+            'teaching_subjects' => ['Biologi', 'Fisika'],
+        ]);
+
+    $step1Response->assertStatus(200)
+        ->assertJsonPath('data.vacancy.id', $vacancy->id);
+
+    $this->assertDatabaseHas('teacher_applications', [
+        'id' => $appId,
+        'teacher_vacancy_id' => $vacancy->id,
+    ]);
+});

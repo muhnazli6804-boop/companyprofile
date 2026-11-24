@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\AdminTeacherApplicationResource;
 use App\Models\ApplicationStatusLog;
 use App\Models\TeacherApplication;
+use App\Notifications\ApplicationStatusChangedNotification;
+use App\Notifications\RevisionRequestedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +122,15 @@ class TeacherApplicationController extends Controller
             ]);
         });
 
-        $application->load(['educationUnit', 'vacancy', 'educations', 'experiences', 'certifications', 'documents', 'statusLogs.changedBy', 'reviewer']);
+        $application->load(['educationUnit', 'vacancy', 'educations', 'experiences', 'certifications', 'documents', 'statusLogs.changedBy', 'reviewer', 'user']);
+
+        if ($application->user) {
+            if ($toStatus === TeacherApplicationStatus::REVISION_REQUIRED->value || $toStatus === 'revision_required') {
+                $application->user->notify(new RevisionRequestedNotification($application, 'teacher', $note));
+            } else {
+                $application->user->notify(new ApplicationStatusChangedNotification($application, $toStatus, 'teacher', $note));
+            }
+        }
 
         return response()->json([
             'data' => new AdminTeacherApplicationResource($application),
@@ -184,7 +194,7 @@ class TeacherApplicationController extends Controller
         $updatedCount = 0;
 
         DB::transaction(function () use ($validated, $adminId, &$updatedCount) {
-            $apps = TeacherApplication::whereIn('id', $validated['ids'])->get();
+            $apps = TeacherApplication::with('user')->whereIn('id', $validated['ids'])->get();
 
             foreach ($apps as $app) {
                 $fromStatus = $app->status instanceof \BackedEnum ? $app->status->value : (string) $app->status;
@@ -204,6 +214,14 @@ class TeacherApplicationController extends Controller
                     'reviewed_by' => $adminId,
                     'reviewed_at' => now(),
                 ]);
+
+                if ($app->user) {
+                    if ($validated['status'] === TeacherApplicationStatus::REVISION_REQUIRED->value || $validated['status'] === 'revision_required') {
+                        $app->user->notify(new RevisionRequestedNotification($app, 'teacher', $validated['note'] ?? null));
+                    } else {
+                        $app->user->notify(new ApplicationStatusChangedNotification($app, $validated['status'], 'teacher', $validated['note'] ?? null));
+                    }
+                }
 
                 $updatedCount++;
             }

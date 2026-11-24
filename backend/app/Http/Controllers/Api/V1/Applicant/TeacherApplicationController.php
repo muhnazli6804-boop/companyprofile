@@ -112,6 +112,7 @@ class TeacherApplicationController extends Controller
         $validated = $request->validate([
             'applied_position' => ['required', 'string', 'max:200'],
             'education_unit_id' => ['nullable', 'exists:education_units,id'],
+            'teacher_vacancy_id' => ['nullable', 'exists:teacher_vacancies,id'],
             'full_name' => ['required', 'string', 'max:150'],
             'gender' => ['required', Rule::in(['L', 'P'])],
             'birth_place' => ['required', 'string', 'max:100'],
@@ -142,6 +143,7 @@ class TeacherApplicationController extends Controller
         $application->update([
             'applied_position' => $validated['applied_position'],
             'education_unit_id' => $validated['education_unit_id'] ?? $application->education_unit_id,
+            'teacher_vacancy_id' => array_key_exists('teacher_vacancy_id', $validated) ? $validated['teacher_vacancy_id'] : $application->teacher_vacancy_id,
             'full_name' => $validated['full_name'],
             'gender' => $validated['gender'],
             'birth_place' => $validated['birth_place'],
