@@ -190,7 +190,7 @@ class TeacherApplicationController extends Controller
                 $fromStatus = $app->status instanceof \BackedEnum ? $app->status->value : (string) $app->status;
 
                 ApplicationStatusLog::create([
-                    'loggable_type' => TeacherApplication::class,
+                    'loggable_type' => 'teacher_application',
                     'loggable_id' => $app->id,
                     'from_status' => $fromStatus,
                     'to_status' => $validated['status'],
