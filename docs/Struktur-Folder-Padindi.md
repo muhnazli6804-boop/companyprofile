@@ -371,7 +371,7 @@ frontend/
 │   │   ├── student-application/      # Area pendaftar: siswa
 │   │   │   ├── pages/
 │   │   │   │   ├── ApplicationListPage.tsx
-│   │   │   │   ├── ApplicationFormPage.tsx
+│   │   │   │   ├── StudentFormPage.tsx
 │   │   │   │   └── ApplicationStatusPage.tsx
 │   │   │   ├── steps/                # Form multi-step
 │   │   │   │   ├── StepUnit.tsx
@@ -387,6 +387,8 @@ frontend/
 │   │   │
 │   │   ├── teacher-application/      # Area pendaftar: guru (struktur setara)
 │   │   │   ├── pages/
+│   │   │   │   ├── TeacherFormPage.tsx
+│   │   │   │   └── ApplicationStatusPage.tsx
 │   │   │   ├── steps/
 │   │   │   ├── components/
 │   │   │   ├── api.ts
