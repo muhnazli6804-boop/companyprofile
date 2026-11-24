@@ -11,7 +11,7 @@ use Laravel\Sanctum\Sanctum;
 
 uses(DatabaseTransactions::class);
 
-const SUPER_ADMIN_ONLY_ROUTES = ['POST users/{}/promote'];
+const SUPER_ADMIN_ONLY_ROUTES = ['POST users/{}/promote', 'PUT finance-dashboard'];
 
 /** Parameter rute dinormalkan ke {} agar nama parameter apiResource tidak ikut dibandingkan. */
 function resourceRoutes(string $path, bool $full = true): array
@@ -37,7 +37,7 @@ function expectedRoutePermissions(): array
             'POST teacher-applications/bulk-status', 'PATCH teacher-applications/{}/status', 'PATCH teacher-applications/{}/note',
             'PATCH documents/{}/verification',
         ],
-        'finance.view' => ['GET finance-dashboard'],
+        'finance.view' => ['GET finance-dashboard', 'PUT finance-dashboard'],
         'periods.manage' => [
             'GET registration-periods', 'POST registration-periods', 'GET registration-periods/{}',
             'PUT registration-periods/{}', 'PATCH registration-periods/{}/active', 'DELETE registration-periods/{}',

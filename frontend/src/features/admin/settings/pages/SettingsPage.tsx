@@ -10,18 +10,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Upload,
-  Wallet,
 } from "lucide-react";
-import { hasPermission, useCurrentUser } from "@/features/auth/permissions";
 import { SeoHead } from "@/components/seo/SeoHead";
 import { AdminPageHeader } from "@/components/admin";
 import { getSettings, updateSettings, uploadLogo } from "../api";
 
 export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"identity" | "logo" | "contact" | "academic" | "security" | "finance">("identity");
-  const { data: me } = useCurrentUser();
-  const canFinance = hasPermission(me, "finance.view");
+  const [activeTab, setActiveTab] = useState<"identity" | "logo" | "contact" | "academic" | "security">("identity");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { data: settingsData, isLoading, error } = useQuery({
@@ -183,21 +179,6 @@ export const SettingsPage: React.FC = () => {
             <Shield className="w-4 h-4" />
             <span>Keamanan &amp; Notifikasi</span>
           </button>
-
-          {canFinance && (
-            <button
-              type="button"
-              onClick={() => setActiveTab("finance")}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
-                activeTab === "finance"
-                  ? "bg-navy text-white shadow-sm"
-                  : "text-muted hover:bg-surface hover:text-navy"
-              }`}
-            >
-              <Wallet className="w-4 h-4" />
-              <span>Dashboard Keuangan</span>
-            </button>
-          )}
         </div>
 
         {/* Content Form */}
@@ -433,47 +414,6 @@ export const SettingsPage: React.FC = () => {
               )}
 
               {/* TAB 5: KEAMANAN & NOTIFIKASI */}
-              {activeTab === "finance" && canFinance && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-bold text-navy text-base">Dashboard Keuangan</h3>
-                    <p className="text-xs text-muted">
-                      Atur laporan Looker Studio yang disematkan di menu Keuangan. Hanya host lookerstudio.google.com yang diterima.
-                    </p>
-                  </div>
-
-                  <label className="flex items-center gap-3 p-3 bg-surface rounded-lg border border-border cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.finance_dashboard_enabled === "true"}
-                      onChange={(e) => handleInputChange("finance_dashboard_enabled", e.target.checked ? "true" : "false")}
-                    />
-                    <span className="text-xs font-semibold text-foreground">Aktifkan dashboard keuangan</span>
-                  </label>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">Judul Halaman</label>
-                    <input
-                      type="text"
-                      value={formData.finance_dashboard_title || ""}
-                      onChange={(e) => handleInputChange("finance_dashboard_title", e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">URL Embed Looker Studio</label>
-                    <input
-                      type="url"
-                      placeholder="https://lookerstudio.google.com/embed/reporting/..."
-                      value={formData.finance_dashboard_url || ""}
-                      onChange={(e) => handleInputChange("finance_dashboard_url", e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
-              )}
-
               {activeTab === "security" && (
                 <div className="space-y-4">
                   <div>

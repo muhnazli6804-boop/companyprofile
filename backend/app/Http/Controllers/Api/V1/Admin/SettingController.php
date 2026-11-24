@@ -7,12 +7,14 @@ use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class SettingController extends Controller
 {
     public function index(): JsonResponse
     {
-        $settings = Setting::all();
+        // Grup finance tidak dibaca lewat sini; lihat FinanceDashboardController.
+        $settings = Setting::where('group_name', '!=', 'finance')->orWhereNull('group_name')->get();
         $grouped = [];
         $flat = [];
 
@@ -40,6 +42,12 @@ class SettingController extends Controller
         $isSettingsAdmin = $user && ($user->hasRole('super_admin') || $user->hasPermission('settings.manage'));
         $isContentStaff = $user && $user->hasPermission('content.manage');
 
+        if (collect(array_keys($settings))->contains(fn ($k) => str_starts_with((string) $k, 'finance_'))) {
+            throw ValidationException::withMessages([
+                'settings' => ['Pengaturan keuangan hanya dapat diubah Super Admin lewat halaman Keuangan.'],
+            ]);
+        }
+
         foreach ($settings as $key => $value) {
             // Jika bukan admin pengaturan sistem, batasi hanya untuk konten CMS
             if (! $isSettingsAdmin && $isContentStaff) {
@@ -66,12 +74,6 @@ class SettingController extends Controller
                 $group = 'registration';
             } elseif (str_starts_with($key, 'security_')) {
                 $group = 'security';
-            } elseif (str_starts_with($key, 'finance_')) {
-                // Form pengaturan mengirim semua kunci; yang tanpa finance.view cukup dilewati.
-                if (! $request->user()->can('finance.view')) {
-                    continue;
-                }
-                $group = 'finance';
             }
 
             Setting::updateOrCreate(
