@@ -34,6 +34,7 @@ class FinanceDashboardController extends Controller
 
         $this->log($request, 'finance.dashboard_viewed');
 
+        // Respons memuat URL embed; jangan disimpan cache browser atau proxy.
         return response()->json(['data' => [
             'enabled' => $enabled,
             'title' => $title,
@@ -42,7 +43,7 @@ class FinanceDashboardController extends Controller
             'config' => $request->user()->hasRole('super_admin')
                 ? ['enabled' => $enabled, 'title' => $title, 'url' => $url]
                 : null,
-        ]]);
+        ]])->header('Cache-Control', 'no-store');
     }
 
     public function update(UpdateFinanceDashboardRequest $request): JsonResponse

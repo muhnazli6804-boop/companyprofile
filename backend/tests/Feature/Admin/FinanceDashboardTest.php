@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\ActivityLog;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
@@ -44,8 +45,10 @@ class FinanceDashboardTest extends TestCase
         $u = $this->admin('super_admin');
         Sanctum::actingAs($u);
 
-        $this->getJson('/api/v1/admin/finance-dashboard')
+        $res = $this->getJson('/api/v1/admin/finance-dashboard')
             ->assertOk()->assertJsonPath('data.url', 'https://lookerstudio.google.com/embed/reporting/abc');
+        // Laravel menambahkan "private" di belakangnya, jadi cukup cek no-store ada.
+        $this->assertStringContainsString('no-store', $res->headers->get('Cache-Control'));
         $this->assertTrue(ActivityLog::where('user_id', $u->id)->where('action', 'finance.dashboard_viewed')->exists());
     }
 
@@ -101,13 +104,27 @@ class FinanceDashboardTest extends TestCase
         $this->seed(PermissionSeeder::class);
         $this->set('finance_dashboard_enabled', 'true');
         $this->set('finance_dashboard_url', self::GOOD);
-        $u = $this->admin('staff'); // staff memegang finance.view tetapi bukan super_admin
+        // Role kustom yang diberi finance.view lewat manajemen role, bukan super_admin.
+        $role = Role::create(['name' => 'keuangan_uji', 'label' => 'Keuangan Uji']);
+        $role->permissions()->sync(Permission::where('name', 'finance.view')->pluck('id'));
+        $u = User::factory()->create(['user_type' => 'admin', 'is_active' => true]);
+        $u->roles()->attach($role->id);
         Sanctum::actingAs($u);
 
         $this->putJson('/api/v1/admin/finance-dashboard', $this->payload(['title' => 'X']))->assertForbidden();
         $this->assertSame('Dashboard Keuangan', Setting::where('key', 'finance_dashboard_title')->value('value') ?? 'Dashboard Keuangan');
         $this->getJson('/api/v1/admin/finance-dashboard')
             ->assertOk()->assertJsonPath('data.url', self::GOOD)->assertJsonPath('data.config', null);
+    }
+
+    public function test_staff_has_no_finance_access(): void
+    {
+        $this->set('finance_dashboard_enabled', 'true');
+        $this->set('finance_dashboard_url', self::GOOD);
+        Sanctum::actingAs($this->admin('staff'));
+
+        $this->getJson('/api/v1/admin/finance-dashboard')->assertForbidden();
+        $this->putJson('/api/v1/admin/finance-dashboard', $this->payload())->assertForbidden();
     }
 
     public function test_content_admin_cannot_read_or_write_finance(): void

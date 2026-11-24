@@ -42,7 +42,7 @@ class PermissionSeeder extends Seeder
             'dashboard.view', 'applications.view', 'applications.view_sensitive', 'applications.verify',
             'applications.export', 'periods.manage', 'requirements.manage', 'vacancies.manage',
             'units.manage', 'content.manage', 'messages.manage',
-            'logs.view', 'finance.view',
+            'logs.view',
         ],
     ];
 
