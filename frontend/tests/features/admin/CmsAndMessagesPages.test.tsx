@@ -212,4 +212,32 @@ describe('CmsPage — Manajemen Konten Landing Page', () => {
       }),
     }));
   });
+
+  it('getCmsData dan updateCmsData memanggil endpoint /admin/cms secara selaras dengan backend', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    const { getCmsData, updateCmsData } = await import('@/features/admin/cms/api');
+
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: {
+        data: {
+          flat: { site_name: 'Yayasan Padindi' },
+          grouped: { general: { site_name: 'Yayasan Padindi' } },
+        },
+      },
+    } as any);
+
+    const res = await getCmsData();
+    expect(apiClient.get).toHaveBeenCalledWith('/admin/cms');
+    expect(res.data.data.flat.site_name).toBe('Yayasan Padindi');
+
+    vi.mocked(apiClient.put).mockResolvedValueOnce({
+      data: { message: 'Pengaturan berhasil diperbarui.' },
+    } as any);
+
+    const putRes = await updateCmsData({ site_name: 'Yayasan Padindi Baru' });
+    expect(apiClient.put).toHaveBeenCalledWith('/admin/cms', {
+      settings: { site_name: 'Yayasan Padindi Baru' },
+    });
+    expect(putRes.data.message).toBe('Pengaturan berhasil diperbarui.');
+  });
 });
