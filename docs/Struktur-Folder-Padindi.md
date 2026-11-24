@@ -129,7 +129,6 @@ backend/
 │   │   │           ├── TeacherApplicationController.php
 │   │   │           ├── ApplicationStatusController.php
 │   │   │           ├── DocumentVerificationController.php
-│   │   │           ├── ExportController.php
 │   │   │           ├── RegistrationPeriodController.php
 │   │   │           ├── EducationUnitController.php
 │   │   │           ├── DocumentRequirementController.php
